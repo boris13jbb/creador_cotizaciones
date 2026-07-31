@@ -1,0 +1,34 @@
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true
+    }
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "cotiapp-saas-jb",
+          "appId": "1:1003726618863:android:36b529d5b69a617ba39b1a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "cotiapp-saas-jb",
+          "configurations": {
+            "android": "1:1003726618863:android:36b529d5b69a617ba39b1a",
+            "web": "1:1003726618863:web:182419bdfb708f74a39b1a",
+            "windows": "1:1003726618863:web:1ef81a4f51577756a39b1a"
+          }
+        }
+      }
+    }
+  }
+}

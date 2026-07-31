@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Created from PDF via Acrobat SaveAsXML -->
+<!-- Mapping Table version: 28-February-2003 -->
+<TaggedPDF-doc>
+<?xpacket begin='﻿' id='W5M0MpCehiHzreSzNTczkc9d'?>
+<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 9.1-c001 79.675d0f7, 2023/06/11-19:21:16        ">
+   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+      <rdf:Description rdf:about=""
+            xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
+            xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+            xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/">
+         <pdf:Producer>Microsoft® Word para Microsoft 365</pdf:Producer>
+         <dc:format>xml</dc:format>
+         <dc:creator>
+            <rdf:Seq>
+               <rdf:li>Un-named</rdf:li>
+            </rdf:Seq>
+         </dc:creator>
+         <xmp:CreatorTool>Microsoft® Word para Microsoft 365</xmp:CreatorTool>
+         <xmp:CreateDate>2026-03-07T21:20:57-05:00</xmp:CreateDate>
+         <xmp:ModifyDate>2026-03-07T21:20:57-05:00</xmp:ModifyDate>
+         <xmpMM:DocumentID>uuid:F9276B75-76F1-4B50-9AAF-369F81091918</xmpMM:DocumentID>
+         <xmpMM:InstanceID>uuid:1300002f-64e4-42c5-b6a6-924b32f93752</xmpMM:InstanceID>
+      </rdf:Description>
+   </rdf:RDF>
+</x:xmpmeta>
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                           
+<?xpacket end="w"?>
+<?xpacket end='r'?>
+
+<Document>
+<P> </P>
+
+<P>INFORMACIÓN DEL PROYECTO </P>
+
+<P> </P>
+
+<P> </P>
+
+<Table>
+<THead>
+<TR>
+<TH>
+<P>CLIENTE </P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+</TH>
+
+<TH>
+<P>TIPO DE PROYECTO </P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+</TH>
+</TR>
+</THead>
+
+<TBody/>
+</Table>
+
+<P> </P>
+
+<P>DESCRIPCIÓN GENERAL </P>
+
+<P> </P>
+
+<P>Desarrollo de una plataforma web profesional orientada a la venta automatizada de servicios fotográficos. Incluye página principal, landings especializadas por categoría, sistema de reservas con calendario, pasarela de pago integrada y chatbot de atención al cliente. El objetivo es que el negocio funcione de forma autónoma: el cliente reserva, paga y el fotógrafo recibe un resumen limpio con fecha, hora y datos del cliente. </P>
+
+<P> </P>
+
+<P>DETALLE DE SERVICIOS </P>
+
+<P> </P>
+
+<P> </P>
+
+<Table>
+<THead>
+<TR>
+<TH>
+<P>MÓDULO / SERVICIO </P>
+</TH>
+
+<TH>
+<P>DESCRIPCIÓN </P>
+</TH>
+
+<TH>
+<P>PRECIO (USD) </P>
+</TH>
+</TR>
+
+<TR>
+<TH>
+<P>MÓDULO / SERVICIO </P>
+</TH>
+
+<TH>
+<P>DESCRIPCIÓN </P>
+</TH>
+
+<TH>
+<P>PRECIO (USD) </P>
+</TH>
+</TR>
+</THead>
+
+<TBody>
+<TR>
+<TH>
+<P>1. Página Principal (Home) </P>
+</TH>
+
+<TD>
+<P>Presentación del fotógrafo, portafolio destacado, llamadas a la acción, diseño visual de alto impacto </P>
+</TD>
+
+<TD>
+<P>$120 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>2. Landing — Fotografía de Productos </P>
+</TH>
+
+<TD>
+<P>Página dedicada con galería, precios, botón de reserva y pago directo </P>
+</TD>
+
+<TD>
+<P>$100 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>3. Landing — Fotografía de Cumpleaños </P>
+</TH>
+
+<TD>
+<P>Página dedicada con galería, precios, botón de reserva y pago directo </P>
+</TD>
+
+<TD>
+<P>$90 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>4. Landing — Coberturas / Eventos </P>
+</TH>
+
+<TD>
+<P>Página dedicada con galería, precios, botón de reserva y pago directo </P>
+</TD>
+
+<TD>
+<P>$90 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>5. Sistema de Reservas </P>
+</TH>
+
+<TD>
+<P>Calendario de disponibilidad, selección de fecha/hora, confirmación automática por correo </P>
+</TD>
+
+<TD>
+<P>$120 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>6. Pasarela de Pago </P>
+</TH>
+
+<TD>
+<P>Integración PayPal + Kushki (Ecuador). Cobro online seguro y automático </P>
+</TD>
+
+<TD>
+<P>$100 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>7. Chatbot de Atención </P>
+</TH>
+
+<TD>
+<P>Configuración con Tidio o Crisp. Responde preguntas frecuentes, captura leads 24/7 </P>
+</TD>
+
+<TD>
+<P>$70 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>8. Panel de Notificaciones </P>
+</TH>
+
+<TD>
+<P>Resumen automático por correo/WhatsApp: cliente, fecha, hora y servicio contratado </P>
+</TD>
+
+<TD>
+<P>$50 </P>
+</TD>
+</TR>
+
+<TR>
+<TH>
+<P>TOTAL DEL PROYECTO </P>
+</TH>
+
+<TD>
+<P>$740 </P>
+</TD>
+</TR>
+</TBody>
+</Table>
+
+<P> </P>
+
+<P>FORMA DE PAGO </P>
+
+<P> </P>
+
+<Table>
+<THead>
+<TR>
+<TH>
+<P>ANTICIPO </P>
+
+<P></P>
+
+<P></P>
+</TH>
+
+<TH>
+<P>ENTREGA PARCIAL </P>
+
+<P></P>
+
+<P></P>
+</TH>
+
+<TH>
+<P>SALDO FINAL </P>
+
+<P></P>
+
+<P></P>
+</TH>
+</TR>
+</THead>
+
+<TBody/>
+</Table>
+
+<P> </P>
+
+<Table>
+<THead>
+<TR>
+<TH>
+<P>✅  INCLUYE </P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+</TH>
+
+<TH>
+<P>❌  NO INCLUYE </P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+
+<P></P>
+</TH>
+</TR>
+</THead>
+
+<TBody/>
+</Table>
+
+<P> </P>
+
+<P>NOTAS IMPORTANTES </P>
+
+<P> </P>
+
+<P>• Esta cotización tiene validez de 30 días calendario desde la fecha de emisión. </P>
+
+<P>• El inicio del proyecto queda condicionado al pago del anticipo del 50%. </P>
+
+<P>• Cambios fuera del alcance definido serán cotizados por separado. </P>
+
+<P>• La aplicación móvil (Flutter) puede agregarse como Fase 2 con cotización adicional. </P>
+
+<P> </P>
+
+<Table>
+<THead>
+<TR>
+<TH>
+<P>  </P>
+</TH>
+
+<TH>
+<P> </P>
+</TH>
+
+<TH>
+<P>  </P>
+</TH>
+</TR>
+</THead>
+
+<TBody/>
+</Table>
+
+<P> </P>
+
+<Table>
+<THead>
+<TR>
+<TH>
+<P>Firma del Desarrollador </P>
+</TH>
+
+<TH>
+<P> </P>
+</TH>
+
+<TH>
+<P>Firma y Aprobación del Cliente </P>
+</TH>
+</TR>
+</THead>
+
+<TBody/>
+</Table>
+
+<P> </P>
+</Document>
+</TaggedPDF-doc>
