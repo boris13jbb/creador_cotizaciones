@@ -59,6 +59,21 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
   }
 
+  Future<void> _createOrganization() async {
+    final auth = context.read<AuthController>();
+    final ok = await auth.createOrRecoverOrganization();
+    if (!mounted) return;
+    if (ok) {
+      await _load();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(auth.error ?? 'No se pudo crear la organización'),
+        ),
+      );
+    }
+  }
+
   Future<void> _edit([CatalogItem? existing]) async {
     final orgId = _orgId;
     if (orgId == null) return;
@@ -169,6 +184,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Catálogo')),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => _edit(),
         icon: const Icon(Icons.add),
         label: const Text('Ítem'),
@@ -181,7 +197,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
           emptyTitle: 'Catálogo vacío',
           emptySubtitle: 'Agrega productos o servicios reutilizables.',
           emptyIcon: Icons.inventory_2_outlined,
-          onRetry: _load,
+          onRetry: _error?.toString() == 'Sin organización'
+              ? _createOrganization
+              : _load,
+          retryLabel: _error?.toString() == 'Sin organización'
+              ? 'Crear organización'
+              : null,
+          retryIcon: _error?.toString() == 'Sin organización'
+              ? Icons.apartment_rounded
+              : null,
           child: ListView.separated(
             padding: AppSpacing.page,
             itemCount: _items.length,

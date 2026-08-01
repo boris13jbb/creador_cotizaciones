@@ -22,7 +22,8 @@ class QuoteEditorController extends ChangeNotifier {
     Cotizacion? initialCotizacion,
     Quote? initialQuote,
     this.resumeDraft = true,
-  }) {
+  }) : quote = _blankQuote(uid: uid, organizationId: organizationId) {
+    // quote queda listo de inmediato; _init puede reemplazarlo al cargar draft/remoto.
     _init(initialCotizacion: initialCotizacion, initialQuote: initialQuote);
   }
 
@@ -36,9 +37,11 @@ class QuoteEditorController extends ChangeNotifier {
   int step = 0;
   bool saving = false;
   bool dirty = false;
+  /// true mientras se carga borrador o cotización existente.
+  bool initializing = true;
   String? error;
   String? draftHint;
-  late Quote quote;
+  Quote quote;
   bool isNew = true;
 
   Timer? _draftTimer;
@@ -50,53 +53,12 @@ class QuoteEditorController extends ChangeNotifier {
     charges: quote.charges,
   );
 
-  Future<void> _init({
-    Cotizacion? initialCotizacion,
-    Quote? initialQuote,
-  }) async {
-    if (initialQuote != null) {
-      quote = initialQuote.withRecalculatedTotal();
-      isNew = false;
-      notifyListeners();
-      return;
-    }
-
-    if (initialCotizacion != null) {
-      final existing = await CloudCotizacionRepository.instance.getQuote(
-        initialCotizacion.id,
-      );
-      if (existing != null) {
-        quote = existing.withRecalculatedTotal();
-        isNew = false;
-        notifyListeners();
-        return;
-      }
-      quote = QuoteMapper.fromCotizacion(
-        initialCotizacion,
-        organizationId: organizationId,
-        createdByUid: uid,
-      ).withRecalculatedTotal();
-      isNew = false;
-      notifyListeners();
-      return;
-    }
-
-    if (resumeDraft) {
-      final draft = await QuoteDraftStore.instance.load(uid);
-      if (draft != null &&
-          draft.organizationId == organizationId &&
-          draft.status == QuoteStatus.draft) {
-        quote = draft.withRecalculatedTotal();
-        isNew = quote.sequence <= 0;
-        draftHint = 'Borrador local reanudado';
-        dirty = true;
-        notifyListeners();
-        return;
-      }
-    }
-
+  static Quote _blankQuote({
+    required String uid,
+    required String organizationId,
+  }) {
     final now = DateTime.now().toUtc();
-    quote = Quote(
+    return Quote(
       id: const Uuid().v4(),
       organizationId: organizationId,
       number: 'BORRADOR',
@@ -117,7 +79,56 @@ class QuoteEditorController extends ChangeNotifier {
         'descripcion': '',
       },
     );
-    notifyListeners();
+  }
+
+  Future<void> _init({
+    Cotizacion? initialCotizacion,
+    Quote? initialQuote,
+  }) async {
+    try {
+      if (initialQuote != null) {
+        quote = initialQuote.withRecalculatedTotal();
+        isNew = false;
+        return;
+      }
+
+      if (initialCotizacion != null) {
+        final existing = await CloudCotizacionRepository.instance.getQuote(
+          initialCotizacion.id,
+        );
+        if (existing != null) {
+          quote = existing.withRecalculatedTotal();
+          isNew = false;
+          return;
+        }
+        quote = QuoteMapper.fromCotizacion(
+          initialCotizacion,
+          organizationId: organizationId,
+          createdByUid: uid,
+        ).withRecalculatedTotal();
+        isNew = false;
+        return;
+      }
+
+      if (resumeDraft) {
+        final draft = await QuoteDraftStore.instance.load(uid);
+        if (draft != null &&
+            draft.organizationId == organizationId &&
+            draft.status == QuoteStatus.draft) {
+          quote = draft.withRecalculatedTotal();
+          isNew = quote.sequence <= 0;
+          draftHint = 'Borrador local reanudado';
+          dirty = true;
+          return;
+        }
+      }
+    } catch (e, st) {
+      debugPrint('QuoteEditorController._init: $e\n$st');
+      error = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      initializing = false;
+      notifyListeners();
+    }
   }
 
   void goTo(int index) {

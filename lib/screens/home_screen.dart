@@ -65,8 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final access = context.watch<AuthController>().access;
-    final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !widget.embeddedInShell || useRail;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     final body = RefreshIndicator(
@@ -95,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 AppActionTile(
                   title: 'Nueva cotización',
                   subtitle: 'Crear desde cero',
-                  icon: Icons.add_chart_outlined,
+                  icon: Icons.request_quote_outlined,
                   onTap: _openNueva,
                 ),
                 AppActionTile(
@@ -131,35 +129,36 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
+    // Embebido en AppShell: sin Scaffold propio (evita FAB anidado roto en Windows).
+    if (widget.embeddedInShell) {
+      return body;
+    }
+
     return Scaffold(
-      appBar: showAppBar
-          ? AppBar(
-              title: const Text('CotiApp'),
-              actions: [
-                if (!widget.embeddedInShell)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: PlanBadge(
-                      label: access.effectivePlan.label,
-                      isTrialing: access.isTrialing,
-                    ),
-                  ),
-                IconButton(
-                  tooltip: 'Actualizar',
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _refreshLista,
-                ),
-              ],
-            )
-          : null,
+      appBar: AppBar(
+        title: const Text('CotiApp'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: PlanBadge(
+              label: access.effectivePlan.label,
+              isTrialing: access.isTrialing,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Actualizar',
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshLista,
+          ),
+        ],
+      ),
       body: body,
-      floatingActionButton: (!widget.embeddedInShell || useRail)
-          ? FloatingActionButton.extended(
-              onPressed: _openNueva,
-              icon: const Icon(Icons.add),
-              label: const Text('Nueva'),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
+        onPressed: _openNueva,
+        icon: const Icon(Icons.note_add_outlined),
+        label: const Text('Nueva'),
+      ),
     );
   }
 

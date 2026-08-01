@@ -33,6 +33,9 @@ class FirestoreRestClient {
       op: 'getDocument:$path',
     );
     if (res.statusCode == 404) return null;
+    // Firestore suele responder 403 (no 404) si las rules niegan el read
+    // de un documento inexistente o sin membresía.
+    if (res.statusCode == 403) return null;
     _ensureOk(res, 'getDocument');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final fields = body['fields'] as Map<String, dynamic>?;
@@ -40,14 +43,13 @@ class FirestoreRestClient {
     return _fromFields(fields);
   }
 
+  /// Crea el documento si no existe. No hace pre-read: en orgs/miembros
+  /// el GET previo suele fallar con 403 aunque el doc aún no exista.
   Future<void> createDocumentIfAbsent({
     required AuthSession session,
     required String path,
     required Map<String, dynamic> data,
   }) async {
-    final existing = await getDocument(session: session, path: path);
-    if (existing != null) return;
-    // create con documentId en query
     final parts = path.split('/');
     final docId = parts.last;
     final parent = parts.sublist(0, parts.length - 1).join('/');
@@ -58,7 +60,7 @@ class FirestoreRestClient {
       (token) => http.post(
         uri,
         headers: _headers(token),
-        body: jsonEncode({'fields': _toFields(data)}),
+        body: jsonEncode({'fields': _toFields(_withoutNulls(data))}),
       ),
       session: session,
       op: 'createDocumentIfAbsent',
@@ -66,6 +68,14 @@ class FirestoreRestClient {
     // 409 = already exists
     if (res.statusCode == 409) return;
     _ensureOk(res, 'createDocumentIfAbsent');
+  }
+
+  Map<String, dynamic> _withoutNulls(Map<String, dynamic> data) {
+    final out = <String, dynamic>{};
+    data.forEach((key, value) {
+      if (value != null) out[key] = value;
+    });
+    return out;
   }
 
   /// Solo campos de perfil editables (nunca plan/suscripción).

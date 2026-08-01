@@ -12,6 +12,8 @@ class AsyncStateView extends StatelessWidget {
   final String emptySubtitle;
   final IconData emptyIcon;
   final VoidCallback? onRetry;
+  final String? retryLabel;
+  final IconData? retryIcon;
   final Widget child;
 
   const AsyncStateView({
@@ -25,6 +27,8 @@ class AsyncStateView extends StatelessWidget {
     this.emptySubtitle = '',
     this.emptyIcon = Icons.inbox_outlined,
     this.onRetry,
+    this.retryLabel,
+    this.retryIcon,
   });
 
   static bool looksLikeOffline(Object? error) {
@@ -55,7 +59,8 @@ class AsyncStateView extends StatelessWidget {
         icon: offline ? Icons.wifi_off_rounded : Icons.error_outline,
         title: offline ? 'Sin conexión' : 'Algo salió mal',
         subtitle: offline ? 'Revisa tu red e inténtalo de nuevo.' : '$error',
-        actionLabel: onRetry == null ? null : 'Reintentar',
+        actionLabel: onRetry == null ? null : (retryLabel ?? 'Reintentar'),
+        actionIcon: retryIcon ?? Icons.refresh,
         onAction: onRetry,
       );
     }
@@ -65,7 +70,8 @@ class AsyncStateView extends StatelessWidget {
         icon: emptyIcon,
         title: emptyTitle,
         subtitle: emptySubtitle,
-        actionLabel: onRetry == null ? null : 'Actualizar',
+        actionLabel: onRetry == null ? null : (retryLabel ?? 'Actualizar'),
+        actionIcon: retryIcon ?? Icons.refresh,
         onAction: onRetry,
       );
     }
@@ -79,6 +85,7 @@ class _Message extends StatelessWidget {
   final String title;
   final String subtitle;
   final String? actionLabel;
+  final IconData actionIcon;
   final VoidCallback? onAction;
 
   const _Message({
@@ -86,6 +93,7 @@ class _Message extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.actionLabel,
+    this.actionIcon = Icons.refresh,
     this.onAction,
   });
 
@@ -128,7 +136,7 @@ class _Message extends StatelessWidget {
                 const SizedBox(height: AppSpacing.lg),
                 FilledButton.icon(
                   onPressed: onAction,
-                  icon: const Icon(Icons.refresh),
+                  icon: Icon(actionIcon),
                   label: Text(actionLabel!),
                 ),
               ],

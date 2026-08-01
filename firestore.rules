@@ -124,7 +124,13 @@ service cloud.firestore {
 
       match /counters/{counterId} {
         allow read: if isActiveMember(orgId);
-        allow write: if canWriteCommercial(orgId);
+        // create permitido al owner recién creado (tras member) o a roles comerciales
+        allow create: if canWriteCommercial(orgId)
+          || (isSignedIn()
+            && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerUid
+              == request.auth.uid);
+        allow update: if canWriteCommercial(orgId);
+        allow delete: if canManageOrg(orgId);
       }
 
       match /clients/{clientId} {

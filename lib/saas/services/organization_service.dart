@@ -19,11 +19,9 @@ class OrganizationService {
 
   bool get _useRest => saasUseRestBackend;
 
-  /// Crea organización personal + membresía owner si no existe.
-  Future<Organization> ensurePersonalOrganization({
+  /// Busca organización ya vinculada (perfil o membresías). No crea nada.
+  Future<Organization?> findExistingOrganization({
     required String uid,
-    required String displayName,
-    required String email,
     String? existingOrgId,
     AuthSession? session,
   }) async {
@@ -31,20 +29,63 @@ class OrganizationService {
       final org = await getOrganization(existingOrgId, session: session);
       if (org != null) return org;
     }
-
-    // Buscar membresía existente del usuario.
     final memberships = await listMemberships(uid, session: session);
-    if (memberships.isNotEmpty) {
-      final first = memberships.first;
-      final org = await getOrganization(first.organizationId, session: session);
-      if (org != null) return org;
+    if (memberships.isEmpty) return null;
+    return getOrganization(memberships.first.organizationId, session: session);
+  }
+
+  /// Persiste `defaultOrganizationId` en el perfil del usuario.
+  Future<void> linkDefaultOrganization({
+    required String uid,
+    required String orgId,
+    required String email,
+    required String displayName,
+    AuthSession? session,
+  }) =>
+      _linkDefaultOrg(
+        uid: uid,
+        orgId: orgId,
+        email: email,
+        displayName: displayName,
+        session: session,
+      );
+
+  /// Crea organización personal + membresía owner si no existe.
+  ///
+  /// Las escrituras van en secuencia (no batch): las rules de counters/
+  /// clientes requieren membresía ya visible, y un batch no la ve.
+  Future<Organization> ensurePersonalOrganization({
+    required String uid,
+    required String displayName,
+    required String email,
+    String? existingOrgId,
+    String? organizationName,
+    AuthSession? session,
+  }) async {
+    final existing = await findExistingOrganization(
+      uid: uid,
+      existingOrgId: existingOrgId,
+      session: session,
+    );
+    if (existing != null) {
+      await _linkDefaultOrg(
+        uid: uid,
+        orgId: existing.id,
+        email: email,
+        displayName: displayName,
+        session: session,
+      );
+      return existing;
     }
 
+    final trimmedName = (organizationName ?? '').trim();
     final now = DateTime.now().toUtc();
     final orgId = const Uuid().v4();
     final org = Organization(
       id: orgId,
-      name: displayName.isNotEmpty ? '$displayName — Empresa' : 'Mi empresa',
+      name: trimmedName.isNotEmpty
+          ? trimmedName
+          : (displayName.isNotEmpty ? '$displayName — Empresa' : 'Mi empresa'),
       currency: 'USD',
       quotePrefix: 'COT',
       ownerUid: uid,
@@ -85,6 +126,56 @@ class OrganizationService {
         path: 'users/$uid/memberships/$orgId',
         data: member.toMap(),
       );
+      await _linkDefaultOrg(
+        uid: uid,
+        orgId: orgId,
+        email: email,
+        displayName: displayName,
+        session: s,
+      );
+      return org;
+    }
+
+    // Secuencia nativa: org → member → counter → membership → profile.
+    await _db.collection('organizations').doc(orgId).set(org.toMap());
+    await _db
+        .collection('organizations')
+        .doc(orgId)
+        .collection('members')
+        .doc(uid)
+        .set(member.toMap());
+    await _db
+        .collection('organizations')
+        .doc(orgId)
+        .collection('counters')
+        .doc('quotes')
+        .set({'seq': 0, 'updatedAt': now.toIso8601String()});
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('memberships')
+        .doc(orgId)
+        .set(member.toMap());
+    await _linkDefaultOrg(
+      uid: uid,
+      orgId: orgId,
+      email: email,
+      displayName: displayName,
+    );
+    return org;
+  }
+
+  Future<void> _linkDefaultOrg({
+    required String uid,
+    required String orgId,
+    required String email,
+    required String displayName,
+    AuthSession? session,
+  }) async {
+    final now = DateTime.now().toUtc();
+    if (_useRest || session != null) {
+      final s = session ?? AuthService.instance.restSession;
+      if (s == null) return;
       await FirestoreRestClient.instance.upsertEditableProfile(
         session: s,
         profile: {
@@ -92,37 +183,15 @@ class OrganizationService {
           'email': email,
           'displayName': displayName,
           'defaultOrganizationId': orgId,
-          'createdAt': now.toIso8601String(),
           'updatedAt': now.toIso8601String(),
         },
       );
-      return org;
+      return;
     }
-
-    final batch = _db.batch();
-    batch.set(_db.collection('organizations').doc(orgId), org.toMap());
-    batch.set(
-      _db.collection('organizations').doc(orgId).collection('members').doc(uid),
-      member.toMap(),
-    );
-    batch.set(
-      _db
-          .collection('organizations')
-          .doc(orgId)
-          .collection('counters')
-          .doc('quotes'),
-      {'seq': 0, 'updatedAt': now.toIso8601String()},
-    );
-    batch.set(
-      _db.collection('users').doc(uid).collection('memberships').doc(orgId),
-      member.toMap(),
-    );
-    batch.set(_db.collection('users').doc(uid), {
+    await _db.collection('users').doc(uid).set({
       'defaultOrganizationId': orgId,
       'updatedAt': now.toIso8601String(),
     }, SetOptions(merge: true));
-    await batch.commit();
-    return org;
   }
 
   Future<Organization?> getOrganization(

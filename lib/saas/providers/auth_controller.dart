@@ -29,9 +29,11 @@ class AuthController extends ChangeNotifier {
   AuthController.forTest({
     SaasUserProfile? profile,
     Entitlements? entitlements,
+    Organization? organization,
     bool authenticated = false,
     bool loading = false,
     bool emailVerified = true,
+    bool withOrganization = true,
   }) {
     _loading = loading;
     _emailVerified = emailVerified;
@@ -50,12 +52,24 @@ class AuthController extends ChangeNotifier {
             uid: 'test-uid',
             email: 'test@example.com',
             displayName: 'Usuario de prueba',
+            defaultOrganizationId: withOrganization ? 'test-org' : null,
             createdAt: now,
             updatedAt: now,
           );
       _entitlements =
           entitlements ?? Entitlements.initialTrial('test-uid', now: now);
       _access = EntitlementsService.instance.evaluate(_entitlements);
+      if (withOrganization) {
+        _organization =
+            organization ??
+            Organization(
+              id: _profile!.defaultOrganizationId ?? 'test-org',
+              name: 'Empresa de prueba',
+              ownerUid: _profile!.uid,
+              createdAt: now,
+              updatedAt: now,
+            );
+      }
     }
   }
 
@@ -93,6 +107,14 @@ class AuthController extends ChangeNotifier {
   SubscriptionPlan get effectivePlan => _access.effectivePlan;
   String? get organizationId =>
       _organization?.id ?? _profile?.defaultOrganizationId;
+
+  /// Usuario autenticado sin organización usable → onboarding obligatorio.
+  bool get needsOrganizationSetup =>
+      isAuthenticated &&
+      !loading &&
+      (_organization == null ||
+          organizationId == null ||
+          organizationId!.isEmpty);
 
   Future<void> _bootstrap() async {
     if (saasUseRestBackend) {
@@ -190,14 +212,40 @@ class AuthController extends ChangeNotifier {
     required String displayName,
     required String email,
     AuthSession? session,
+    String? organizationName,
+    bool createIfMissing = false,
   }) async {
     try {
+      if (!createIfMissing) {
+        _organization = await OrganizationService.instance.findExistingOrganization(
+          uid: uid,
+          existingOrgId: _profile?.defaultOrganizationId,
+          session: session,
+        );
+        if (_organization != null &&
+            _profile != null &&
+            _profile!.defaultOrganizationId != _organization!.id) {
+          _profile = _profile!.copyWith(
+            defaultOrganizationId: _organization!.id,
+          );
+          await OrganizationService.instance.linkDefaultOrganization(
+            uid: uid,
+            orgId: _organization!.id,
+            email: email,
+            displayName: displayName,
+            session: session,
+          );
+        }
+        return;
+      }
+
       _organization = await OrganizationService.instance
           .ensurePersonalOrganization(
             uid: uid,
             displayName: displayName,
             email: email,
             existingOrgId: _profile?.defaultOrganizationId,
+            organizationName: organizationName,
             session: session,
           );
       if (_profile != null &&
@@ -205,9 +253,43 @@ class AuthController extends ChangeNotifier {
               _profile!.defaultOrganizationId != _organization!.id)) {
         _profile = _profile!.copyWith(defaultOrganizationId: _organization!.id);
       }
+      _error = null;
     } catch (e, st) {
       debugPrint('ensureOrganization: $e\n$st');
-      // La app puede seguir con path legacy si falla el bootstrap org.
+      _organization = null;
+      if (createIfMissing) {
+        _error = e.toString().replaceFirst('Exception: ', '');
+      }
+    }
+  }
+
+  /// Crea o recupera la organización (primer inicio / reintento desde UI).
+  Future<bool> createOrRecoverOrganization({String? organizationName}) async {
+    final uid = _user?.uid ?? _restSession?.uid;
+    if (uid == null) {
+      _error = 'Debes iniciar sesión.';
+      notifyListeners();
+      return false;
+    }
+    _error = null;
+    _loading = true;
+    notifyListeners();
+    try {
+      await _ensureOrganization(
+        uid: uid,
+        displayName: _profile?.displayName ??
+            _user?.displayName ??
+            _restSession?.displayName ??
+            '',
+        email: _profile?.email ?? _user?.email ?? _restSession?.email ?? '',
+        session: _restSession,
+        organizationName: organizationName,
+        createIfMissing: true,
+      );
+      return _organization != null;
+    } finally {
+      _loading = false;
+      notifyListeners();
     }
   }
 

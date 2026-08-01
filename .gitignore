@@ -75,6 +75,10 @@ test/rules/node_modules/
 /android/app/profile
 /android/app/release
 /android/build/
+/android/.kotlin/
+
+# Firebase CLI local cache
+.firebase/
 
 # Office temporary lock files
 ~$*

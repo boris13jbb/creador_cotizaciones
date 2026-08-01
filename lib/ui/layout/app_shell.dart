@@ -117,6 +117,9 @@ class _AppShellState extends State<AppShell> {
             ],
           ),
         ),
+        floatingActionButton: _destination == AppDestination.home
+            ? _nuevaCotizacionFab(context)
+            : null,
       );
     }
 
@@ -135,18 +138,7 @@ class _AppShellState extends State<AppShell> {
       ),
       body: body,
       floatingActionButton: _destination == AppDestination.home
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NuevaCotizacionScreen(),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Nueva'),
-            )
+          ? _nuevaCotizacionFab(context)
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _destination.index,
@@ -179,6 +171,21 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Un solo FAB en el shell (sin Hero) para evitar hit-test roto al navegar.
+  Widget _nuevaCotizacionFab(BuildContext context) {
+    return FloatingActionButton.extended(
+      heroTag: null,
+      onPressed: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NuevaCotizacionScreen()),
+        );
+      },
+      icon: const Icon(Icons.note_add_outlined),
+      label: const Text('Nueva'),
     );
   }
 }

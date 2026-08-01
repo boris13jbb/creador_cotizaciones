@@ -169,7 +169,12 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
               Expanded(
                 child: ContentConstraint(
                   padding: AppSpacing.page,
-                  child: _StepBody(controller: controller),
+                  child: controller.initializing
+                      ? const Center(child: CircularProgressIndicator())
+                      : _StepBody(
+                          key: ValueKey('step-${controller.quote.id}'),
+                          controller: controller,
+                        ),
                 ),
               ),
               _BottomBar(controller: controller),
@@ -212,67 +217,74 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totals = controller.totals;
-    final bottom = MediaQuery.paddingOf(context).bottom;
+    final busy = controller.saving || controller.initializing;
     return Material(
       elevation: 6,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottom),
-        child: Row(
-          children: [
-            if (controller.step > 0)
-              OutlinedButton(
-                onPressed: controller.saving ? null : controller.back,
-                child: const Text('Atrás'),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              if (controller.step > 0)
+                OutlinedButton(
+                  onPressed: busy ? null : controller.back,
+                  child: const Text('Atrás'),
+                ),
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  totals.total.format(),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            const Spacer(),
-            Text(
-              totals.total.format(),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(width: 12),
-            if (controller.step < QuoteEditorController.stepCount - 1)
-              FilledButton(
-                onPressed: controller.saving
-                    ? null
-                    : () {
-                        final err = controller.validateStep(controller.step);
-                        if (err != null) {
-                          controller.reportStepError(err);
-                          return;
-                        }
-                        controller.next();
-                      },
-                child: const Text('Siguiente'),
-              )
-            else
-              FilledButton(
-                onPressed: controller.saving
-                    ? null
-                    : () async {
-                        final ok = await controller.saveToCloud();
-                        if (!context.mounted) return;
-                        if (ok) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Guardada ${controller.quote.number}',
+              const SizedBox(width: 12),
+              if (controller.step < QuoteEditorController.stepCount - 1)
+                FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () {
+                          final err = controller.validateStep(controller.step);
+                          if (err != null) {
+                            controller.reportStepError(err);
+                            return;
+                          }
+                          controller.next();
+                        },
+                  child: const Text('Siguiente'),
+                )
+              else
+                FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final ok = await controller.saveToCloud();
+                          if (!context.mounted) return;
+                          if (ok) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Guardada ${controller.quote.number}',
+                                ),
                               ),
-                            ),
-                          );
-                          Navigator.pop(context, true);
-                        }
-                      },
-                child: controller.saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Guardar'),
-              ),
-          ],
+                            );
+                            Navigator.pop(context, true);
+                          }
+                        },
+                  child: busy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Guardar'),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -280,7 +292,7 @@ class _BottomBar extends StatelessWidget {
 }
 
 class _StepBody extends StatelessWidget {
-  const _StepBody({required this.controller});
+  const _StepBody({super.key, required this.controller});
 
   final QuoteEditorController controller;
 
@@ -380,13 +392,14 @@ class _ClientStepState extends State<_ClientStep> {
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        Row(
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
-              child: Text(
-                'Cliente y datos',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+            Text(
+              'Cliente y datos',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
             TextButton.icon(
               onPressed: _pickClient,
@@ -457,14 +470,12 @@ class _ItemsStep extends StatelessWidget {
 
     return Column(
       children: [
-        Row(
+        Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
-              child: Text(
-                'Ítems',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
+            Text('Ítems', style: Theme.of(context).textTheme.titleMedium),
             TextButton(
               onPressed: () async {
                 final orgId = controller.organizationId;
