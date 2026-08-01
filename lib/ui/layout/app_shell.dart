@@ -10,6 +10,7 @@ import '../../screens/home_screen.dart';
 import '../../screens/nueva_cotizacion_screen.dart';
 import '../../screens/reports/reports_screen.dart';
 import '../layout/responsive.dart';
+import '../tokens/app_icons.dart';
 import '../widgets/plan_badge.dart';
 
 enum AppDestination { home, historial, reports, pricing, account }
@@ -75,7 +76,7 @@ class _AppShellState extends State<AppShell> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Column(
                     children: [
-                      const Icon(Icons.request_quote_rounded, size: 28),
+                      const Icon(AppIcons.marca, size: 28),
                       const SizedBox(height: 8),
                       PlanBadge(
                         label: access.effectivePlan.label,
@@ -184,7 +185,7 @@ class _AppShellState extends State<AppShell> {
           MaterialPageRoute(builder: (_) => const NuevaCotizacionScreen()),
         );
       },
-      icon: const Icon(Icons.note_add_outlined),
+      icon: const Icon(AppIcons.nuevaCotizacionFab),
       label: const Text('Nueva'),
     );
   }

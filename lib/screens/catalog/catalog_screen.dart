@@ -8,6 +8,7 @@ import '../../saas/models/catalog_item.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/services/catalog_repository.dart';
 import '../../ui/layout/responsive.dart';
+import '../../ui/tokens/app_icons.dart';
 import '../../ui/widgets/async_state_view.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -186,7 +187,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: () => _edit(),
-        icon: const Icon(Icons.add),
+        icon: const Icon(AppIcons.agregarCatalogo),
         label: const Text('Ítem'),
       ),
       body: ContentConstraint(

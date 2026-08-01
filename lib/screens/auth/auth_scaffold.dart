@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../saas/config/saas_config.dart';
 import '../../ui/layout/responsive.dart';
+import '../../ui/tokens/app_icons.dart';
 
 class AuthScaffold extends StatelessWidget {
   final String title;
@@ -50,7 +51,7 @@ class AuthScaffold extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Icon(
-                        Icons.request_quote_rounded,
+                        AppIcons.marca,
                         size: 56,
                         color: AppColors.forest,
                         semanticLabel: SaasConfig.productName,

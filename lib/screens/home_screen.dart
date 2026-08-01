@@ -5,6 +5,7 @@ import '../models/cotizacion.dart';
 import '../saas/providers/auth_controller.dart';
 import '../services/db_service.dart';
 import '../ui/layout/responsive.dart';
+import '../ui/tokens/app_icons.dart';
 import '../ui/widgets/app_action_tile.dart';
 import '../ui/widgets/async_state_view.dart';
 import '../ui/widgets/plan_badge.dart';
@@ -93,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 AppActionTile(
                   title: 'Nueva cotización',
                   subtitle: 'Crear desde cero',
-                  icon: Icons.request_quote_outlined,
+                  icon: AppIcons.nuevaCotizacion,
                   onTap: _openNueva,
                 ),
                 AppActionTile(
@@ -156,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: _openNueva,
-        icon: const Icon(Icons.note_add_outlined),
+        icon: const Icon(AppIcons.nuevaCotizacionFab),
         label: const Text('Nueva'),
       ),
     );
@@ -179,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
           loading: waiting,
           error: err,
           isEmpty: cotizaciones.isEmpty,
-          emptyIcon: Icons.request_quote_outlined,
+          emptyIcon: AppIcons.nuevaCotizacion,
           emptyTitle: 'Aún no hay cotizaciones',
           emptySubtitle: 'Crea la primera para verla aquí.',
           onRetry: _refreshLista,

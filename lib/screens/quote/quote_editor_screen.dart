@@ -14,6 +14,7 @@ import '../../saas/services/catalog_repository.dart';
 import '../../saas/services/client_repository.dart';
 import '../../saas/services/quote_mapper.dart';
 import '../../ui/layout/responsive.dart';
+import '../../ui/tokens/app_icons.dart';
 import '../catalog/catalog_screen.dart';
 import '../clients/clients_screen.dart';
 import '../preview_screen.dart';
@@ -515,7 +516,7 @@ class _ItemsStep extends StatelessWidget {
                 final item = await showQuoteLineItemSheet(context);
                 if (item != null) controller.upsertItem(item);
               },
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.agregarLinea),
               label: const Text('Ítem'),
             ),
           ],
@@ -661,7 +662,7 @@ class _ConditionsStepState extends State<_ConditionsStep> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.agregarLinea),
               onPressed: () {
                 final t = input.text.trim();
                 if (t.isEmpty) return;
