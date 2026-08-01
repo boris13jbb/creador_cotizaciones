@@ -2,7 +2,7 @@
   "name": "cotiapp-functions",
   "description": "Cloud Functions para entitlements, Stripe y borrado de cuenta",
   "engines": {
-    "node": ">=20"
+    "node": "20"
   },
   "main": "lib/index.js",
   "scripts": {
