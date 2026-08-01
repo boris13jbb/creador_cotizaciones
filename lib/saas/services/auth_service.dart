@@ -3,9 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../config/saas_platform.dart';
 import 'identity_toolkit_client.dart';
+import 'secure_session_store.dart';
 
 /// Autenticación SaaS.
-/// En Windows/Linux: solo Identity Toolkit REST (sin FirebaseAuth nativo).
+/// En Windows/Linux: Identity Toolkit REST (FlutterFire desktop no es producción).
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
@@ -37,6 +38,16 @@ class AuthService {
 
   bool get isAuthenticated => activeUid != null && activeUid!.isNotEmpty;
 
+  bool get isEmailVerified {
+    if (saasUseRestBackend) {
+      // REST: el flag se actualiza vía lookup en AuthController.
+      return _restEmailVerified;
+    }
+    return currentUser?.emailVerified ?? false;
+  }
+
+  bool _restEmailVerified = false;
+
   /// En REST emitimos `null` (la sesión va por [restSession] + AuthController).
   Stream<User?> get authStateChanges {
     if (saasUseRestBackend) {
@@ -45,15 +56,92 @@ class AuthService {
     return _native.authStateChanges();
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> restoreRestSession() async {
+    if (!saasUseRestBackend) return;
+    final stored = await SecureSessionStore.instance.read();
+    if (stored == null) return;
+    try {
+      final session = stored.isExpiredOrNearExpiry
+          ? await _refreshOrThrow(stored)
+          : stored;
+      _restSession = session;
+      await SecureSessionStore.instance.save(session);
+      await _refreshRestAccountFlags(session);
+      _restAuthController.add(null);
+    } catch (e, st) {
+      debugPrint('restoreRestSession falló: $e\n$st');
+      await SecureSessionStore.instance.clear();
+      _restSession = null;
+    }
+  }
+
+  Future<AuthSession> ensureValidRestSession() async {
+    var session = _restSession;
+    if (session == null) {
+      throw Exception('Sesión no disponible. Inicia sesión de nuevo.');
+    }
+    if (!session.isExpiredOrNearExpiry && session.idToken.isNotEmpty) {
+      return session;
+    }
+    session = await _refreshOrThrow(session);
+    _restSession = session;
+    await SecureSessionStore.instance.save(session);
+    return session;
+  }
+
+  Future<AuthSession> _refreshOrThrow(AuthSession session) async {
+    try {
+      final refreshed = await IdentityToolkitClient.instance.refresh(
+        session.refreshToken,
+      );
+      return session.copyWith(
+        uid: refreshed.uid.isNotEmpty ? refreshed.uid : session.uid,
+        idToken: refreshed.idToken,
+        refreshToken: refreshed.refreshToken,
+        expiresAt: refreshed.expiresAt,
+        email: session.email,
+        displayName: session.displayName,
+      );
+    } catch (e) {
+      await signOut();
+      throw Exception('Sesión expirada. Vuelve a iniciar sesión.');
+    }
+  }
+
+  Future<void> _persistRest(AuthSession session) async {
+    _restSession = session;
+    await SecureSessionStore.instance.save(session);
+    await _refreshRestAccountFlags(session);
+  }
+
+  Future<void> _refreshRestAccountFlags(AuthSession session) async {
+    try {
+      final data = await IdentityToolkitClient.instance.lookupAccount(
+        session.idToken,
+      );
+      _restEmailVerified = await IdentityToolkitClient.instance.isEmailVerified(
+        session.idToken,
+      );
+      if (data.email.isNotEmpty) {
+        _restSession = session.copyWith(
+          email: data.email,
+          displayName: data.displayName ?? session.displayName,
+        );
+      }
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('deshabilitada')) rethrow;
+      debugPrint('lookupAccount: $e');
+    }
+  }
+
+  Future<void> signIn({required String email, required String password}) async {
     if (saasUseRestBackend) {
-      _restSession = await IdentityToolkitClient.instance.signIn(
+      final session = await IdentityToolkitClient.instance.signIn(
         email: email,
         password: password,
       );
+      await _persistRest(session);
       _restAuthController.add(null);
       return;
     }
@@ -63,6 +151,7 @@ class AuthService {
         password: password,
       );
       _restSession = null;
+      await SecureSessionStore.instance.clear();
     } on FirebaseAuthException catch (e) {
       throw Exception(_mapNative(e));
     }
@@ -74,11 +163,19 @@ class AuthService {
     String? displayName,
   }) async {
     if (saasUseRestBackend) {
-      _restSession = await IdentityToolkitClient.instance.signUp(
+      final session = await IdentityToolkitClient.instance.signUp(
         email: email,
         password: password,
         displayName: displayName,
       );
+      await _persistRest(session);
+      try {
+        await IdentityToolkitClient.instance.sendEmailVerification(
+          session.idToken,
+        );
+      } catch (e) {
+        debugPrint('sendEmailVerification REST: $e');
+      }
       _restAuthController.add(null);
       return;
     }
@@ -90,14 +187,44 @@ class AuthService {
       if (displayName != null && displayName.trim().isNotEmpty) {
         await cred.user?.updateDisplayName(displayName.trim());
       }
+      try {
+        await cred.user?.sendEmailVerification();
+      } catch (e) {
+        debugPrint('sendEmailVerification: $e');
+      }
       _restSession = null;
+      await SecureSessionStore.instance.clear();
     } on FirebaseAuthException catch (e) {
       throw Exception(_mapNative(e));
     }
   }
 
+  Future<void> sendEmailVerification() async {
+    if (saasUseRestBackend) {
+      final session = await ensureValidRestSession();
+      await IdentityToolkitClient.instance.sendEmailVerification(
+        session.idToken,
+      );
+      return;
+    }
+    final user = currentUser;
+    if (user == null) throw Exception('Debes iniciar sesión.');
+    await user.sendEmailVerification();
+  }
+
+  Future<void> reloadUser() async {
+    if (saasUseRestBackend) {
+      final session = await ensureValidRestSession();
+      await _refreshRestAccountFlags(session);
+      return;
+    }
+    await currentUser?.reload();
+  }
+
   Future<void> signOut() async {
     _restSession = null;
+    _restEmailVerified = false;
+    await SecureSessionStore.instance.clear();
     if (saasUseRestBackend) {
       _restAuthController.add(null);
       return;
@@ -121,6 +248,18 @@ class AuthService {
     }
   }
 
+  /// Elimina la cuenta Auth (nativo). En REST requiere Cloud Function.
+  Future<void> deleteNativeAccount() async {
+    if (saasUseRestBackend) {
+      throw Exception(
+        'En escritorio la eliminación de cuenta requiere Cloud Functions desplegadas.',
+      );
+    }
+    final user = currentUser;
+    if (user == null) throw Exception('Debes iniciar sesión.');
+    await user.delete();
+  }
+
   String _mapNative(FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-email':
@@ -142,6 +281,8 @@ class AuthService {
         return 'Sin conexión a internet.';
       case 'operation-not-allowed':
         return 'Activa Email/Password en Firebase Authentication.';
+      case 'requires-recent-login':
+        return 'Por seguridad, vuelve a iniciar sesión e inténtalo de nuevo.';
       case 'internal-error':
       case 'unknown':
       case 'unknown-error':

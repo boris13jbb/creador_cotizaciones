@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Requerido en release para Auth, Firestore, Storage y APIs REST. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="creador_cotizaciones"
+        android:label="CotiApp"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

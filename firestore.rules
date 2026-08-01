@@ -4,23 +4,201 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function userEditableKeys() {
+      return ['uid', 'email', 'displayName', 'createdAt', 'updatedAt', 'defaultOrganizationId'];
+    }
+
+    function onlyUserEditableKeysChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['displayName', 'email', 'updatedAt', 'defaultOrganizationId']);
+    }
+
+    function validUserCreate() {
+      return request.resource.data.keys().hasOnly(userEditableKeys())
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string;
+    }
+
+    function validInitialEntitlement() {
+      return request.resource.data.uid == request.auth.uid
+        && request.resource.data.plan == 'free'
+        && request.resource.data.subscriptionStatus == 'trialing'
+        && request.resource.data.source == 'signup'
+        && request.resource.data.trialEndsAt is string
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string
+        && !('stripeCustomerId' in request.resource.data)
+        && !('stripeSubscriptionId' in request.resource.data)
+        && !('currentPeriodEnd' in request.resource.data)
+        && request.resource.data.keys().hasOnly([
+          'uid', 'plan', 'subscriptionStatus', 'trialEndsAt',
+          'source', 'createdAt', 'updatedAt'
+        ]);
+    }
+
+    function memberDoc(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function isActiveMember(orgId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+        && memberDoc(orgId).data.status == 'active';
+    }
+
+    function memberRole(orgId) {
+      return memberDoc(orgId).data.role;
+    }
+
+    function canWriteCommercial(orgId) {
+      return isActiveMember(orgId)
+        && memberRole(orgId) in ['owner', 'admin', 'sales'];
+    }
+
+    function canManageOrg(orgId) {
+      return isActiveMember(orgId)
+        && memberRole(orgId) in ['owner', 'admin'];
+    }
+
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && validUserCreate();
+      allow update: if isOwner(userId) && onlyUserEditableKeysChanged();
+      allow delete: if isOwner(userId);
 
       match /cotizaciones/{docId} {
         allow read, update, delete: if isOwner(userId);
         allow create: if isOwner(userId)
           && request.resource.data.userId == userId;
       }
+
+      match /memberships/{orgId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.uid == userId
+          && request.resource.data.organizationId == orgId;
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /entitlements/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && !exists(/databases/$(database)/documents/entitlements/$(userId))
+        && validInitialEntitlement();
+      allow update: if false;
+      allow delete: if isOwner(userId);
     }
 
     match /plans/{planId} {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isActiveMember(orgId);
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.id == orgId;
+      allow update: if canManageOrg(orgId);
+      allow delete: if isActiveMember(orgId) && memberRole(orgId) == 'owner';
+
+      match /members/{memberUid} {
+        allow read: if isActiveMember(orgId);
+        allow create: if (isSignedIn()
+            && memberUid == request.auth.uid
+            && request.resource.data.role == 'owner'
+            && request.resource.data.uid == request.auth.uid)
+          || canManageOrg(orgId);
+        allow update: if canManageOrg(orgId);
+        allow delete: if canManageOrg(orgId) || (isSignedIn() && memberUid == request.auth.uid);
+      }
+
+      match /counters/{counterId} {
+        allow read: if isActiveMember(orgId);
+        allow write: if canWriteCommercial(orgId);
+      }
+
+      match /clients/{clientId} {
+        allow read: if isActiveMember(orgId);
+        allow create, update: if canWriteCommercial(orgId)
+          && request.resource.data.organizationId == orgId;
+        allow delete: if canManageOrg(orgId) || canWriteCommercial(orgId);
+      }
+
+      match /catalogItems/{itemId} {
+        allow read: if isActiveMember(orgId);
+        allow create, update: if canWriteCommercial(orgId)
+          && request.resource.data.organizationId == orgId;
+        allow delete: if canManageOrg(orgId) || canWriteCommercial(orgId);
+      }
+
+      match /quotes/{quoteId} {
+        allow read: if isActiveMember(orgId);
+        allow create, update: if canWriteCommercial(orgId)
+          && request.resource.data.organizationId == orgId;
+        allow delete: if canWriteCommercial(orgId);
+      }
+
+      match /templates/{templateId} {
+        allow read: if isActiveMember(orgId);
+        allow write: if canManageOrg(orgId);
+      }
+
+      match /activities/{activityId} {
+        allow read: if isActiveMember(orgId);
+        allow create: if isActiveMember(orgId)
+          && request.resource.data.organizationId == orgId
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.type is string
+          && request.resource.data.message is string
+          && request.resource.data.createdAt is string;
+        allow update, delete: if false;
+      }
+
+      match /invites/{inviteId} {
+        allow read: if canManageOrg(orgId)
+          || (isSignedIn()
+            && resource.data.email == request.auth.token.email);
+        allow create: if canManageOrg(orgId)
+          && request.resource.data.organizationId == orgId
+          && request.resource.data.invitedByUid == request.auth.uid
+          && request.resource.data.email is string
+          && request.resource.data.token is string
+          && request.resource.data.status == 'pending';
+        allow update: if canManageOrg(orgId)
+          || (isSignedIn()
+            && resource.data.email == request.auth.token.email
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status']));
+        allow delete: if canManageOrg(orgId);
+      }
+    }
+
+    // Reportes de error de cliente (soporte). Lectura solo Admin SDK.
+    match /errorReports/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.message is string
+        && request.resource.data.createdAt is string;
+      allow read, update, delete: if false;
+    }
+
+    // Enlaces públicos de cotización (Fase 5). viewCount lo actualiza la Function.
+    match /quoteShares/{token} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.token == token;
+      allow update, delete: if false;
     }
   }
 }

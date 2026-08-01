@@ -12,7 +12,8 @@ class DBService {
 
   Future<void> get database async {}
 
-  Future<SharedPreferences> get _prefs async => await SharedPreferences.getInstance();
+  Future<SharedPreferences> get _prefs async =>
+      await SharedPreferences.getInstance();
 
   Future<int> getProximoNumero() async {
     final prefs = await _prefs;
@@ -67,8 +68,11 @@ class DBService {
       final list = jsonDecode(raw) as List<dynamic>? ?? [];
       return list.map((e) {
         final m = Map<String, dynamic>.from(e as Map);
-        final serviciosList = (m['servicios'] as List<dynamic>?)
-                ?.map((s) => Servicio.fromMap(Map<String, dynamic>.from(s as Map)))
+        final serviciosList =
+            (m['servicios'] as List<dynamic>?)
+                ?.map(
+                  (s) => Servicio.fromMap(Map<String, dynamic>.from(s as Map)),
+                )
                 .toList() ??
             [];
         m.remove('servicios');

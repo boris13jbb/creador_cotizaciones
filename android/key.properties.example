@@ -1,0 +1,6 @@
+# Copiar a android/key.properties (NO commitear) y ajustar rutas/contraseñas.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=cotiapp
+# Ruta relativa a android/ o absoluta al .jks
+storeFile=cotiapp-upload.jks

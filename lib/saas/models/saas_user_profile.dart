@@ -1,72 +1,79 @@
 import '../config/saas_config.dart';
 
-/// Perfil SaaS del usuario en Firestore `users/{uid}`.
+/// Campos personales editables en `users/{uid}` (el cliente puede actualizarlos).
 class SaasUserProfile {
   final String uid;
   final String email;
   final String displayName;
-  final SubscriptionPlan plan;
-  final String subscriptionStatus;
-  final DateTime? trialEndsAt;
+  final String? defaultOrganizationId;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// Campos legacy (solo lectura / migración). No deben escribirse desde el cliente.
+  final SubscriptionPlan? legacyPlan;
+  final String? legacySubscriptionStatus;
+  final DateTime? legacyTrialEndsAt;
 
   const SaasUserProfile({
     required this.uid,
     required this.email,
     required this.displayName,
-    required this.plan,
-    this.subscriptionStatus = 'active',
-    this.trialEndsAt,
+    this.defaultOrganizationId,
     required this.createdAt,
     required this.updatedAt,
+    this.legacyPlan,
+    this.legacySubscriptionStatus,
+    this.legacyTrialEndsAt,
   });
 
-  bool get isPro => plan == SubscriptionPlan.pro &&
-      (subscriptionStatus == 'active' || subscriptionStatus == 'trialing');
-
-  int get maxCotizaciones => plan.maxCotizaciones;
-
-  Map<String, dynamic> toMap() => {
-        'uid': uid,
-        'email': email,
-        'displayName': displayName,
-        'plan': plan.id,
-        'subscriptionStatus': subscriptionStatus,
-        'trialEndsAt': trialEndsAt?.toIso8601String(),
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+  /// Payload seguro para create/update desde cliente.
+  Map<String, dynamic> toEditableMap() => {
+    'uid': uid,
+    'email': email,
+    'displayName': displayName,
+    if (defaultOrganizationId != null)
+      'defaultOrganizationId': defaultOrganizationId,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   factory SaasUserProfile.fromMap(Map<String, dynamic> map) {
     return SaasUserProfile(
       uid: map['uid'] as String? ?? '',
       email: map['email'] as String? ?? '',
       displayName: map['displayName'] as String? ?? '',
-      plan: SubscriptionPlan.fromId(map['plan'] as String?),
-      subscriptionStatus: map['subscriptionStatus'] as String? ?? 'active',
-      trialEndsAt: map['trialEndsAt'] != null
+      defaultOrganizationId: map['defaultOrganizationId'] as String?,
+      createdAt:
+          DateTime.tryParse(map['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      updatedAt:
+          DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
+      legacyPlan: map['plan'] != null
+          ? SubscriptionPlan.fromId(map['plan'] as String?)
+          : null,
+      legacySubscriptionStatus: map['subscriptionStatus'] as String?,
+      legacyTrialEndsAt: map['trialEndsAt'] != null
           ? DateTime.tryParse(map['trialEndsAt'] as String)
           : null,
-      createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? '') ?? DateTime.now(),
     );
   }
 
   SaasUserProfile copyWith({
     String? displayName,
-    SubscriptionPlan? plan,
-    String? subscriptionStatus,
+    String? defaultOrganizationId,
   }) {
     return SaasUserProfile(
       uid: uid,
       email: email,
       displayName: displayName ?? this.displayName,
-      plan: plan ?? this.plan,
-      subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
-      trialEndsAt: trialEndsAt,
+      defaultOrganizationId:
+          defaultOrganizationId ?? this.defaultOrganizationId,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
+      legacyPlan: legacyPlan,
+      legacySubscriptionStatus: legacySubscriptionStatus,
+      legacyTrialEndsAt: legacyTrialEndsAt,
     );
   }
 }

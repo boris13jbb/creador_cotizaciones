@@ -19,7 +19,9 @@ class _SimpleColorDialogState extends State<SimpleColorDialog> {
     _colorController = TextEditingController(text: widget.initialColor);
     if (widget.initialColor.isNotEmpty) {
       try {
-        _currentColor = Color(int.parse(widget.initialColor.replaceAll('#', '0xFF')));
+        _currentColor = Color(
+          int.parse(widget.initialColor.replaceAll('#', '0xFF')),
+        );
       } catch (_) {}
     }
   }
@@ -106,7 +108,8 @@ class _SimpleColorDialogState extends State<SimpleColorDialog> {
             spacing: 8,
             runSpacing: 8,
             children: getCommonColors().map((color) {
-              final String hexString = '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
+              final String hexString =
+                  '#${color.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()}';
               return GestureDetector(
                 onTap: () {
                   Navigator.pop(context, hexString);

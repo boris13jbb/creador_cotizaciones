@@ -11,10 +11,10 @@ class FormaPagoItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'etiqueta': etiqueta,
-        'descripcion': descripcion,
-        'monto': monto,
-      };
+    'etiqueta': etiqueta,
+    'descripcion': descripcion,
+    'monto': monto,
+  };
 
   factory FormaPagoItem.fromJson(Map<String, dynamic> json) {
     return FormaPagoItem(

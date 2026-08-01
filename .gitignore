@@ -43,6 +43,33 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# Environment / secrets (nunca commitear valores reales)
+.env
+.env.local
+.env.*.local
+*.jks
+*.keystore
+android/key.properties
+key.properties
+serviceAccount*.json
+*-firebase-adminsdk*.json
+
+# Coverage
+coverage/
+
+# Release symbols / obfuscation maps
+build/app/outputs/**/*.symbols
+*.map.json
+
+# Cloud Functions
+functions/node_modules/
+functions/lib/
+functions/.env
+functions/*.local
+
+# Rules tests
+test/rules/node_modules/
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile

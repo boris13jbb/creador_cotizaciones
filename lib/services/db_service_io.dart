@@ -72,14 +72,42 @@ class DBService {
 
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN subtitulo TEXT'); } catch (_) {}
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN validezDias INTEGER'); } catch (_) {}
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN footerText TEXT'); } catch (_) {}
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN firmaTecnicoLabel TEXT'); } catch (_) {}
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN firmaClienteLabel TEXT'); } catch (_) {}
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN formaPagoJson TEXT'); } catch (_) {}
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN camposExtra TEXT'); } catch (_) {}
-      try { await db.execute('ALTER TABLE cotizaciones ADD COLUMN coloresJson TEXT'); } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE cotizaciones ADD COLUMN subtitulo TEXT');
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE cotizaciones ADD COLUMN validezDias INTEGER',
+        );
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE cotizaciones ADD COLUMN footerText TEXT');
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE cotizaciones ADD COLUMN firmaTecnicoLabel TEXT',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE cotizaciones ADD COLUMN firmaClienteLabel TEXT',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE cotizaciones ADD COLUMN formaPagoJson TEXT',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE cotizaciones ADD COLUMN camposExtra TEXT',
+        );
+      } catch (_) {}
+      try {
+        await db.execute(
+          'ALTER TABLE cotizaciones ADD COLUMN coloresJson TEXT',
+        );
+      } catch (_) {}
     }
     // Versiones 3-5 agregaban tabla resumes (ahora en proyecto creador_cv).
     // Se mantienen como no-op para no romper bases existentes.
@@ -119,7 +147,11 @@ class DBService {
         cot.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      await txn.delete('servicios', where: 'cotizacionId = ?', whereArgs: [cot.id]);
+      await txn.delete(
+        'servicios',
+        where: 'cotizacionId = ?',
+        whereArgs: [cot.id],
+      );
       for (var servicio in cot.servicios) {
         final m = servicio.toMap();
         m['cotizacionId'] = cot.id;
@@ -136,7 +168,8 @@ class DBService {
     final cotizacionIds = result.map((r) => r['id'] as String).toList();
     final servicesResult = await db.query(
       'servicios',
-      where: 'cotizacionId IN (${List.filled(cotizacionIds.length, '?').join(',')})',
+      where:
+          'cotizacionId IN (${List.filled(cotizacionIds.length, '?').join(',')})',
       whereArgs: cotizacionIds,
     );
 
@@ -144,7 +177,9 @@ class DBService {
     for (var s in servicesResult) {
       final cotizacionId = s['cotizacionId'] as String;
       serviciosPorCotizacion.putIfAbsent(cotizacionId, () => []);
-      serviciosPorCotizacion[cotizacionId]!.add(Servicio.fromMap(Map<String, dynamic>.from(s)));
+      serviciosPorCotizacion[cotizacionId]!.add(
+        Servicio.fromMap(Map<String, dynamic>.from(s)),
+      );
     }
 
     return result.map((row) {
