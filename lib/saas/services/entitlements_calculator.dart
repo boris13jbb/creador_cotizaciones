@@ -40,6 +40,30 @@ class EntitlementsService {
 
     final n = (now ?? DateTime.now()).toUtc();
     final status = entitlements.subscriptionStatus.toLowerCase();
+
+    // Acceso gratis otorgado por super admin (pro/business) con expiración opcional.
+    if (entitlements.isAdminGrant && status == 'active') {
+      final expired =
+          entitlements.grantExpiresAt != null &&
+          !entitlements.grantExpiresAt!.isAfter(n);
+      if (!expired &&
+          (entitlements.plan == SubscriptionPlan.pro ||
+              entitlements.plan == SubscriptionPlan.business)) {
+        return _fromPlan(
+          entitlements.plan,
+          isPro: true,
+          isTrialing: false,
+          isCanceled: false,
+          trialEndsAt: entitlements.grantExpiresAt,
+          subscriptionStatus: status,
+          reason: 'admin_grant',
+        );
+      }
+      if (expired) {
+        return EffectiveAccess.free(reason: 'admin_grant_expirado');
+      }
+    }
+
     final trialActive =
         status == 'trialing' &&
         entitlements.trialEndsAt != null &&

@@ -92,6 +92,38 @@ void main() {
       expect(access.isPro, isFalse);
       expect(access.reason, 'past_due');
     });
+
+    test('admin_grant business otorga todo el sistema', () {
+      final ent = Entitlements(
+        uid: 'u1',
+        plan: SubscriptionPlan.business,
+        subscriptionStatus: 'active',
+        source: 'admin_grant',
+        grantReason: 'piloto',
+        createdAt: now,
+        updatedAt: now,
+      );
+      final access = calc.evaluate(ent, now: now);
+      expect(access.isPro, isTrue);
+      expect(access.canManageTeam, isTrue);
+      expect(access.canExportDocx, isTrue);
+      expect(access.reason, 'admin_grant');
+    });
+
+    test('admin_grant expirado vuelve a free', () {
+      final ent = Entitlements(
+        uid: 'u1',
+        plan: SubscriptionPlan.business,
+        subscriptionStatus: 'active',
+        source: 'admin_grant',
+        grantExpiresAt: now.subtract(const Duration(days: 1)),
+        createdAt: now,
+        updatedAt: now,
+      );
+      final access = calc.evaluate(ent, now: now);
+      expect(access.isPro, isFalse);
+      expect(access.reason, 'admin_grant_expirado');
+    });
   });
 
   group('SubscriptionPlan', () {

@@ -8,49 +8,78 @@
   "storage": {
     "rules": "storage.rules"
   },
-  "hosting": {
-    "public": "build/web",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ],
-    "headers": [
-      {
-        "source": "/flutter_service_worker.js",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(js|wasm)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "max-age=3600"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "max-age=86400"
-          }
-        ]
-      }
-    ]
-  },
+  "hosting": [
+    {
+      "target": "app",
+      "public": "build/web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "/flutter_service_worker.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
+          "source": "**/*.@(js|wasm)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "max-age=3600"
+            }
+          ]
+        },
+        {
+          "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "max-age=86400"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "target": "admin",
+      "public": "apps/admin_console/build/web",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "/flutter_service_worker.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "functions": [
     {
       "source": "functions",

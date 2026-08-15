@@ -107,7 +107,8 @@ flutter run -d windows --dart-define=FUNCTIONS_BASE_URL=https://us-central1-coti
 
 ## Activar Pro
 1. Preferido: Stripe Checkout + webhook → escribe `entitlements/{uid}`
-2. Manual (admin): en Firestore → `entitlements/{uid}` → `plan: pro`, `subscriptionStatus: active`
+2. Super admin (recomendado): consola `apps/admin_console` → grant Pro/Business gratis (ver `docs/SUPER_ADMIN.md`)
+3. Manual (emergencia): Firestore → `entitlements/{uid}` → `plan: pro|business`, `subscriptionStatus: active`, `source: admin_grant`
 3. **No** editar plan desde el cliente (las reglas lo bloquean)
 
 ## Pendiente para producción

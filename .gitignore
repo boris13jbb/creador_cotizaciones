@@ -47,12 +47,17 @@ app.*.map.json
 .env
 .env.local
 .env.*.local
+.platform_admin_bootstrap_secret.local
 *.jks
 *.keystore
 android/key.properties
 key.properties
 serviceAccount*.json
 *-firebase-adminsdk*.json
+apps/admin_console/.dart_tool/
+apps/admin_console/build/
+*.apk
+*.aab
 
 # Coverage
 coverage/

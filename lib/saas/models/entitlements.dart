@@ -11,6 +11,10 @@ class Entitlements {
   final String? stripeCustomerId;
   final String? stripeSubscriptionId;
   final String source;
+  final DateTime? grantExpiresAt;
+  final String? grantReason;
+  final String? grantedByUid;
+  final String? grantId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,9 +27,15 @@ class Entitlements {
     this.stripeCustomerId,
     this.stripeSubscriptionId,
     this.source = 'signup',
+    this.grantExpiresAt,
+    this.grantReason,
+    this.grantedByUid,
+    this.grantId,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  bool get isAdminGrant => source == 'admin_grant';
 
   factory Entitlements.initialTrial(String uid, {DateTime? now}) {
     final n = now ?? DateTime.now().toUtc();
@@ -80,6 +90,18 @@ class Entitlements {
     if (stripeSubscriptionId != null) {
       map['stripeSubscriptionId'] = stripeSubscriptionId;
     }
+    if (grantExpiresAt != null) {
+      map['grantExpiresAt'] = grantExpiresAt!.toIso8601String();
+    }
+    if (grantReason != null) {
+      map['grantReason'] = grantReason;
+    }
+    if (grantedByUid != null) {
+      map['grantedByUid'] = grantedByUid;
+    }
+    if (grantId != null) {
+      map['grantId'] = grantId;
+    }
     return map;
   }
 
@@ -93,6 +115,10 @@ class Entitlements {
       stripeCustomerId: map['stripeCustomerId'] as String?,
       stripeSubscriptionId: map['stripeSubscriptionId'] as String?,
       source: map['source'] as String? ?? 'signup',
+      grantExpiresAt: _parseDate(map['grantExpiresAt']),
+      grantReason: map['grantReason'] as String?,
+      grantedByUid: map['grantedByUid'] as String?,
+      grantId: map['grantId'] as String?,
       createdAt: _parseDate(map['createdAt']) ?? DateTime.now().toUtc(),
       updatedAt: _parseDate(map['updatedAt']) ?? DateTime.now().toUtc(),
     );

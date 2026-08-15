@@ -206,5 +206,16 @@ service cloud.firestore {
         && request.resource.data.token == token;
       allow update, delete: if false;
     }
+
+    // Super admin de plataforma: solo Admin SDK / Cloud Functions.
+    match /platformAdmins/{uid} {
+      allow read, write: if false;
+    }
+    match /platformGrants/{grantId} {
+      allow read, write: if false;
+    }
+    match /adminAuditLogs/{logId} {
+      allow read, write: if false;
+    }
   }
 }

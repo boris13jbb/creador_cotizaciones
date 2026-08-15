@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "cotiapp-saas-jb"
-  }
+  },
+  "targets": {
+    "cotiapp-saas-jb": {
+      "hosting": {
+        "app": [
+          "cotiapp-saas-jb"
+        ],
+        "admin": [
+          "cotiapp-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
