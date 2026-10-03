@@ -54,9 +54,7 @@ class ClientCsvImportService {
     if (nameIdx == null) {
       return const ClientCsvImportResult(
         toUpsert: [],
-        errors: [
-          'Falta columna name/nombre. Plantilla: $templateHeader',
-        ],
+        errors: ['Falta columna name/nombre. Plantilla: $templateHeader'],
       );
     }
 

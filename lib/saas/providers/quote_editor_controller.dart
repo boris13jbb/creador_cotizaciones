@@ -37,6 +37,7 @@ class QuoteEditorController extends ChangeNotifier {
   int step = 0;
   bool saving = false;
   bool dirty = false;
+
   /// true mientras se carga borrador o cotización existente.
   bool initializing = true;
   String? error;
@@ -235,8 +236,8 @@ class QuoteEditorController extends ChangeNotifier {
       _touch((q) => q.copyWith(logoPath: path, clearLogoPath: path == null));
 
   void setColorsJson(String? json) => _touch(
-        (q) => q.copyWith(colorsJson: json, clearColorsJson: json == null),
-      );
+    (q) => q.copyWith(colorsJson: json, clearColorsJson: json == null),
+  );
 
   void upsertItem(QuoteLineItem item) {
     _touch((q) {

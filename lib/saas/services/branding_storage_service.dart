@@ -66,10 +66,7 @@ class BrandingStorageService {
 
     final optimized = await optimizeLogo(bytes);
     final ref = _storage.ref(_pathFor(uid));
-    await ref.putData(
-      optimized,
-      SettableMetadata(contentType: 'image/png'),
-    );
+    await ref.putData(optimized, SettableMetadata(contentType: 'image/png'));
     return ref.getDownloadURL();
   }
 

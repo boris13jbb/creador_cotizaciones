@@ -3,8 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 /// Cliente de Cloud Functions de plataforma (solo con claim platformAdmin).
 class AdminApi {
   AdminApi({FirebaseFunctions? functions})
-    : _fn = functions ??
-          FirebaseFunctions.instanceFor(region: 'us-central1');
+    : _fn = functions ?? FirebaseFunctions.instanceFor(region: 'us-central1');
 
   final FirebaseFunctions _fn;
 
@@ -41,13 +40,8 @@ class AdminApi {
     'expiresAt': ?expiresAt,
   });
 
-  Future<Map<String, dynamic>> revoke({
-    required String uid,
-    String? grantId,
-  }) => _call('adminRevokeGrant', {
-    'uid': uid,
-    'grantId': ?grantId,
-  });
+  Future<Map<String, dynamic>> revoke({required String uid, String? grantId}) =>
+      _call('adminRevokeGrant', {'uid': uid, 'grantId': ?grantId});
 
   Future<Map<String, dynamic>> listGrants({int limit = 50}) =>
       _call('adminListGrants', {'limit': limit});

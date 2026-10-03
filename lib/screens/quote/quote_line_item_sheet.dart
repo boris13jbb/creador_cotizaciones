@@ -137,9 +137,7 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
                         decimal: true,
                       ),
                       validator: (v) {
-                        final n = num.tryParse(
-                          (v ?? '').replaceAll(',', '.'),
-                        );
+                        final n = num.tryParse((v ?? '').replaceAll(',', '.'));
                         if (n == null || n <= 0) return 'Inválida';
                         return null;
                       },

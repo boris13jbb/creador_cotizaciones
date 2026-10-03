@@ -25,16 +25,9 @@ void main() async {
     );
   };
   PlatformDispatcher.instance.onError = (error, stack) {
-    AppLogger.instance.error(
-      'platform_error',
-      error: error,
-      stackTrace: stack,
-    );
+    AppLogger.instance.error('platform_error', error: error, stackTrace: stack);
     // ignore: discarded_futures
-    ErrorReportService.instance.report(
-      message: '$error',
-      stackTrace: stack,
-    );
+    ErrorReportService.instance.report(message: '$error', stackTrace: stack);
     return true;
   };
 

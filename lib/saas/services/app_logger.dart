@@ -5,15 +5,11 @@ class AppLogger {
   AppLogger._();
   static final AppLogger instance = AppLogger._();
 
-  void info(
-    String event, {
-    Map<String, Object?> fields = const {},
-  }) => _log('INFO', event, fields);
+  void info(String event, {Map<String, Object?> fields = const {}}) =>
+      _log('INFO', event, fields);
 
-  void warn(
-    String event, {
-    Map<String, Object?> fields = const {},
-  }) => _log('WARN', event, fields);
+  void warn(String event, {Map<String, Object?> fields = const {}}) =>
+      _log('WARN', event, fields);
 
   void error(
     String event, {
@@ -36,10 +32,7 @@ class AppLogger {
     num? value,
     Map<String, Object?> fields = const {},
   }) {
-    _log('METRIC', name, {
-      ...fields,
-      if (value != null) 'value': value,
-    });
+    _log('METRIC', name, {...fields, if (value != null) 'value': value});
   }
 
   void _log(String level, String event, Map<String, Object?> fields) {

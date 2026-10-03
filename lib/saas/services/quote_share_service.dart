@@ -112,12 +112,8 @@ class QuoteShareService {
       shareUrl: shareUrl,
     );
     final uri = phone.isEmpty
-        ? Uri.parse(
-            'https://wa.me/?text=${Uri.encodeComponent(text)}',
-          )
-        : Uri.parse(
-            'https://wa.me/$phone?text=${Uri.encodeComponent(text)}',
-          );
+        ? Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}')
+        : Uri.parse('https://wa.me/$phone?text=${Uri.encodeComponent(text)}');
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       throw Exception('No se pudo abrir WhatsApp');
     }
@@ -141,10 +137,7 @@ class QuoteShareService {
     final uri = Uri(
       scheme: 'mailto',
       path: email,
-      queryParameters: {
-        'subject': subject,
-        'body': body,
-      },
+      queryParameters: {'subject': subject, 'body': body},
     );
     if (!await launchUrl(uri)) {
       throw Exception('No se pudo abrir el cliente de correo');

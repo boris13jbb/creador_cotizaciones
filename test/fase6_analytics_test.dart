@@ -35,35 +35,32 @@ void main() {
   }
 
   test('OrgQuoteStats calcula pipeline, conversión y seguimiento', () {
-    final stats = OrgQuoteStats.fromQuotes(
-      [
-        buildQuote(
-          id: '1',
-          status: QuoteStatus.sent,
-          cents: 10000,
-          updatedAt: now.subtract(const Duration(days: 10)),
-        ),
-        buildQuote(
-          id: '2',
-          status: QuoteStatus.accepted,
-          cents: 20000,
-          updatedAt: now,
-        ),
-        buildQuote(
-          id: '3',
-          status: QuoteStatus.rejected,
-          cents: 5000,
-          updatedAt: now,
-        ),
-        buildQuote(
-          id: '4',
-          status: QuoteStatus.viewed,
-          cents: 8000,
-          updatedAt: now.subtract(const Duration(days: 2)),
-        ),
-      ],
-      now: now,
-    );
+    final stats = OrgQuoteStats.fromQuotes([
+      buildQuote(
+        id: '1',
+        status: QuoteStatus.sent,
+        cents: 10000,
+        updatedAt: now.subtract(const Duration(days: 10)),
+      ),
+      buildQuote(
+        id: '2',
+        status: QuoteStatus.accepted,
+        cents: 20000,
+        updatedAt: now,
+      ),
+      buildQuote(
+        id: '3',
+        status: QuoteStatus.rejected,
+        cents: 5000,
+        updatedAt: now,
+      ),
+      buildQuote(
+        id: '4',
+        status: QuoteStatus.viewed,
+        cents: 8000,
+        updatedAt: now.subtract(const Duration(days: 2)),
+      ),
+    ], now: now);
 
     expect(stats.totalQuotes, 4);
     expect(stats.countOf(QuoteStatus.sent), 1);

@@ -92,7 +92,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     final csv = OrgAnalyticsService.instance.quotesToCsv(_quotes);
     await CsvExportService.instance.shareCsv(
-      fileName: 'cotiapp_quotes_${DateTime.now().toIso8601String().split('T').first}.csv',
+      fileName:
+          'cotiapp_quotes_${DateTime.now().toIso8601String().split('T').first}.csv',
       csvContent: csv,
     );
   }
@@ -192,10 +193,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       if (stats.unusualUsage) ...[
                         const SizedBox(height: AppSpacing.md),
                         Card(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .errorContainer
-                              .withValues(alpha: 0.45),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.errorContainer.withValues(alpha: 0.45),
                           child: ListTile(
                             leading: const Icon(Icons.warning_amber_outlined),
                             title: Text(
@@ -226,16 +226,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           style: Theme.of(context).textTheme.bodyMedium,
                         )
                       else
-                        ..._activities.take(12).map(
-                          (a) => ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(Icons.timeline),
-                            title: Text(a.message),
-                            subtitle: Text(
-                              '${a.type} · ${DateFormat.yMMMd('es').add_Hm().format(a.createdAt.toLocal())}',
+                        ..._activities
+                            .take(12)
+                            .map(
+                              (a) => ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.timeline),
+                                title: Text(a.message),
+                                subtitle: Text(
+                                  '${a.type} · ${DateFormat.yMMMd('es').add_Hm().format(a.createdAt.toLocal())}',
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
                     ],
                   ),
           ),
@@ -269,9 +271,9 @@ class _KpiCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 value,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
             ],
           ),

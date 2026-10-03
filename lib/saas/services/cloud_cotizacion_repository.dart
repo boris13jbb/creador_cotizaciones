@@ -550,10 +550,7 @@ class CloudCotizacionRepository {
       message: '${existing.number}: ${existing.status.id} → ${status.id}',
       entityType: 'quote',
       entityId: quoteId,
-      metadata: {
-        'from': existing.status.id,
-        'to': status.id,
-      },
+      metadata: {'from': existing.status.id, 'to': status.id},
       session: _auth?.restSession,
     );
     AppLogger.instance.info(

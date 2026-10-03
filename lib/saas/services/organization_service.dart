@@ -41,14 +41,13 @@ class OrganizationService {
     required String email,
     required String displayName,
     AuthSession? session,
-  }) =>
-      _linkDefaultOrg(
-        uid: uid,
-        orgId: orgId,
-        email: email,
-        displayName: displayName,
-        session: session,
-      );
+  }) => _linkDefaultOrg(
+    uid: uid,
+    orgId: orgId,
+    email: email,
+    displayName: displayName,
+    session: session,
+  );
 
   /// Crea organización personal + membresía owner si no existe.
   ///

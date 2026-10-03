@@ -215,8 +215,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     items: _items.map(
                       (c) => (
                         status: c.quoteStatus ?? '',
-                        updatedAt:
-                            DateTime.tryParse(c.fecha)?.toUtc() ?? now,
+                        updatedAt: DateTime.tryParse(c.fecha)?.toUtc() ?? now,
                       ),
                     ),
                   );
@@ -229,22 +228,21 @@ class _HistorialScreenState extends State<HistorialScreen> {
                       0,
                     ),
                     child: Material(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .tertiaryContainer
-                          .withValues(alpha: 0.55),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.tertiaryContainer.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(AppRadii.md),
                       child: ListTile(
                         dense: true,
-                        leading: const Icon(Icons.notifications_active_outlined),
+                        leading: const Icon(
+                          Icons.notifications_active_outlined,
+                        ),
                         title: Text(
                           '$stale cotización(es) enviada(s) sin respuesta (>7 días)',
                         ),
                         trailing: TextButton(
                           onPressed: () {
-                            setState(
-                              () => _statusFilter = QuoteStatus.sent.id,
-                            );
+                            setState(() => _statusFilter = QuoteStatus.sent.id);
                             _loadInitial();
                           },
                           child: const Text('Ver enviadas'),

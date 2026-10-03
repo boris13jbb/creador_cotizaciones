@@ -68,7 +68,9 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     final uid = auth.user?.uid ?? auth.restSession?.uid ?? auth.profile?.uid;
     if (uid == null || uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debes iniciar sesión para subir el logo.')),
+        const SnackBar(
+          content: Text('Debes iniciar sesión para subir el logo.'),
+        ),
       );
       return;
     }
@@ -90,9 +92,9 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
       );
       widget.controller.setLogoPath(url);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Logo actualizado')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Logo actualizado')));
       }
     } catch (e) {
       if (mounted) {

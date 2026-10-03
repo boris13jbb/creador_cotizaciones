@@ -174,7 +174,8 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 onPressed: () {
                   Clipboard.setData(
                     const ClipboardData(
-                      text: '${ClientCsvImportService.templateHeader}\n'
+                      text:
+                          '${ClientCsvImportService.templateHeader}\n'
                           'Acme SA,info@acme.com,+593999,1790012345001,Quito,,EC,',
                     ),
                   );
@@ -227,10 +228,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
     var saved = 0;
     for (final c in parsed.toUpsert) {
-      await ClientRepository.instance.upsert(
-        organizationId: orgId,
-        client: c,
-      );
+      await ClientRepository.instance.upsert(organizationId: orgId, client: c);
       saved++;
     }
     if (!mounted) return;
@@ -239,9 +237,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final extra = parsed.errors.isEmpty
         ? ''
         : ' · ${parsed.errors.length} fila(s) con error';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Importados: $saved$extra')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Importados: $saved$extra')));
   }
 
   @override

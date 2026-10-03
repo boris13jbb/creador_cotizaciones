@@ -217,11 +217,12 @@ class AuthController extends ChangeNotifier {
   }) async {
     try {
       if (!createIfMissing) {
-        _organization = await OrganizationService.instance.findExistingOrganization(
-          uid: uid,
-          existingOrgId: _profile?.defaultOrganizationId,
-          session: session,
-        );
+        _organization = await OrganizationService.instance
+            .findExistingOrganization(
+              uid: uid,
+              existingOrgId: _profile?.defaultOrganizationId,
+              session: session,
+            );
         if (_organization != null &&
             _profile != null &&
             _profile!.defaultOrganizationId != _organization!.id) {
@@ -277,7 +278,8 @@ class AuthController extends ChangeNotifier {
     try {
       await _ensureOrganization(
         uid: uid,
-        displayName: _profile?.displayName ??
+        displayName:
+            _profile?.displayName ??
             _user?.displayName ??
             _restSession?.displayName ??
             '',

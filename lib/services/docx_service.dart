@@ -121,7 +121,9 @@ class DocxService {
             ' | ${item.quantity} ${item.unit} × ${currencyFormat.format(item.unitPrice.asDecimal)}',
           );
           if (item.discountBps > 0) {
-            detail.write(' | dto ${(item.discountBps / 100).toStringAsFixed(1)}%');
+            detail.write(
+              ' | dto ${(item.discountBps / 100).toStringAsFixed(1)}%',
+            );
           }
           if (item.taxBps > 0) {
             detail.write(' | imp ${(item.taxBps / 100).toStringAsFixed(1)}%');

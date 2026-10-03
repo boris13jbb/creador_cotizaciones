@@ -14,7 +14,9 @@ class QuoteReminderService {
     int days = defaultFollowUpDays,
     DateTime? now,
   }) {
-    final cutoff = (now ?? DateTime.now().toUtc()).subtract(Duration(days: days));
+    final cutoff = (now ?? DateTime.now().toUtc()).subtract(
+      Duration(days: days),
+    );
     return [
       for (final q in quotes)
         if (_needsFollowUp(q) && q.updatedAt.isBefore(cutoff)) q,
@@ -27,7 +29,9 @@ class QuoteReminderService {
     int days = defaultFollowUpDays,
     DateTime? now,
   }) {
-    final cutoff = (now ?? DateTime.now().toUtc()).subtract(Duration(days: days));
+    final cutoff = (now ?? DateTime.now().toUtc()).subtract(
+      Duration(days: days),
+    );
     var n = 0;
     for (final i in items) {
       final st = QuoteStatus.fromId(i.status);

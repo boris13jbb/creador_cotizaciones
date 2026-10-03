@@ -6,7 +6,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('pubspec version semver+build', () {
     final text = File('pubspec.yaml').readAsStringSync();
-    final match = RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(text);
+    final match = RegExp(
+      r'^version:\s*(\S+)',
+      multiLine: true,
+    ).firstMatch(text);
     expect(match, isNotNull);
     expect(match!.group(1), matches(RegExp(r'^\d+\.\d+\.\d+\+\d+$')));
   });

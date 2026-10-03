@@ -139,7 +139,10 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
-  Future<OrgMembership?> _myMembership(AuthController auth, String orgId) async {
+  Future<OrgMembership?> _myMembership(
+    AuthController auth,
+    String orgId,
+  ) async {
     final uid = auth.user?.uid ?? auth.restSession?.uid;
     if (uid == null) return null;
     for (final m in _members) {
@@ -156,9 +159,7 @@ class _TeamScreenState extends State<TeamScreen> {
         title: const Text('Aceptar invitación'),
         content: TextField(
           controller: tokenCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Token de invitación',
-          ),
+          decoration: const InputDecoration(labelText: 'Token de invitación'),
         ),
         actions: [
           TextButton(
@@ -176,9 +177,9 @@ class _TeamScreenState extends State<TeamScreen> {
     try {
       await OrgTeamService.instance.acceptInvite(token: tokenCtrl.text.trim());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invitación aceptada')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invitación aceptada')));
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -243,75 +244,73 @@ class _TeamScreenState extends State<TeamScreen> {
                 for (final m in _members)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(m.displayName?.isNotEmpty == true
-                        ? m.displayName!
-                        : m.email ?? m.uid),
+                    title: Text(
+                      m.displayName?.isNotEmpty == true
+                          ? m.displayName!
+                          : m.email ?? m.uid,
+                    ),
                     subtitle: Text('${m.role.id} · ${m.status.id}'),
                     trailing: m.role == OrgRole.owner
                         ? const Chip(label: Text('owner'))
                         : locked
-                            ? null
-                            : PopupMenuButton<String>(
-                                onSelected: (v) async {
-                                  final orgId = auth.organizationId!;
-                                  final actor = auth.user?.uid ??
-                                      auth.restSession!.uid;
-                                  try {
-                                    if (v == 'disable') {
-                                      await OrgTeamService.instance
-                                          .disableMember(
-                                        orgId: orgId,
-                                        memberUid: m.uid,
-                                        actorUid: actor,
-                                        session: auth.restSession,
-                                      );
-                                    } else {
-                                      await OrgTeamService.instance
-                                          .updateMemberRole(
+                        ? null
+                        : PopupMenuButton<String>(
+                            onSelected: (v) async {
+                              final orgId = auth.organizationId!;
+                              final actor =
+                                  auth.user?.uid ?? auth.restSession!.uid;
+                              try {
+                                if (v == 'disable') {
+                                  await OrgTeamService.instance.disableMember(
+                                    orgId: orgId,
+                                    memberUid: m.uid,
+                                    actorUid: actor,
+                                    session: auth.restSession,
+                                  );
+                                } else {
+                                  await OrgTeamService.instance
+                                      .updateMemberRole(
                                         orgId: orgId,
                                         memberUid: m.uid,
                                         role: OrgRole.fromId(v),
                                         actorUid: actor,
                                         session: auth.restSession,
                                       );
-                                    }
-                                    await _load();
-                                  } catch (e) {
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          '$e'.replaceFirst('Exception: ', ''),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                itemBuilder: (_) => [
-                                  const PopupMenuItem(
-                                    value: 'admin',
-                                    child: Text('Rol: admin'),
+                                }
+                                await _load();
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '$e'.replaceFirst('Exception: ', ''),
+                                    ),
                                   ),
-                                  const PopupMenuItem(
-                                    value: 'sales',
-                                    child: Text('Rol: sales'),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'readonly',
-                                    child: Text('Rol: readonly'),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'disable',
-                                    child: Text('Desactivar'),
-                                  ),
-                                ],
+                                );
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: 'admin',
+                                child: Text('Rol: admin'),
                               ),
+                              const PopupMenuItem(
+                                value: 'sales',
+                                child: Text('Rol: sales'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'readonly',
+                                child: Text('Rol: readonly'),
+                              ),
+                              const PopupMenuItem(
+                                value: 'disable',
+                                child: Text('Desactivar'),
+                              ),
+                            ],
+                          ),
                   ),
                 const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Invitar',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text('Invitar', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                   controller: _emailCtrl,
@@ -356,7 +355,9 @@ class _TeamScreenState extends State<TeamScreen> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(i.email),
-                      subtitle: Text('${i.role} · expira ${i.expiresAt.toLocal()}'),
+                      subtitle: Text(
+                        '${i.role} · expira ${i.expiresAt.toLocal()}',
+                      ),
                     ),
                 ],
               ],

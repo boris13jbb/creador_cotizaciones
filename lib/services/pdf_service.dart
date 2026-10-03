@@ -55,10 +55,7 @@ class PdfService {
   /// Genera PDF desde dominio [Quote] (columnas qty/precio/dto/imp/neto).
   static Future<Uint8List> generarPDFFromQuote(Quote quote) async {
     final cot = QuoteMapper.toCotizacion(quote);
-    return _build(
-      cot: cot,
-      quote: quote,
-    );
+    return _build(cot: cot, quote: quote);
   }
 
   static Future<Uint8List> generarPDF(Cotizacion cot, {Quote? quote}) async {
@@ -120,10 +117,7 @@ class PdfService {
             ? null
             : (context) => pw.Text(
                 cot.footerText!,
-                style: pw.TextStyle(
-                  color: _PdfColors.textGray,
-                  fontSize: 8,
-                ),
+                style: pw.TextStyle(color: _PdfColors.textGray, fontSize: 8),
                 textAlign: pw.TextAlign.center,
               ),
         build: (context) => [
@@ -264,9 +258,7 @@ class PdfService {
                   ),
                 ),
                 pw.Text(
-                  currencyFormat.format(
-                    totals?.total.asDecimal ?? cot.total,
-                  ),
+                  currencyFormat.format(totals?.total.asDecimal ?? cot.total),
                   style: pw.TextStyle(
                     fontWeight: pw.FontWeight.bold,
                     fontSize: 14,

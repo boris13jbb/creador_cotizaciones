@@ -138,9 +138,7 @@ void main() {
       // Dentro de la ventana acotada (created+15d) sigue Pro.
       expect(calc.evaluate(ent, now: now).isPro, isTrue);
       // Fuera de createdAt + trialDays + skew → Free.
-      final afterClamp = created.add(
-        Duration(days: SaasConfig.trialDays + 2),
-      );
+      final afterClamp = created.add(Duration(days: SaasConfig.trialDays + 2));
       final access = calc.evaluate(ent, now: afterClamp);
       expect(access.isPro, isFalse);
       expect(access.maxSeats, SubscriptionPlan.free.maxSeats);

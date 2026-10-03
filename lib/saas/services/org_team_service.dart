@@ -237,9 +237,14 @@ class OrgTeamService {
       await _acceptInviteRest(token);
       return;
     }
-    final callable = FirebaseFunctions.instance.httpsCallable('acceptOrgInvite');
+    final callable = FirebaseFunctions.instance.httpsCallable(
+      'acceptOrgInvite',
+    );
     await callable.call(<String, dynamic>{'token': token});
-    AppLogger.instance.info('invite_accepted', fields: {'tokenPrefix': token.substring(0, 6)});
+    AppLogger.instance.info(
+      'invite_accepted',
+      fields: {'tokenPrefix': token.substring(0, 6)},
+    );
   }
 
   Future<void> _acceptInviteRest(String token) async {
@@ -274,11 +279,19 @@ class OrgTeamService {
     }
     final batch = _db.batch();
     batch.set(
-      _db.collection('organizations').doc(orgId).collection('members').doc(member.uid),
+      _db
+          .collection('organizations')
+          .doc(orgId)
+          .collection('members')
+          .doc(member.uid),
       member.toMap(),
     );
     batch.set(
-      _db.collection('users').doc(member.uid).collection('memberships').doc(orgId),
+      _db
+          .collection('users')
+          .doc(member.uid)
+          .collection('memberships')
+          .doc(orgId),
       member.toMap(),
     );
     await batch.commit();

@@ -87,7 +87,8 @@ class OrgAnalyticsService {
   }
 
   String _esc(String value) {
-    final needs = value.contains(',') || value.contains('"') || value.contains('\n');
+    final needs =
+        value.contains(',') || value.contains('"') || value.contains('\n');
     if (!needs) return value;
     return '"${value.replaceAll('"', '""')}"';
   }

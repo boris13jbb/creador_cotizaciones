@@ -44,10 +44,7 @@ void main() {
         createdAt: now,
         updatedAt: now,
       );
-      expect(
-        calc.evaluate(ent, now: now).maxSeats,
-        SaasConfig.proMaxSeats,
-      );
+      expect(calc.evaluate(ent, now: now).maxSeats, SaasConfig.proMaxSeats);
     });
 
     test('Business → 10 asientos', () {

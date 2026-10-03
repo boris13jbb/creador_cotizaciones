@@ -22,11 +22,7 @@ class PreviewScreen extends StatefulWidget {
   final Cotizacion cotizacion;
   final Quote? quote;
 
-  const PreviewScreen({
-    super.key,
-    required this.cotizacion,
-    this.quote,
-  });
+  const PreviewScreen({super.key, required this.cotizacion, this.quote});
 
   @override
   State<PreviewScreen> createState() => _PreviewScreenState();

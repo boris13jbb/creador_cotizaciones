@@ -175,7 +175,9 @@ class _LoginPageState extends State<_LoginPage> {
                     const SizedBox(height: 12),
                     Text(
                       _error!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 20),
@@ -285,17 +287,13 @@ class _HomePageState extends State<_HomePage> {
     if (uid == null) return;
     setState(() => _loading = true);
     try {
-      await _api.grant(
-        uid: uid,
-        plan: _plan,
-        reason: _reason.text.trim(),
-      );
+      await _api.grant(uid: uid, plan: _plan, reason: _reason.text.trim());
       await _lookup();
       await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Acceso gratis otorgado')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Acceso gratis otorgado')));
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -313,9 +311,9 @@ class _HomePageState extends State<_HomePage> {
       await _lookup();
       await _refresh();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Acceso revocado')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Acceso revocado')));
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -348,7 +346,10 @@ class _HomePageState extends State<_HomePage> {
           Text('Sesión: ${widget.user.email ?? widget.user.uid}'),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
           ],
           const SizedBox(height: 16),
           Wrap(
@@ -367,7 +368,10 @@ class _HomePageState extends State<_HomePage> {
             ],
           ),
           const SizedBox(height: 24),
-          Text('Buscar cliente', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Buscar cliente',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Row(
             children: [

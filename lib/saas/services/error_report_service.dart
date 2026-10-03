@@ -32,11 +32,7 @@ class ErrorReportService {
       'client_error',
       error: message,
       stackTrace: stackTrace,
-      fields: {
-        'uid': uid,
-        'organizationId': organizationId,
-        ...context,
-      },
+      fields: {'uid': uid, 'organizationId': organizationId, ...context},
     );
 
     final id = const Uuid().v4();
@@ -62,7 +58,10 @@ class ErrorReportService {
         );
         return;
       }
-      await FirebaseFirestore.instance.collection('errorReports').doc(id).set(data);
+      await FirebaseFirestore.instance
+          .collection('errorReports')
+          .doc(id)
+          .set(data);
     } catch (e, st) {
       debugPrint('ErrorReportService: $e\n$st');
     }
