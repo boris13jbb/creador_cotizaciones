@@ -43,9 +43,9 @@
 
 | Capa | Protección |
 |------|------------|
-| **Rules** | `allow delete: if false`. Create exige `trialEndsAt` ∈ `[now-1h, now+15d]` (ISO string vs `request.time`). `update` sigue prohibido. |
-| **Functions** | `clampTrialEndsAt` en bootstrap `ensureEntitlements`. |
-| **Cliente** | `EntitlementsService` acota trial a `createdAt + trialDays + 1d` antes de otorgar Pro. |
+| **Rules** | `allow create, update, delete: if false` en `entitlements/{uid}` (solo Admin SDK / Functions). Nota: `string(timestamp)` no es válido en Rules; por eso el create cliente se eliminó. |
+| **Functions** | `clampTrialEndsAt` en bootstrap `ensureEntitlements` / `ensureMyEntitlements`. |
+| **Cliente** | Bootstrap vía `ensureMyEntitlements` (Callable/HTTP). `EntitlementsService` acota trial. Fail-closed a Free sin trial inventado. |
 
 ### Comportamiento final
 

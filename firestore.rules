@@ -27,34 +27,6 @@ service cloud.firestore {
         && request.resource.data.updatedAt is string;
     }
 
-    // Trial bootstrap: máximo ~15 días desde request.time (14 + 1 skew).
-    // Comparación lexicográfica válida para ISO-8601 UTC.
-    function trialEndsAtWithinPolicy() {
-      return request.resource.data.trialEndsAt is string
-        && request.resource.data.trialEndsAt.size() >= 20
-        && request.resource.data.trialEndsAt
-            <= string(request.time + duration.value(15, 'd'))
-        && request.resource.data.trialEndsAt
-            >= string(request.time - duration.value(1, 'h'));
-    }
-
-    function validInitialEntitlement() {
-      return request.resource.data.uid == request.auth.uid
-        && request.resource.data.plan == 'free'
-        && request.resource.data.subscriptionStatus == 'trialing'
-        && request.resource.data.source == 'signup'
-        && trialEndsAtWithinPolicy()
-        && request.resource.data.createdAt is string
-        && request.resource.data.updatedAt is string
-        && !('stripeCustomerId' in request.resource.data)
-        && !('stripeSubscriptionId' in request.resource.data)
-        && !('currentPeriodEnd' in request.resource.data)
-        && request.resource.data.keys().hasOnly([
-          'uid', 'plan', 'subscriptionStatus', 'trialEndsAt',
-          'source', 'createdAt', 'updatedAt'
-        ]);
-    }
-
     function memberDoc(orgId) {
       return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
     }
@@ -102,12 +74,10 @@ service cloud.firestore {
 
     match /entitlements/{userId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId)
-        && !exists(/databases/$(database)/documents/entitlements/$(userId))
-        && validInitialEntitlement();
-      // Plan/trial/Stripe: solo Admin SDK / Cloud Functions.
-      allow update: if false;
-      allow delete: if false;
+      // Create/update/delete solo Admin SDK / Cloud Functions
+      // (ensureMyEntitlements, Stripe webhook, Super Admin).
+      // Evita trialEndsAt arbitrario y delete+recreate de trial.
+      allow create, update, delete: if false;
     }
 
     match /plans/{planId} {

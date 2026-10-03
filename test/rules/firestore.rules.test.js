@@ -102,12 +102,12 @@ describe("users/{uid} perfil editable", () => {
 });
 
 describe("entitlements/{uid}", () => {
-  test("owner puede crear bootstrap free+trialing una vez", async () => {
+  test("C02: owner NO puede crear entitlements (solo backend)", async () => {
     const alice = testEnv.authenticatedContext("alice");
     const trialEnds = new Date(
       Date.now() + 14 * 24 * 60 * 60 * 1000
     ).toISOString();
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(alice.firestore(), "entitlements/alice"), {
         uid: "alice",
         plan: "free",
