@@ -15,6 +15,7 @@ crash_*.txt
 temp_*.txt
 .lingma/
 .qodo/
+.cursor/
 
 # IntelliJ related
 *.iml
