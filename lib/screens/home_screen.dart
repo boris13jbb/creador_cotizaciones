@@ -1,17 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/cotizacion.dart';
-import '../services/db_service.dart';
 import '../saas/providers/auth_controller.dart';
+import '../services/db_service.dart';
+import '../ui/layout/responsive.dart';
+import '../ui/tokens/app_icons.dart';
+import '../ui/widgets/app_action_tile.dart';
+import '../ui/widgets/async_state_view.dart';
+import '../ui/widgets/plan_badge.dart';
 import '../widgets/cotizacion_card.dart';
-import 'account/account_screen.dart';
-import 'account/pricing_screen.dart';
-import 'historial_screen.dart';
 import 'nueva_cotizacion_screen.dart';
 import 'preview_screen.dart';
+import 'reports/reports_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    this.onOpenHistorial,
+    this.embeddedInShell = false,
+  });
+
+  final VoidCallback? onOpenHistorial;
+  final bool embeddedInShell;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -20,6 +31,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Cotizacion>> _cotizacionesFuture;
   final Set<String> _cotizacionesOcultas = {};
+  Object? _error;
 
   @override
   void initState() {
@@ -29,250 +41,203 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _refreshLista() {
     setState(() {
+      _error = null;
       _cotizacionesFuture = DBService.instance.obtenerTodas();
     });
   }
 
+  Future<void> _openNueva() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NuevaCotizacionScreen()),
+    );
+    if (mounted) _refreshLista();
+  }
+
+  void _openHistorial() {
+    if (widget.onOpenHistorial != null) {
+      widget.onOpenHistorial!();
+      return;
+    }
+    // Fallback si Home se abre fuera del shell.
+    Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final profile = context.watch<AuthController>().profile;
+    final access = context.watch<AuthController>().access;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    final body = RefreshIndicator(
+      onRefresh: () async => _refreshLista(),
+      child: ContentConstraint(
+        padding: AppSpacing.pageWide,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            Text(
+              '¿Qué deseas crear hoy?',
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Cotizaciones profesionales sincronizadas en la nube',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            AppActionGrid(
+              children: [
+                AppActionTile(
+                  title: 'Nueva cotización',
+                  subtitle: 'Crear desde cero',
+                  icon: AppIcons.nuevaCotizacion,
+                  onTap: _openNueva,
+                ),
+                AppActionTile(
+                  title: 'Historial',
+                  subtitle: 'Ver y gestionar',
+                  icon: Icons.history_outlined,
+                  onTap: _openHistorial,
+                ),
+                AppActionTile(
+                  title: 'Reportes',
+                  subtitle: 'KPIs y exportación',
+                  icon: Icons.insights_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ReportsScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+            AppSectionHeader(
+              title: 'Cotizaciones recientes',
+              actionLabel: 'Ver todas',
+              onAction: _openHistorial,
+            ),
+            _buildRecientes(),
+            SizedBox(height: 88 + bottomInset),
+          ],
+        ),
+      ),
+    );
+
+    // Embebido en AppShell: sin Scaffold propio (evita FAB anidado roto en Windows).
+    if (widget.embeddedInShell) {
+      return body;
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('CotiApp'),
         actions: [
-          if (profile != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Center(
-                child: Chip(
-                  label: Text(profile.plan.label, style: const TextStyle(fontSize: 12)),
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: PlanBadge(
+              label: access.effectivePlan.label,
+              isTrialing: access.isTrialing,
             ),
-          IconButton(
-            icon: const Icon(Icons.workspace_premium_outlined),
-            tooltip: 'Planes',
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const PricingScreen()));
-            },
           ),
           IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: 'Mi cuenta',
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountScreen()));
-            },
-          ),
-          IconButton(
+            tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh),
             onPressed: _refreshLista,
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async => _refreshLista(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withAlpha(13),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '¿Qué deseas crear hoy?',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildMainButton(
-                            context,
-                            title: 'Nueva\nCotización',
-                            icon: Icons.add_chart,
-                            color: Colors.blue,
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const NuevaCotizacionScreen()),
-                              );
-                              _refreshLista();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: _buildMainButton(
-                            context,
-                            title: 'Historial\nCotizaciones',
-                            icon: Icons.history,
-                            color: Colors.indigo,
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const HistorialScreen()),
-                              );
-                              _refreshLista();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Cotizaciones Recientes',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const HistorialScreen()),
-                        );
-                        _refreshLista();
-                      },
-                      child: const Text('Ver todas'),
-                    ),
-                  ],
-                ),
-              ),
-              _buildRecientesCotizaciones(),
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
-      ),
+      body: body,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const NuevaCotizacionScreen()),
-          );
-          _refreshLista();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva cotización'),
+        heroTag: null,
+        onPressed: _openNueva,
+        icon: const Icon(AppIcons.nuevaCotizacionFab),
+        label: const Text('Nueva'),
       ),
     );
   }
 
-  Widget _buildRecientesCotizaciones() {
+  Widget _buildRecientes() {
     return FutureBuilder<List<Cotizacion>>(
       future: _cotizacionesFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(height: 100, child: Center(child: CircularProgressIndicator()));
-        }
-        final allCotizaciones = snapshot.data ?? [];
-        final cotizaciones = allCotizaciones.where((c) => !_cotizacionesOcultas.contains(c.id)).toList();
-        if (cotizaciones.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(20),
-            child: Text('No hay cotizaciones recientes', style: TextStyle(color: Colors.grey)),
-          );
-        }
-        final recientes = cotizaciones.take(5).toList();
-        return Column(
-          children: recientes
-              .map(
-                (cot) => CotizacionCard(
+        final waiting =
+            snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData;
+        final err = snapshot.hasError ? snapshot.error : _error;
+        final all = snapshot.data ?? [];
+        final cotizaciones = all
+            .where((c) => !_cotizacionesOcultas.contains(c.id))
+            .toList();
+
+        return AsyncStateView(
+          loading: waiting,
+          error: err,
+          isEmpty: cotizaciones.isEmpty,
+          emptyIcon: AppIcons.nuevaCotizacion,
+          emptyTitle: 'Aún no hay cotizaciones',
+          emptySubtitle: 'Crea la primera para verla aquí.',
+          onRetry: _refreshLista,
+          child: Column(
+            children: [
+              for (final cot in cotizaciones.take(5))
+                CotizacionCard(
                   cotizacion: cot,
                   onTap: () async {
                     await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => PreviewScreen(cotizacion: cot)),
+                      MaterialPageRoute(
+                        builder: (_) => PreviewScreen(cotizacion: cot),
+                      ),
                     );
-                    _refreshLista();
+                    if (mounted) _refreshLista();
                   },
                   onEdit: () async {
                     await Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => NuevaCotizacionScreen(cotizacion: cot)),
+                      MaterialPageRoute(
+                        builder: (_) => NuevaCotizacionScreen(cotizacion: cot),
+                      ),
                     );
-                    _refreshLista();
+                    if (mounted) _refreshLista();
                   },
-                  onHide: () => setState(() => _cotizacionesOcultas.add(cot.id)),
+                  onHide: () =>
+                      setState(() => _cotizacionesOcultas.add(cot.id)),
                   onDelete: () async {
-                    final confirm = await _mostrarConfirmacion(context, 'Cotización ${cot.numero}');
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Eliminar'),
+                        content: Text('¿Eliminar la cotización ${cot.numero}?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancelar'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text(
+                              'Eliminar',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                     if (confirm == true) {
                       await DBService.instance.eliminarCotizacion(cot.id);
-                      _refreshLista();
+                      if (mounted) _refreshLista();
                     }
                   },
                 ),
-              )
-              .toList(),
+            ],
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildMainButton(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: color.withAlpha(13),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withAlpha(76), width: 2),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 40, color: color),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<bool?> _mostrarConfirmacion(BuildContext context, String item) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Eliminar'),
-        content: Text('¿Estás seguro de eliminar $item?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
   }
 }

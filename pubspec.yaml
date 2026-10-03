@@ -36,6 +36,8 @@ dependencies:
   provider: ^6.1.5+1
   url_launcher: ^6.3.2
   http: ^1.6.0
+  flutter_secure_storage: ^10.3.1
+  cloud_functions: ^6.2.0
 
 dev_dependencies:
   flutter_test:

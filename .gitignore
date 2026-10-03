@@ -15,6 +15,7 @@ crash_*.txt
 temp_*.txt
 .lingma/
 .qodo/
+.cursor/
 
 # IntelliJ related
 *.iml
@@ -43,11 +44,47 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# Environment / secrets (nunca commitear valores reales)
+.env
+.env.local
+.env.*.local
+.platform_admin_bootstrap_secret.local
+*.jks
+*.keystore
+android/key.properties
+key.properties
+serviceAccount*.json
+*-firebase-adminsdk*.json
+apps/admin_console/.dart_tool/
+apps/admin_console/build/
+*.apk
+*.aab
+
+# Coverage
+coverage/
+
+# Release symbols / obfuscation maps
+build/app/outputs/**/*.symbols
+*.map.json
+
+# Cloud Functions
+functions/node_modules/
+functions/lib/
+functions/.env
+functions/*.local
+
+# Rules tests
+test/rules/node_modules/
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
 /android/build/
+/android/.kotlin/
+
+# Firebase CLI local cache
+.firebase/
 
 # Office temporary lock files
 ~$*

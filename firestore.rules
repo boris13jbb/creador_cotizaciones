@@ -4,23 +4,214 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function userEditableKeys() {
+      return ['uid', 'email', 'displayName', 'createdAt', 'updatedAt', 'defaultOrganizationId'];
+    }
+
+    function onlyUserEditableKeysChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['displayName', 'email', 'updatedAt', 'defaultOrganizationId']);
+    }
+
+    function validUserCreate() {
+      return request.resource.data.keys().hasOnly(userEditableKeys())
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string;
+    }
+
+    function memberDoc(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function isActiveMember(orgId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+        && memberDoc(orgId).data.status == 'active';
+    }
+
+    function memberRole(orgId) {
+      return memberDoc(orgId).data.role;
+    }
+
+    function canWriteCommercial(orgId) {
+      return isActiveMember(orgId)
+        && memberRole(orgId) in ['owner', 'admin', 'sales'];
+    }
+
+    function canManageOrg(orgId) {
+      return isActiveMember(orgId)
+        && memberRole(orgId) in ['owner', 'admin'];
+    }
+
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && validUserCreate();
+      allow update: if isOwner(userId) && onlyUserEditableKeysChanged();
+      allow delete: if isOwner(userId);
 
       match /cotizaciones/{docId} {
         allow read, update, delete: if isOwner(userId);
         allow create: if isOwner(userId)
           && request.resource.data.userId == userId;
       }
+
+      match /memberships/{orgId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.uid == userId
+          && request.resource.data.organizationId == orgId;
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /entitlements/{userId} {
+      allow read: if isOwner(userId);
+      // Create/update/delete solo Admin SDK / Cloud Functions
+      // (ensureMyEntitlements, Stripe webhook, Super Admin).
+      // Evita trialEndsAt arbitrario y delete+recreate de trial.
+      allow create, update, delete: if false;
     }
 
     match /plans/{planId} {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isActiveMember(orgId);
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.id == orgId;
+      // No permitir cambiar ownerUid ni id desde el cliente.
+      allow update: if canManageOrg(orgId)
+        && !(request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['ownerUid', 'id']));
+      allow delete: if isActiveMember(orgId) && memberRole(orgId) == 'owner';
+
+      match /members/{memberUid} {
+        allow read: if isActiveMember(orgId);
+        // Alta de miembros invitados: solo Admin SDK (acceptOrgInvite).
+        // El cliente solo puede crear su propia membresía owner al bootstrap.
+        allow create: if isSignedIn()
+            && memberUid == request.auth.uid
+            && request.resource.data.role == 'owner'
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.organizationId == orgId
+            && request.resource.data.status == 'active';
+        allow update: if canManageOrg(orgId)
+          && request.resource.data.uid == memberUid
+          && request.resource.data.organizationId == orgId
+          && request.resource.data.role != 'owner';
+        allow delete: if canManageOrg(orgId) || (isSignedIn() && memberUid == request.auth.uid);
+      }
+
+      match /counters/{counterId} {
+        allow read: if isActiveMember(orgId);
+        // create permitido al owner recién creado (tras member) o a roles comerciales
+        allow create: if canWriteCommercial(orgId)
+          || (isSignedIn()
+            && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerUid
+              == request.auth.uid);
+        allow update: if canWriteCommercial(orgId);
+        allow delete: if canManageOrg(orgId);
+      }
+
+      match /clients/{clientId} {
+        allow read: if isActiveMember(orgId);
+        allow create, update: if canWriteCommercial(orgId)
+          && request.resource.data.organizationId == orgId;
+        allow delete: if canManageOrg(orgId) || canWriteCommercial(orgId);
+      }
+
+      match /catalogItems/{itemId} {
+        allow read: if isActiveMember(orgId);
+        allow create, update: if canWriteCommercial(orgId)
+          && request.resource.data.organizationId == orgId;
+        allow delete: if canManageOrg(orgId) || canWriteCommercial(orgId);
+      }
+
+      match /quotes/{quoteId} {
+        allow read: if isActiveMember(orgId);
+        allow create, update: if canWriteCommercial(orgId)
+          && request.resource.data.organizationId == orgId;
+        allow delete: if canWriteCommercial(orgId);
+      }
+
+      match /templates/{templateId} {
+        allow read: if isActiveMember(orgId);
+        allow write: if canManageOrg(orgId);
+      }
+
+      match /activities/{activityId} {
+        allow read: if isActiveMember(orgId);
+        allow create: if isActiveMember(orgId)
+          && request.resource.data.organizationId == orgId
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.type is string
+          && request.resource.data.message is string
+          && request.resource.data.createdAt is string;
+        allow update, delete: if false;
+      }
+
+      match /invites/{inviteId} {
+        allow read: if canManageOrg(orgId)
+          || (isSignedIn()
+            && resource.data.email == request.auth.token.email);
+        allow create: if canManageOrg(orgId)
+          && request.resource.data.organizationId == orgId
+          && request.resource.data.invitedByUid == request.auth.uid
+          && request.resource.data.email is string
+          && request.resource.data.token is string
+          && request.resource.data.token.size() >= 16
+          && request.resource.data.status == 'pending'
+          && request.resource.data.role in ['admin', 'sales', 'readonly']
+          && request.resource.data.expiresAt is string;
+        // Invitee solo puede declinar; "accepted" lo escribe Admin SDK.
+        allow update: if canManageOrg(orgId)
+          || (isSignedIn()
+            && resource.data.email == request.auth.token.email
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['status'])
+            && request.resource.data.status == 'declined');
+        allow delete: if canManageOrg(orgId);
+      }
+    }
+
+    // Reportes de error de cliente (soporte). Lectura solo Admin SDK.
+    match /errorReports/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.message is string
+        && request.resource.data.createdAt is string;
+      allow read, update, delete: if false;
+    }
+
+    // Enlaces públicos de cotización (Fase 5). viewCount lo actualiza la Function.
+    match /quoteShares/{token} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.token == token;
+      allow update, delete: if false;
+    }
+
+    // Super admin de plataforma: solo Admin SDK / Cloud Functions.
+    match /platformAdmins/{uid} {
+      allow read, write: if false;
+    }
+    match /platformGrants/{grantId} {
+      allow read, write: if false;
+    }
+    match /adminAuditLogs/{logId} {
+      allow read, write: if false;
     }
   }
 }

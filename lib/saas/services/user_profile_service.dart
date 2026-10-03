@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../config/saas_config.dart';
 import '../models/saas_user_profile.dart';
 
-/// Perfil y suscripción del usuario en Firestore (SDK nativo).
+/// Perfil editable del usuario en Firestore (SDK nativo).
+/// Plan/suscripción viven en `entitlements/{uid}` (solo backend).
 class UserProfileService {
   UserProfileService._();
   static final UserProfileService instance = UserProfileService._();
@@ -25,18 +25,16 @@ class UserProfileService {
       return SaasUserProfile.fromMap(snap.data()!);
     }
 
-    final now = DateTime.now();
+    final now = DateTime.now().toUtc();
     final profile = SaasUserProfile(
       uid: user.uid,
       email: user.email ?? '',
-      displayName: user.displayName ?? (user.email?.split('@').first ?? 'Usuario'),
-      plan: SubscriptionPlan.free,
-      subscriptionStatus: 'active',
-      trialEndsAt: now.add(const Duration(days: 14)),
+      displayName:
+          user.displayName ?? (user.email?.split('@').first ?? 'Usuario'),
       createdAt: now,
       updatedAt: now,
     );
-    await ref.set(profile.toMap());
+    await ref.set(profile.toEditableMap(), SetOptions(merge: true));
     return profile;
   }
 
@@ -56,16 +54,35 @@ class UserProfileService {
   Future<void> updateDisplayName(String uid, String name) async {
     await _userRef(uid).update({
       'displayName': name.trim(),
-      'updatedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toUtc().toIso8601String(),
     });
   }
 
-  /// Marca plan Pro (llamar desde webhook Stripe / admin).
-  Future<void> setPlan(String uid, SubscriptionPlan plan, {String status = 'active'}) async {
-    await _userRef(uid).update({
-      'plan': plan.id,
-      'subscriptionStatus': status,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+  /// Exporta datos del usuario (perfil + cotizaciones) para portabilidad.
+  Future<Map<String, dynamic>> exportUserData(String uid) async {
+    final profile = await getProfile(uid);
+    final cotSnap = await _userRef(uid).collection('cotizaciones').get();
+    final entitlements = await _firestore
+        .collection('entitlements')
+        .doc(uid)
+        .get();
+    return {
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'profile': profile?.toEditableMap(),
+      'entitlements': entitlements.data(),
+      'cotizaciones': cotSnap.docs.map((d) => d.data()).toList(),
+    };
+  }
+
+  /// Borra datos de Firestore del usuario (Auth se elimina aparte).
+  Future<void> deleteUserData(String uid) async {
+    final cotSnap = await _userRef(uid).collection('cotizaciones').get();
+    final batch = _firestore.batch();
+    for (final doc in cotSnap.docs) {
+      batch.delete(doc.reference);
+    }
+    batch.delete(_userRef(uid));
+    batch.delete(_firestore.collection('entitlements').doc(uid));
+    await batch.commit();
   }
 }

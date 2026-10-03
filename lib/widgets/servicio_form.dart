@@ -5,7 +5,11 @@ class ServicioForm extends StatefulWidget {
   final Function(Servicio) onAgregado;
   final Servicio? servicioExistente;
 
-  const ServicioForm({super.key, required this.onAgregado, this.servicioExistente});
+  const ServicioForm({
+    super.key,
+    required this.onAgregado,
+    this.servicioExistente,
+  });
 
   @override
   State<ServicioForm> createState() => _ServicioFormState();
@@ -52,14 +56,21 @@ class _ServicioFormState extends State<ServicioForm> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                widget.servicioExistente != null ? 'Editar Servicio/Módulo' : 'Agregar Servicio/Módulo',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                widget.servicioExistente != null
+                    ? 'Editar Servicio/Módulo'
+                    : 'Agregar Servicio/Módulo',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _nombreController,
-                decoration: const InputDecoration(labelText: 'Nombre del Servicio'),
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del Servicio',
+                ),
                 validator: (v) => v!.isEmpty ? 'Requerido' : null,
               ),
               const SizedBox(height: 12),
@@ -72,9 +83,13 @@ class _ServicioFormState extends State<ServicioForm> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _precioController,
-                decoration: const InputDecoration(labelText: 'Precio', prefixText: '\$ '),
+                decoration: const InputDecoration(
+                  labelText: 'Precio',
+                  prefixText: '\$ ',
+                ),
                 keyboardType: TextInputType.number,
-                validator: (v) => double.tryParse(v!) == null ? 'Número inválido' : null,
+                validator: (v) =>
+                    double.tryParse(v!) == null ? 'Número inválido' : null,
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -89,7 +104,11 @@ class _ServicioFormState extends State<ServicioForm> {
                     Navigator.pop(context);
                   }
                 },
-                child: Text(widget.servicioExistente != null ? 'Guardar Cambios' : 'Agregar'),
+                child: Text(
+                  widget.servicioExistente != null
+                      ? 'Guardar Cambios'
+                      : 'Agregar',
+                ),
               ),
               const SizedBox(height: 20),
             ],

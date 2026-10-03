@@ -9,6 +9,9 @@ class CotizacionCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onEdit;
   final VoidCallback? onHide;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onArchive;
+  final VoidCallback? onNewVersion;
 
   const CotizacionCard({
     super.key,
@@ -17,11 +20,17 @@ class CotizacionCard extends StatelessWidget {
     required this.onDelete,
     required this.onEdit,
     this.onHide,
+    this.onDuplicate,
+    this.onArchive,
+    this.onNewVersion,
   });
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: '\$',
+      decimalDigits: 2,
+    );
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -42,15 +51,50 @@ class CotizacionCard extends StatelessWidget {
               children: [
                 const Icon(Icons.tag, size: 14, color: AppTheme.secondaryGreen),
                 const SizedBox(width: 4),
-                Text(cotizacion.numero, 
-                  style: const TextStyle(color: AppTheme.secondaryGreen, fontWeight: FontWeight.w600)),
+                Text(
+                  cotizacion.numero,
+                  style: const TextStyle(
+                    color: AppTheme.secondaryGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (cotizacion.quoteStatus != null &&
+                    cotizacion.quoteStatus!.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondaryGreen.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      cotizacion.quoteStatus!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.secondaryGreen,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
-            Text(cotizacion.tipoServicio, maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(
+              cotizacion.tipoServicio,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
             const SizedBox(height: 8),
             Text(
               'Total: ${currencyFormat.format(cotizacion.total)}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryDark),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: AppTheme.primaryDark,
+              ),
             ),
           ],
         ),
@@ -61,6 +105,12 @@ class CotizacionCard extends StatelessWidget {
               onTap();
             } else if (value == 'editar') {
               onEdit();
+            } else if (value == 'duplicar') {
+              onDuplicate?.call();
+            } else if (value == 'version') {
+              onNewVersion?.call();
+            } else if (value == 'archivar') {
+              onArchive?.call();
             } else if (value == 'ocultar') {
               onHide?.call();
             } else if (value == 'eliminar') {
@@ -88,6 +138,39 @@ class CotizacionCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (onDuplicate != null)
+              const PopupMenuItem(
+                value: 'duplicar',
+                child: Row(
+                  children: [
+                    Icon(Icons.copy_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Duplicar'),
+                  ],
+                ),
+              ),
+            if (onNewVersion != null)
+              const PopupMenuItem(
+                value: 'version',
+                child: Row(
+                  children: [
+                    Icon(Icons.history_edu_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Nueva versión'),
+                  ],
+                ),
+              ),
+            if (onArchive != null)
+              const PopupMenuItem(
+                value: 'archivar',
+                child: Row(
+                  children: [
+                    Icon(Icons.archive_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Archivar'),
+                  ],
+                ),
+              ),
             if (onHide != null)
               const PopupMenuItem(
                 value: 'ocultar',

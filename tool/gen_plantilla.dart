@@ -7,7 +7,8 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 
 const wNs = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-const rNs = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const rNs =
+    'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
 // XML compacto sin espacios entre elementos (evita XmlText que rompe docx_template_fork)
 String sdtText(String alias, String placeholder) {
@@ -18,17 +19,24 @@ String sdtList(String alias, String itemAlias, String itemPlaceholder) {
   return '<w:sdt xmlns:w="$wNs"><w:sdtPr><w:alias w:val="$alias"/><w:tag w:val="list"/><w:id w:val="${alias.hashCode & 0x7FFFFFFF}"/></w:sdtPr><w:sdtContent><w:p><w:sdt><w:sdtPr><w:alias w:val="$itemAlias"/><w:tag w:val="text"/><w:id w:val="${itemAlias.hashCode & 0x7FFFFFFF}"/></w:sdtPr><w:sdtContent><w:r><w:t xml:space="preserve">$itemPlaceholder</w:t></w:r></w:sdtContent></w:sdt></w:p></w:sdtContent></w:sdt>';
 }
 
-String sdtTableRow(String rowAlias, String cell1Alias, String cell2Alias, String cell3Alias) {
+String sdtTableRow(
+  String rowAlias,
+  String cell1Alias,
+  String cell2Alias,
+  String cell3Alias,
+) {
   return '<w:sdt xmlns:w="$wNs"><w:sdtPr><w:alias w:val="$rowAlias"/><w:tag w:val="table"/><w:id w:val="${rowAlias.hashCode & 0x7FFFFFFF}"/></w:sdtPr><w:sdtContent><w:tr><w:tc><w:p><w:sdt><w:sdtPr><w:alias w:val="$cell1Alias"/><w:tag w:val="text"/><w:id w:val="${cell1Alias.hashCode & 0x7FFFFFFF}"/></w:sdtPr><w:sdtContent><w:p><w:r><w:t>---</w:t></w:r></w:p></w:sdtContent></w:sdt></w:p></w:tc><w:tc><w:p><w:sdt><w:sdtPr><w:alias w:val="$cell2Alias"/><w:tag w:val="text"/><w:id w:val="${cell2Alias.hashCode & 0x7FFFFFFF}"/></w:sdtPr><w:sdtContent><w:p><w:r><w:t>---</w:t></w:r></w:p></w:sdtContent></w:sdt></w:p></w:tc><w:tc><w:p><w:sdt><w:sdtPr><w:alias w:val="$cell3Alias"/><w:tag w:val="text"/><w:id w:val="${cell3Alias.hashCode & 0x7FFFFFFF}"/></w:sdtPr><w:sdtContent><w:p><w:r><w:t>---</w:t></w:r></w:p></w:sdtContent></w:sdt></w:p></w:tc></w:tr></w:sdtContent></w:sdt>';
 }
 
 void main() {
   // XML compacto: sin espacios entre elementos para evitar nodos XmlText que rompen docx_template_fork
-  final documentBody = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="$wNs"><w:body><w:p><w:r><w:t>COTIZACIÓN DE SERVICIOS</w:t></w:r></w:p><w:p><w:r><w:t>Número: </w:t></w:r>${sdtText('numero', 'COT-2026-001')}</w:p><w:p><w:r><w:t>Fecha: </w:t></w:r>${sdtText('fecha', 'Marzo 2026')}</w:p><w:p><w:r><w:t>Cliente: </w:t></w:r>${sdtText('cliente', 'Nombre del cliente')}</w:p><w:p><w:r><w:t>Ubicación: </w:t></w:r>${sdtText('ubicacion', 'Ecuador')}</w:p><w:p><w:r><w:t>Tipo de servicio: </w:t></w:r>${sdtText('tipoServicio', 'Soporte técnico')}</w:p><w:p><w:r><w:t>Cantidad equipos: </w:t></w:r>${sdtText('cantidadEquipos', '26 computadoras')}</w:p><w:p><w:r><w:t>Tiempo estimado: </w:t></w:r>${sdtText('tiempoEstimado', '2 – 4 horas')}</w:p><w:p><w:r><w:t>Descripción: </w:t></w:r>${sdtText('descripcion', 'Descripción del servicio...')}</w:p><w:p><w:r><w:t>Total: </w:t></w:r>${sdtText('total', '\$180.00')}</w:p><w:p><w:r><w:t>DETALLE DE SERVICIOS</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Módulo / Servicio</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Descripción</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Precio (USD)</w:t></w:r></w:p></w:tc></w:tr>${sdtTableRow('servicios', 'nombreServicio', 'descripcionServicio', 'precioServicio')}</w:tbl><w:p><w:r><w:t>INCLUYE</w:t></w:r></w:p>${sdtList('listaIncluye', 'itemIncluye', 'Revisión técnica...')}<w:p><w:r><w:t>NO INCLUYE</w:t></w:r></w:p>${sdtList('listaNoIncluye', 'itemNoIncluye', 'Reparación de hardware...')}<w:p><w:r><w:t>NOTAS</w:t></w:r></w:p>${sdtList('listaNotas', 'itemNota', 'Cotización válida 30 días')}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>';
+  final documentBody =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="$wNs"><w:body><w:p><w:r><w:t>COTIZACIÓN DE SERVICIOS</w:t></w:r></w:p><w:p><w:r><w:t>Subtítulo: </w:t></w:r>${sdtText('subtitulo', 'Servicio profesional')}</w:p><w:p><w:r><w:t>Número: </w:t></w:r>${sdtText('numero', 'COT-2026-001')}</w:p><w:p><w:r><w:t>Fecha: </w:t></w:r>${sdtText('fecha', 'Marzo 2026')}</w:p><w:p><w:r><w:t>Estado: </w:t></w:r>${sdtText('estado', 'draft')}</w:p><w:p><w:r><w:t>Cliente: </w:t></w:r>${sdtText('cliente', 'Nombre del cliente')}</w:p><w:p><w:r><w:t>Ubicación: </w:t></w:r>${sdtText('ubicacion', 'Ecuador')}</w:p><w:p><w:r><w:t>Tipo de servicio: </w:t></w:r>${sdtText('tipoServicio', 'Soporte técnico')}</w:p><w:p><w:r><w:t>Cantidad equipos: </w:t></w:r>${sdtText('cantidadEquipos', '26 computadoras')}</w:p><w:p><w:r><w:t>Tiempo estimado: </w:t></w:r>${sdtText('tiempoEstimado', '2 – 4 horas')}</w:p><w:p><w:r><w:t>Descripción: </w:t></w:r>${sdtText('descripcion', 'Descripción del servicio...')}</w:p><w:p><w:r><w:t>Validez (días): </w:t></w:r>${sdtText('validezDias', '30')}</w:p><w:p><w:r><w:t>Total: </w:t></w:r>${sdtText('total', '\$180.00')}</w:p><w:p><w:r><w:t>DETALLE DE SERVICIOS</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>Módulo / Servicio</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Descripción / qty · dto · imp</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Neto (USD)</w:t></w:r></w:p></w:tc></w:tr>${sdtTableRow('servicios', 'nombreServicio', 'descripcionServicio', 'precioServicio')}</w:tbl><w:p><w:r><w:t>INCLUYE</w:t></w:r></w:p>${sdtList('listaIncluye', 'itemIncluye', 'Revisión técnica...')}<w:p><w:r><w:t>NO INCLUYE</w:t></w:r></w:p>${sdtList('listaNoIncluye', 'itemNoIncluye', 'Reparación de hardware...')}<w:p><w:r><w:t>NOTAS</w:t></w:r></w:p>${sdtList('listaNotas', 'itemNota', 'Cotización válida 30 días')}<w:p><w:r><w:t></w:t></w:r>${sdtText('firmaTecnico', 'Firma del Técnico')}</w:p><w:p><w:r><w:t></w:t></w:r>${sdtText('firmaCliente', 'Firma del Cliente')}</w:p><w:p><w:r><w:t></w:t></w:r>${sdtText('footerText', 'Documento confidencial')}</w:p><w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>';
 
   final docFixed = documentBody;
 
-  final contentTypes = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  final contentTypes =
+      '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
@@ -61,7 +69,8 @@ void main() {
   <Application>CotiApp</Application>
 </Properties>''';
 
-  final styles = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  final styles =
+      '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="$wNs">
   <w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults>
 </w:styles>''';
@@ -84,7 +93,7 @@ void main() {
   File(outPath).parent.createSync(recursive: true);
   final encoded = ZipEncoder().encode(archive);
   // if (encoded != null) { // La comparación con null es innecesaria, ya que encoded nunca será null
-    File(outPath).writeAsBytesSync(encoded);
+  File(outPath).writeAsBytesSync(encoded);
   // }
   print('Generado: $outPath');
 }

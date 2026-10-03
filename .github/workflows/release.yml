@@ -1,0 +1,111 @@
+name: Release
+
+# Despliegue reproducible desde tag versionado: git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  FLUTTER_VERSION: "3.44.2"
+
+jobs:
+  verify_version:
+    name: Verificar versión del tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          PUBSPEC=$(grep -E '^version:' pubspec.yaml | head -1 | awk '{print $2}' | cut -d'+' -f1)
+          echo "Tag=$TAG pubspec=$PUBSPEC"
+          if [ "$VERSION" != "$PUBSPEC" ]; then
+            echo "::error::El tag ($VERSION) no coincide con pubspec.yaml ($PUBSPEC). Actualiza version: X.Y.Z+N"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build_artifacts:
+    name: Artefactos release
+    runs-on: ubuntu-latest
+    needs: verify_version
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --release --no-wasm-dry-run
+      - run: flutter build apk --release
+      - name: Build App Bundle (firma debug si no hay keystore en CI)
+        run: flutter build appbundle --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cotiapp-${{ needs.verify_version.outputs.version }}-web
+          path: build/web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cotiapp-${{ needs.verify_version.outputs.version }}-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cotiapp-${{ needs.verify_version.outputs.version }}-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+
+  github_release:
+    name: Crear GitHub Release
+    runs-on: ubuntu-latest
+    needs: [verify_version, build_artifacts]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: CotiApp ${{ needs.verify_version.outputs.version }}
+          body: |
+            ## CotiApp ${{ needs.verify_version.outputs.version }}
+
+            Artefactos generados desde el tag `${{ github.ref_name }}`.
+
+            ### Despliegue (manual / con autorización)
+            ```bash
+            # Web
+            firebase deploy --only hosting --project cotiapp-saas-jb
+
+            # Backend
+            firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project cotiapp-saas-jb
+            ```
+
+            Ver checklist: `docs/PRODUCTION_CHECKLIST.md`
+            Rollback: `docs/BACKUP_ROLLBACK.md`
+          files: |
+            artifacts/**/*.apk
+            artifacts/**/*.aab
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

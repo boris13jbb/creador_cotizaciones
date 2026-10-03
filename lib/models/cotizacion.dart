@@ -22,21 +22,30 @@ class Cotizacion {
 
   /// Subtítulo bajo el título principal (ej. "Desarrollo Web • Plataforma de Venta de Servicios Fotográficos").
   final String? subtitulo;
+
   /// Validez en días (ej. 30 para "Válida: 30 días").
   final int? validezDias;
+
   /// Texto del pie (ej. "Documento confidencial — Elaborado para uso exclusivo del cliente | Freelancer Independiente | Ecuador").
   final String? footerText;
+
   /// Etiqueta de la firma del técnico/desarrollador.
   final String? firmaTecnicoLabel;
+
   /// Etiqueta de la firma del cliente.
   final String? firmaClienteLabel;
+
   /// Forma de pago: JSON array de { etiqueta, descripcion, monto }. Si null, se calcula 50/25/25 por defecto.
   final String? formaPagoJson;
+
   /// Campos extra para "Información del proyecto": "Label|Value|Label|Value". Permite añadir más filas.
   final String? camposExtra;
 
   /// Colores personalizados para la cotización en formato JSON: {"primary":"#hex","secondary":"#hex",...}
   final String? coloresJson;
+
+  /// Estado comercial del dominio Quote (solo UI/historial; no legacy SQLite).
+  final String? quoteStatus;
 
   Cotizacion({
     required this.id,
@@ -62,6 +71,7 @@ class Cotizacion {
     this.formaPagoJson,
     this.camposExtra,
     this.coloresJson,
+    this.quoteStatus,
   });
 
   /// Forma de pago parseada (lista vacía si no hay o hay error).
@@ -70,7 +80,9 @@ class Cotizacion {
     try {
       final list = jsonDecode(formaPagoJson!) as List<dynamic>?;
       if (list == null) return [];
-      return list.map((e) => FormaPagoItem.fromJson(e as Map<String, dynamic>)).toList();
+      return list
+          .map((e) => FormaPagoItem.fromJson(e as Map<String, dynamic>))
+          .toList();
     } catch (_) {
       return [];
     }
@@ -118,7 +130,10 @@ class Cotizacion {
     };
   }
 
-  factory Cotizacion.fromMap(Map<String, dynamic> map, List<Servicio> serviciosList) {
+  factory Cotizacion.fromMap(
+    Map<String, dynamic> map,
+    List<Servicio> serviciosList,
+  ) {
     return Cotizacion(
       id: map['id'] as String? ?? '',
       numero: map['numero'] as String? ?? '',
@@ -132,9 +147,24 @@ class Cotizacion {
       total: _toDouble(map['total']),
       logoPath: map['logoPath'] as String?,
       servicios: serviciosList,
-      incluye: (map['incluye'] as String?)?.split('|').where((s) => s.isNotEmpty).toList() ?? [],
-      noIncluye: (map['noIncluye'] as String?)?.split('|').where((s) => s.isNotEmpty).toList() ?? [],
-      notas: (map['notas'] as String?)?.split('|').where((s) => s.isNotEmpty).toList() ?? [],
+      incluye:
+          (map['incluye'] as String?)
+              ?.split('|')
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [],
+      noIncluye:
+          (map['noIncluye'] as String?)
+              ?.split('|')
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [],
+      notas:
+          (map['notas'] as String?)
+              ?.split('|')
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [],
       subtitulo: map['subtitulo'] as String?,
       validezDias: map['validezDias'] as int?,
       footerText: map['footerText'] as String?,
@@ -143,6 +173,7 @@ class Cotizacion {
       formaPagoJson: map['formaPagoJson'] as String?,
       camposExtra: map['camposExtra'] as String?,
       coloresJson: map['coloresJson'] as String?,
+      quoteStatus: map['quoteStatus'] as String? ?? map['status'] as String?,
     );
   }
 

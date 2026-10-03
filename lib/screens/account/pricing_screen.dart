@@ -1,92 +1,153 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 import '../../saas/config/saas_config.dart';
 import '../../saas/providers/auth_controller.dart';
+import '../../saas/services/billing_service.dart';
+import '../../ui/layout/responsive.dart';
 
 class PricingScreen extends StatelessWidget {
-  const PricingScreen({super.key});
+  const PricingScreen({super.key, this.embeddedInShell = false});
 
-  Future<void> _openStripe(BuildContext context) async {
-    final link = SaasConfig.stripePaymentLink;
-    if (link.isEmpty) {
+  final bool embeddedInShell;
+
+  Future<void> _upgrade(BuildContext context, {String plan = 'pro'}) async {
+    try {
+      await BillingService.instance.startCheckout(plan: plan);
+    } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Configura STRIPE_PAYMENT_LINK para habilitar el cobro. '
-            'Mientras tanto contacta soporte para activar Pro.',
-          ),
-        ),
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
       );
-      return;
-    }
-    final uri = Uri.parse(link);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo abrir el enlace de pago')),
-        );
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = context.watch<AuthController>().profile;
-    final isPro = profile?.isPro ?? false;
+    final auth = context.watch<AuthController>();
+    final access = auth.access;
+    final isPro = access.isPro;
+    final useRail = Responsive.useNavigationRail(context);
+    final showAppBar = !embeddedInShell || useRail;
     final freeFeatures = <String>[
       'Hasta ${SaasConfig.freeMaxCotizaciones} cotizaciones',
       'Exportación PDF',
       'Datos en la nube',
-      '14 días de prueba de funciones Pro',
+    ];
+    final trialLabel = access.isTrialing && access.trialEndsAt != null
+        ? 'Prueba Pro hasta ${_fmt(access.trialEndsAt!)}'
+        : null;
+
+    final width = Responsive.widthOf(context);
+    final useRow = width >= AppBreakpoints.expanded;
+
+    final cards = [
+      _PlanCard(
+        title: 'Free',
+        price: r'$0',
+        features: freeFeatures,
+        highlighted: !isPro,
+        actionLabel: isPro ? 'Plan inferior' : 'Plan actual',
+        onPressed: null,
+      ),
+      _PlanCard(
+        title: 'Pro',
+        price: 'Consultar',
+        features: [
+          'Cotizaciones ilimitadas',
+          'PDF + DOCX',
+          'Branding personalizado',
+          'Reportes + CSV',
+          'Equipo hasta ${SaasConfig.proMaxSeats} asientos',
+          '${SaasConfig.trialDays} días de prueba Pro al registrarte',
+          'Soporte prioritario',
+        ],
+        highlighted: isPro && access.effectivePlan.label == 'Pro',
+        actionLabel: isPro ? 'Plan actual / activo' : 'Mejorar a Pro',
+        onPressed: isPro ? null : () => _upgrade(context, plan: 'pro'),
+      ),
+      _PlanCard(
+        title: 'Business',
+        price: 'Consultar',
+        features: [
+          'Todo lo de Pro',
+          'Hasta ${SaasConfig.businessMaxSeats} asientos',
+          'Roles owner/admin/sales/readonly',
+          'Reportes + CSV + auditoría',
+        ],
+        highlighted: access.effectivePlan.label == 'Business',
+        actionLabel: access.effectivePlan.label == 'Business'
+            ? 'Plan actual'
+            : 'Mejorar a Business',
+        onPressed: access.effectivePlan.label == 'Business'
+            ? null
+            : () => _upgrade(context, plan: 'business'),
+      ),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Planes')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text(
-            'Elige el plan ideal para tu negocio',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Plan actual: ${profile?.plan.label ?? 'Free'}',
-            style: TextStyle(color: Colors.grey[700]),
-          ),
-          const SizedBox(height: 20),
-          _PlanCard(
-            title: 'Free',
-            price: r'$0',
-            features: freeFeatures,
-            highlighted: !isPro,
-            actionLabel: isPro ? 'Plan inferior' : 'Plan actual',
-            onPressed: null,
-          ),
-          const SizedBox(height: 16),
-          _PlanCard(
-            title: 'Pro',
-            price: r'$9.99/mes',
-            features: const [
-              'Cotizaciones ilimitadas',
-              'PDF + DOCX',
-              'Branding personalizado',
-              'Soporte prioritario',
+      appBar: showAppBar ? AppBar(title: const Text('Planes')) : null,
+      body: SafeArea(
+        child: ContentConstraint(
+          padding: AppSpacing.page,
+          child: ListView(
+            children: [
+              Text(
+                'Elige el plan ideal para tu negocio',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Plan efectivo: ${access.effectivePlan.label}'
+                '${access.isTrialing ? ' (prueba)' : ''}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (trialLabel != null) ...[
+                const SizedBox(height: AppSpacing.xxs),
+                Text(trialLabel, style: Theme.of(context).textTheme.bodySmall),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              if (useRow)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var i = 0; i < cards.length; i++) ...[
+                      if (i > 0) const SizedBox(width: AppSpacing.md),
+                      Expanded(child: cards[i]),
+                    ],
+                  ],
+                )
+              else ...[
+                for (var i = 0; i < cards.length; i++) ...[
+                  if (i > 0) const SizedBox(height: AppSpacing.md),
+                  cards[i],
+                ],
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Soporte: ${SaasConfig.supportEmail}',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              SizedBox(height: MediaQuery.paddingOf(context).bottom + 24),
             ],
-            highlighted: isPro,
-            actionLabel: isPro ? 'Plan actual' : 'Mejorar a Pro',
-            onPressed: isPro ? null : () => _openStripe(context),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Soporte: ${SaasConfig.supportEmail}',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-          ),
-        ],
+        ),
       ),
     );
+  }
+
+  String _fmt(DateTime d) {
+    final local = d.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/'
+        '${local.month.toString().padLeft(2, '0')}/'
+        '${local.year}';
   }
 }
 
@@ -109,43 +170,66 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = highlighted ? Theme.of(context).colorScheme.secondary : Colors.grey;
-    return Card(
-      elevation: highlighted ? 3 : 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: color.withAlpha(120), width: 2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 4),
-            Text(price, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            ...features.map(
-              (f) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle, size: 18, color: color),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(f)),
-                  ],
+    final theme = Theme.of(context);
+    final color = highlighted
+        ? theme.colorScheme.secondary
+        : theme.colorScheme.outline;
+
+    return Semantics(
+      container: true,
+      label: 'Plan $title',
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          side: BorderSide(
+            color: color.withValues(alpha: highlighted ? 0.9 : 0.4),
+            width: highlighted ? 2 : 1,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: color,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onPressed,
-                child: Text(actionLabel),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                price,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.md),
+              ...features.map(
+                (f) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.check_circle, size: 18, color: color),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(child: Text(f)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: onPressed,
+                  child: Text(actionLabel),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
