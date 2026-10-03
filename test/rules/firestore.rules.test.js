@@ -10,7 +10,7 @@ import {
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "../..");
@@ -155,6 +155,37 @@ describe("entitlements/{uid}", () => {
       })
     );
   });
+
+  test("C02: owner NO puede crear trialEndsAt en 2030", async () => {
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(
+      setDoc(doc(alice.firestore(), "entitlements/alice"), {
+        uid: "alice",
+        plan: "free",
+        subscriptionStatus: "trialing",
+        trialEndsAt: "2030-01-01T00:00:00.000Z",
+        source: "signup",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    );
+  });
+
+  test("C02: owner NO puede borrar entitlements", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "entitlements/alice"), {
+        uid: "alice",
+        plan: "free",
+        subscriptionStatus: "trialing",
+        trialEndsAt: new Date(Date.now() + 7 * 864e5).toISOString(),
+        source: "signup",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    });
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(deleteDoc(doc(alice.firestore(), "entitlements/alice")));
+  });
 });
 
 describe("organizations/{orgId} aislamiento", () => {
@@ -248,6 +279,77 @@ describe("organizations/{orgId} aislamiento", () => {
     await assertFails(
       updateDoc(doc(alice.firestore(), "organizations/org3/activities/a1"), {
         message: "hack",
+      })
+    );
+  });
+
+  test("C04: admin NO puede crear miembro ajeno (solo acceptOrgInvite)", async () => {
+    await seedOrgWithMember("org4", "alice", "owner");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "organizations/org4/members/alice"), {
+        organizationId: "org4",
+        uid: "alice",
+        role: "admin",
+        status: "active",
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    });
+    // Re-seed alice as admin for write attempt
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "organizations/org4/members/alice"), {
+        organizationId: "org4",
+        uid: "alice",
+        role: "admin",
+        status: "active",
+        email: "alice@test.com",
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    });
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(
+      setDoc(doc(alice.firestore(), "organizations/org4/members/bob"), {
+        organizationId: "org4",
+        uid: "bob",
+        role: "sales",
+        status: "active",
+        createdAt: now(),
+        updatedAt: now(),
+      })
+    );
+  });
+
+  test("C04: invitee NO puede marcar invitación como accepted", async () => {
+    await seedOrgWithMember("org5", "alice");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "organizations/org5/invites/inv1"), {
+        organizationId: "org5",
+        email: "bob@test.com",
+        role: "sales",
+        invitedByUid: "alice",
+        token: "tokensecretvalue12",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 864e5).toISOString(),
+        createdAt: now(),
+      });
+    });
+    const bob = testEnv.authenticatedContext("bob", {
+      email: "bob@test.com",
+    });
+    await assertFails(
+      updateDoc(doc(bob.firestore(), "organizations/org5/invites/inv1"), {
+        status: "accepted",
+      })
+    );
+  });
+
+  test("C04: owner NO puede cambiar ownerUid de la org", async () => {
+    await seedOrgWithMember("org6", "alice");
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(
+      updateDoc(doc(alice.firestore(), "organizations/org6"), {
+        ownerUid: "bob",
       })
     );
   });

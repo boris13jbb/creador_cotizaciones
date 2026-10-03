@@ -4,6 +4,7 @@ import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 import Stripe from "stripe";
+import {clampTrialEndsAt} from "./entitlements_policy";
 
 admin.initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
@@ -47,13 +48,17 @@ async function ensureEntitlements(uid: string): Promise<EntitlementsDoc> {
 
   const userSnap = await db.collection("users").doc(uid).get();
   const legacy = userSnap.data() ?? {};
+  const createdAt = (legacy.createdAt as string) || nowIso();
   const created: EntitlementsDoc = {
     uid,
     plan: (legacy.plan as EntitlementsDoc["plan"]) || "free",
     subscriptionStatus: (legacy.subscriptionStatus as string) || "trialing",
-    trialEndsAt: (legacy.trialEndsAt as string) || trialEndsIso(),
+    trialEndsAt: clampTrialEndsAt(
+      (legacy.trialEndsAt as string) || trialEndsIso(),
+      createdAt,
+    ),
     source: legacy.plan ? "legacy_migration" : "signup",
-    createdAt: (legacy.createdAt as string) || nowIso(),
+    createdAt,
     updatedAt: nowIso(),
   };
 
@@ -62,8 +67,11 @@ async function ensureEntitlements(uid: string): Promise<EntitlementsDoc> {
   } else if (!legacy.plan) {
     created.plan = "free";
     created.subscriptionStatus = "trialing";
-    created.trialEndsAt = trialEndsIso();
+    created.trialEndsAt = clampTrialEndsAt(trialEndsIso(), createdAt);
     created.source = "signup";
+  } else {
+    // Legacy: nunca persistir un trialEndsAt fuera de política.
+    created.trialEndsAt = clampTrialEndsAt(created.trialEndsAt, createdAt);
   }
 
   await ref.set(created);

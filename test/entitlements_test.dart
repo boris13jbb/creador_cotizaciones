@@ -124,6 +124,39 @@ void main() {
       expect(access.isPro, isFalse);
       expect(access.reason, 'admin_grant_expirado');
     });
+
+    test('C02: trialEndsAt arbitrariamente futuro se acota y expira', () {
+      final created = now.subtract(const Duration(days: 2));
+      final ent = Entitlements(
+        uid: 'u1',
+        plan: SubscriptionPlan.free,
+        subscriptionStatus: 'trialing',
+        trialEndsAt: DateTime.utc(2035, 1, 1),
+        createdAt: created,
+        updatedAt: created,
+      );
+      // Dentro de la ventana acotada (created+15d) sigue Pro.
+      expect(calc.evaluate(ent, now: now).isPro, isTrue);
+      // Fuera de createdAt + trialDays + skew → Free.
+      final afterClamp = created.add(
+        Duration(days: SaasConfig.trialDays + 2),
+      );
+      final access = calc.evaluate(ent, now: afterClamp);
+      expect(access.isPro, isFalse);
+      expect(access.maxSeats, SubscriptionPlan.free.maxSeats);
+    });
+
+    test('C02: trial nulo no otorga Pro', () {
+      final ent = Entitlements(
+        uid: 'u1',
+        plan: SubscriptionPlan.free,
+        subscriptionStatus: 'trialing',
+        trialEndsAt: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+      expect(calc.evaluate(ent, now: now).isPro, isFalse);
+    });
   });
 
   group('SubscriptionPlan', () {

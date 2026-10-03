@@ -64,10 +64,13 @@ class EntitlementsService {
       }
     }
 
+    // Defensa en profundidad: nunca honrar un trialEndsAt más allá de
+    // createdAt + trialDays (+1 día de holgura), aunque el doc esté manipulado.
+    final effectiveTrialEnd = _clampedTrialEndsAt(entitlements, n);
     final trialActive =
         status == 'trialing' &&
-        entitlements.trialEndsAt != null &&
-        entitlements.trialEndsAt!.isAfter(n);
+        effectiveTrialEnd != null &&
+        effectiveTrialEnd.isAfter(n);
 
     if (trialActive) {
       return _fromPlan(
@@ -75,7 +78,7 @@ class EntitlementsService {
         isPro: true,
         isTrialing: true,
         isCanceled: false,
-        trialEndsAt: entitlements.trialEndsAt,
+        trialEndsAt: effectiveTrialEnd,
         subscriptionStatus: status,
         reason: 'trial_activo',
       );
@@ -127,5 +130,19 @@ class EntitlementsService {
     }
 
     return EffectiveAccess.free(reason: 'plan_free');
+  }
+
+  /// Acota [Entitlements.trialEndsAt] a `createdAt + trialDays` (+1d skew).
+  DateTime? _clampedTrialEndsAt(Entitlements entitlements, DateTime now) {
+    final raw = entitlements.trialEndsAt;
+    if (raw == null) return null;
+    final maxEnd = entitlements.createdAt.toUtc().add(
+      Duration(days: SaasConfig.trialDays + 1),
+    );
+    final end = raw.toUtc();
+    if (end.isAfter(maxEnd)) return maxEnd;
+    // Rechazar fechas absurdamente en el pasado relativas a createdAt no es
+    // necesario para seguridad; el trial simplemente resulta inactivo.
+    return end;
   }
 }

@@ -27,12 +27,23 @@ service cloud.firestore {
         && request.resource.data.updatedAt is string;
     }
 
+    // Trial bootstrap: máximo ~15 días desde request.time (14 + 1 skew).
+    // Comparación lexicográfica válida para ISO-8601 UTC.
+    function trialEndsAtWithinPolicy() {
+      return request.resource.data.trialEndsAt is string
+        && request.resource.data.trialEndsAt.size() >= 20
+        && request.resource.data.trialEndsAt
+            <= string(request.time + duration.value(15, 'd'))
+        && request.resource.data.trialEndsAt
+            >= string(request.time - duration.value(1, 'h'));
+    }
+
     function validInitialEntitlement() {
       return request.resource.data.uid == request.auth.uid
         && request.resource.data.plan == 'free'
         && request.resource.data.subscriptionStatus == 'trialing'
         && request.resource.data.source == 'signup'
-        && request.resource.data.trialEndsAt is string
+        && trialEndsAtWithinPolicy()
         && request.resource.data.createdAt is string
         && request.resource.data.updatedAt is string
         && !('stripeCustomerId' in request.resource.data)
@@ -94,8 +105,9 @@ service cloud.firestore {
       allow create: if isOwner(userId)
         && !exists(/databases/$(database)/documents/entitlements/$(userId))
         && validInitialEntitlement();
+      // Plan/trial/Stripe: solo Admin SDK / Cloud Functions.
       allow update: if false;
-      allow delete: if isOwner(userId);
+      allow delete: if false;
     }
 
     match /plans/{planId} {
@@ -108,17 +120,26 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.id == orgId;
-      allow update: if canManageOrg(orgId);
+      // No permitir cambiar ownerUid ni id desde el cliente.
+      allow update: if canManageOrg(orgId)
+        && !(request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['ownerUid', 'id']));
       allow delete: if isActiveMember(orgId) && memberRole(orgId) == 'owner';
 
       match /members/{memberUid} {
         allow read: if isActiveMember(orgId);
-        allow create: if (isSignedIn()
+        // Alta de miembros invitados: solo Admin SDK (acceptOrgInvite).
+        // El cliente solo puede crear su propia membresía owner al bootstrap.
+        allow create: if isSignedIn()
             && memberUid == request.auth.uid
             && request.resource.data.role == 'owner'
-            && request.resource.data.uid == request.auth.uid)
-          || canManageOrg(orgId);
-        allow update: if canManageOrg(orgId);
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.organizationId == orgId
+            && request.resource.data.status == 'active';
+        allow update: if canManageOrg(orgId)
+          && request.resource.data.uid == memberUid
+          && request.resource.data.organizationId == orgId
+          && request.resource.data.role != 'owner';
         allow delete: if canManageOrg(orgId) || (isSignedIn() && memberUid == request.auth.uid);
       }
 
@@ -179,12 +200,17 @@ service cloud.firestore {
           && request.resource.data.invitedByUid == request.auth.uid
           && request.resource.data.email is string
           && request.resource.data.token is string
-          && request.resource.data.status == 'pending';
+          && request.resource.data.token.size() >= 16
+          && request.resource.data.status == 'pending'
+          && request.resource.data.role in ['admin', 'sales', 'readonly']
+          && request.resource.data.expiresAt is string;
+        // Invitee solo puede declinar; "accepted" lo escribe Admin SDK.
         allow update: if canManageOrg(orgId)
           || (isSignedIn()
             && resource.data.email == request.auth.token.email
             && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['status']));
+                .hasOnly(['status'])
+            && request.resource.data.status == 'declined');
         allow delete: if canManageOrg(orgId);
       }
     }

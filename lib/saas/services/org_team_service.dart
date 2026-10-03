@@ -89,14 +89,15 @@ class OrgTeamService {
       throw Exception('No se puede invitar como owner');
     }
 
+    // UX temprana: el cupo autoritativo se revalida en acceptOrgInvite (Function).
     final members = await listOrgMembers(orgId: orgId, session: session);
     final active = members
         .where((m) => m.status == MembershipStatus.active)
         .length;
     final pending = await listInvites(orgId: orgId, session: session);
-    if (active + pending.length >= maxSeats) {
+    if (maxSeats < 1 || active + pending.length >= maxSeats) {
       throw Exception(
-        'Límite de asientos ($maxSeats). Mejora a Business o libera un miembro.',
+        'Límite de asientos ($maxSeats). Mejora el plan o libera un miembro.',
       );
     }
 
