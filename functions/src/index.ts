@@ -1,12 +1,11 @@
-import * as admin from "firebase-admin";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onRequest, onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import {clampTrialEndsAt} from "./entitlements_policy";
+import {getAuth, getDb} from "./firebase_admin";
 
-admin.initializeApp();
 setGlobalOptions({ region: "us-central1", maxInstances: 10 });
 
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
@@ -14,7 +13,11 @@ const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const stripePricePro = defineSecret("STRIPE_PRICE_PRO");
 const stripePriceBusiness = defineSecret("STRIPE_PRICE_BUSINESS");
 
-const db = admin.firestore();
+/** SDK Stripe solo cuando un handler de billing lo necesita (discovery). */
+async function createStripeClient(secret: string): Promise<Stripe> {
+  const {default: StripeCtor} = await import("stripe");
+  return new StripeCtor(secret);
+}
 
 type EntitlementsDoc = {
   uid: string;
@@ -40,13 +43,13 @@ function trialEndsIso(days = 14): string {
 }
 
 async function ensureEntitlements(uid: string): Promise<EntitlementsDoc> {
-  const ref = db.collection("entitlements").doc(uid);
+  const ref = getDb().collection("entitlements").doc(uid);
   const snap = await ref.get();
   if (snap.exists) {
     return snap.data() as EntitlementsDoc;
   }
 
-  const userSnap = await db.collection("users").doc(uid).get();
+  const userSnap = await getDb().collection("users").doc(uid).get();
   const legacy = userSnap.data() ?? {};
   const createdAt = (legacy.createdAt as string) || nowIso();
   const created: EntitlementsDoc = {
@@ -84,7 +87,7 @@ async function requireAuth(authorizationHeader: unknown): Promise<string> {
     throw new HttpsError("unauthenticated", "Token requerido.");
   }
   const token = header.slice("Bearer ".length);
-  const decoded = await admin.auth().verifyIdToken(token);
+  const decoded = await getAuth().verifyIdToken(token);
   return decoded.uid;
 }
 
@@ -134,17 +137,17 @@ export const createCheckoutSession = onRequest(
         return;
       }
 
-      const stripe = new Stripe(secret);
+      const stripe = await createStripeClient(secret);
       const entitlements = await ensureEntitlements(uid);
       let customerId = entitlements.stripeCustomerId;
       if (!customerId) {
-        const user = await admin.auth().getUser(uid);
+        const user = await getAuth().getUser(uid);
         const customer = await stripe.customers.create({
           email: user.email,
           metadata: { firebaseUid: uid },
         });
         customerId = customer.id;
-        await db.collection("entitlements").doc(uid).set(
+        await getDb().collection("entitlements").doc(uid).set(
           {
             stripeCustomerId: customerId,
             updatedAt: nowIso(),
@@ -195,7 +198,7 @@ export const createCustomerPortal = onRequest(
         res.status(400).json({ error: "No hay cliente Stripe asociado." });
         return;
       }
-      const stripe = new Stripe(secret);
+      const stripe = await createStripeClient(secret);
       const portal = await stripe.billingPortal.sessions.create({
         customer: entitlements.stripeCustomerId,
         return_url: "https://cotiapp-saas-jb.web.app/account",
@@ -218,7 +221,7 @@ export const stripeWebhook = onRequest(
       return;
     }
 
-    const stripe = new Stripe(secret);
+    const stripe = await createStripeClient(secret);
     const sig = req.headers["stripe-signature"];
     if (!sig || Array.isArray(sig)) {
       res.status(400).send("Firma ausente");
@@ -243,7 +246,7 @@ export const stripeWebhook = onRequest(
           const planMeta = session.metadata?.plan === "business" ? "business" : "pro";
           if (uid) {
             // Checkout pagado reemplaza un grant admin (el cliente pagó).
-            await db.collection("entitlements").doc(uid).set(
+            await getDb().collection("entitlements").doc(uid).set(
               {
                 plan: planMeta,
                 subscriptionStatus: "active",
@@ -266,7 +269,7 @@ export const stripeWebhook = onRequest(
           const sub = event.data.object as Stripe.Subscription;
           const uid = sub.metadata?.firebaseUid;
           if (uid) {
-            const existingSnap = await db.collection("entitlements").doc(uid).get();
+            const existingSnap = await getDb().collection("entitlements").doc(uid).get();
             const existing = existingSnap.data() ?? {};
             // No pisar acceso gratis otorgado por super admin si Stripe deja de estar activo.
             if (
@@ -274,7 +277,7 @@ export const stripeWebhook = onRequest(
               existing.subscriptionStatus === "active" &&
               sub.status !== "active"
             ) {
-              await db.collection("entitlements").doc(uid).set(
+              await getDb().collection("entitlements").doc(uid).set(
                 {
                   stripeSubscriptionId: sub.id,
                   updatedAt: nowIso(),
@@ -299,7 +302,7 @@ export const stripeWebhook = onRequest(
                     : status;
             const planMeta =
               sub.metadata?.plan === "business" ? "business" : "pro";
-            await db.collection("entitlements").doc(uid).set(
+            await getDb().collection("entitlements").doc(uid).set(
               {
                 plan: mapped === "active" ? planMeta : "free",
                 subscriptionStatus: mapped,
@@ -329,16 +332,16 @@ export const deleteAccount = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
   }
   const uid = request.auth.uid;
-  const userRef = db.collection("users").doc(uid);
+  const userRef = getDb().collection("users").doc(uid);
   const cots = await userRef.collection("cotizaciones").listDocuments();
-  const batch = db.batch();
+  const batch = getDb().batch();
   for (const doc of cots) {
     batch.delete(doc);
   }
   batch.delete(userRef);
-  batch.delete(db.collection("entitlements").doc(uid));
+  batch.delete(getDb().collection("entitlements").doc(uid));
   await batch.commit();
-  await admin.auth().deleteUser(uid);
+  await getAuth().deleteUser(uid);
   return { ok: true };
 });
 

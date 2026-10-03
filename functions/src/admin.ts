@@ -1,8 +1,8 @@
-import * as admin from "firebase-admin";
+import type {auth} from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
+import {getAuth, getDb} from "./firebase_admin";
 
-const db = admin.firestore();
 const bootstrapSecret = defineSecret("PLATFORM_ADMIN_BOOTSTRAP_SECRET");
 
 type PlanId = "pro" | "business";
@@ -25,7 +25,7 @@ function assertPlatformAdmin(auth: {uid: string; token: Record<string, unknown>}
 }
 
 async function writeAudit(entry: Record<string, unknown>): Promise<void> {
-  await db.collection("adminAuditLogs").add({
+  await getDb().collection("adminAuditLogs").add({
     ...entry,
     createdAt: nowIso(),
   });
@@ -47,7 +47,7 @@ export const bootstrapPlatformAdmin = onCall(
       throw new HttpsError("permission-denied", "Secreto de bootstrap inválido.");
     }
 
-    const existing = await db.collection("platformAdmins").limit(1).get();
+    const existing = await getDb().collection("platformAdmins").limit(1).get();
     if (!existing.empty) {
       throw new HttpsError(
         "failed-precondition",
@@ -57,8 +57,8 @@ export const bootstrapPlatformAdmin = onCall(
 
     const uid = request.auth.uid;
     const email = request.auth.token.email ?? null;
-    await admin.auth().setCustomUserClaims(uid, {platformAdmin: true});
-    await db.collection("platformAdmins").doc(uid).set({
+    await getAuth().setCustomUserClaims(uid, {platformAdmin: true});
+    await getDb().collection("platformAdmins").doc(uid).set({
       uid,
       email,
       createdAt: nowIso(),
@@ -83,17 +83,17 @@ export const adminSetPlatformAdmin = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "uid requerido.");
   }
 
-  const user = await admin.auth().getUser(targetUid);
+  const user = await getAuth().getUser(targetUid);
   const claims = {...(user.customClaims ?? {})};
   if (enabled) {
     claims.platformAdmin = true;
   } else {
     delete claims.platformAdmin;
   }
-  await admin.auth().setCustomUserClaims(targetUid, claims);
+  await getAuth().setCustomUserClaims(targetUid, claims);
 
   if (enabled) {
-    await db.collection("platformAdmins").doc(targetUid).set({
+    await getDb().collection("platformAdmins").doc(targetUid).set({
       uid: targetUid,
       email: user.email ?? null,
       createdAt: nowIso(),
@@ -101,7 +101,7 @@ export const adminSetPlatformAdmin = onCall(async (request) => {
       createdBy: actorUid,
     }, {merge: true});
   } else {
-    await db.collection("platformAdmins").doc(targetUid).delete();
+    await getDb().collection("platformAdmins").doc(targetUid).delete();
   }
 
   await writeAudit({
@@ -121,19 +121,19 @@ export const adminLookupUser = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "email o uid requerido.");
   }
 
-  let user: admin.auth.UserRecord;
+  let user: auth.UserRecord;
   try {
     user = uidArg
-      ? await admin.auth().getUser(uidArg)
-      : await admin.auth().getUserByEmail(email);
+      ? await getAuth().getUser(uidArg)
+      : await getAuth().getUserByEmail(email);
   } catch {
     throw new HttpsError("not-found", "Usuario no encontrado.");
   }
 
   const [profileSnap, entSnap, membershipsSnap] = await Promise.all([
-    db.collection("users").doc(user.uid).get(),
-    db.collection("entitlements").doc(user.uid).get(),
-    db.collection("users").doc(user.uid).collection("memberships").limit(20).get(),
+    getDb().collection("users").doc(user.uid).get(),
+    getDb().collection("entitlements").doc(user.uid).get(),
+    getDb().collection("users").doc(user.uid).collection("memberships").limit(20).get(),
   ]);
 
   return {
@@ -180,10 +180,10 @@ export const adminGrantEntitlement = onCall(async (request) => {
     expiresAt = d.toISOString();
   }
 
-  await admin.auth().getUser(uid);
+  await getAuth().getUser(uid);
   const now = nowIso();
-  const grantRef = db.collection("platformGrants").doc();
-  const entRef = db.collection("entitlements").doc(uid);
+  const grantRef = getDb().collection("platformGrants").doc();
+  const entRef = getDb().collection("entitlements").doc(uid);
   const existing = await entRef.get();
   const createdAt = (existing.data()?.createdAt as string) || now;
 
@@ -212,7 +212,7 @@ export const adminGrantEntitlement = onCall(async (request) => {
     updatedAt: now,
   };
 
-  const batch = db.batch();
+  const batch = getDb().batch();
   batch.set(entRef, entitlements, {merge: true});
   batch.set(grantRef, grant);
   await batch.commit();
@@ -240,7 +240,7 @@ export const adminRevokeGrant = onCall(async (request) => {
   }
 
   const now = nowIso();
-  const entRef = db.collection("entitlements").doc(uid);
+  const entRef = getDb().collection("entitlements").doc(uid);
   const entSnap = await entRef.get();
   const prev = entSnap.data() ?? {};
 
@@ -263,12 +263,12 @@ export const adminRevokeGrant = onCall(async (request) => {
   );
 
   if (grantId) {
-    await db.collection("platformGrants").doc(grantId).set(
+    await getDb().collection("platformGrants").doc(grantId).set(
       {revokedAt: now, updatedAt: now, revokedByUid: actorUid},
       {merge: true}
     );
   } else if (prev.grantId) {
-    await db.collection("platformGrants").doc(String(prev.grantId)).set(
+    await getDb().collection("platformGrants").doc(String(prev.grantId)).set(
       {revokedAt: now, updatedAt: now, revokedByUid: actorUid},
       {merge: true}
     );
@@ -288,7 +288,7 @@ export const adminRevokeGrant = onCall(async (request) => {
 export const adminListGrants = onCall(async (request) => {
   assertPlatformAdmin(request.auth);
   const limit = Math.min(Number(request.data?.limit ?? 50), 100);
-  const snap = await db
+  const snap = await getDb()
     .collection("platformGrants")
     .orderBy("createdAt", "desc")
     .limit(limit)
@@ -301,17 +301,17 @@ export const adminGetPlatformStats = onCall(async (request) => {
   assertPlatformAdmin(request.auth);
 
   const [usersCount, orgsCount, grantsActive, errorReports] = await Promise.all([
-    db.collection("users").count().get(),
-    db.collection("organizations").count().get(),
-    db
+    getDb().collection("users").count().get(),
+    getDb().collection("organizations").count().get(),
+    getDb()
       .collection("platformGrants")
       .where("revokedAt", "==", null)
       .count()
       .get(),
-    db.collection("errorReports").orderBy("createdAt", "desc").limit(20).get(),
+    getDb().collection("errorReports").orderBy("createdAt", "desc").limit(20).get(),
   ]);
 
-  const entitlementsSnap = await db
+  const entitlementsSnap = await getDb()
     .collection("entitlements")
     .where("source", "==", "admin_grant")
     .limit(200)

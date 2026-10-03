@@ -1,8 +1,6 @@
 import * as logger from "firebase-functions/logger";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
-import * as admin from "firebase-admin";
-
-const db = admin.firestore();
+import {getDb} from "./firebase_admin";
 
 /** Recibe errores de cliente autenticado (además de Firestore errorReports). */
 export const reportClientError = onCall(async (request) => {
@@ -25,8 +23,8 @@ export const reportClientError = onCall(async (request) => {
     stack: stack.slice(0, 500),
   });
 
-  const id = db.collection("errorReports").doc().id;
-  await db.collection("errorReports").doc(id).set({
+  const id = getDb().collection("errorReports").doc().id;
+  await getDb().collection("errorReports").doc(id).set({
     id,
     uid: request.auth.uid,
     organizationId,
