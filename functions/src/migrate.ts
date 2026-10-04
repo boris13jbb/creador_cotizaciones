@@ -1,7 +1,5 @@
-import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-
-const db = admin.firestore();
+import {getDb} from "./firebase_admin";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -27,7 +25,7 @@ export const migrateUserToOrganization = onCall(async (request) => {
 
   const dryRun = request.data?.dryRun !== false && request.data?.apply !== true;
   const uid = request.auth.uid;
-  const userRef = db.collection("users").doc(uid);
+  const userRef = getDb().collection("users").doc(uid);
   const userSnap = await userRef.get();
   const user = userSnap.data() ?? {};
 
@@ -36,10 +34,10 @@ export const migrateUserToOrganization = onCall(async (request) => {
   const skipped: string[] = [];
 
   if (!orgId) {
-    orgId = db.collection("organizations").doc().id;
+    orgId = getDb().collection("organizations").doc().id;
     if (!dryRun) {
       const now = nowIso();
-      await db.collection("organizations").doc(orgId).set({
+      await getDb().collection("organizations").doc(orgId).set({
         id: orgId,
         name: `${user.displayName || "Usuario"} — Empresa`,
         currency: "USD",
@@ -48,7 +46,7 @@ export const migrateUserToOrganization = onCall(async (request) => {
         createdAt: now,
         updatedAt: now,
       });
-      await db
+      await getDb()
         .collection("organizations")
         .doc(orgId)
         .collection("members")
@@ -63,7 +61,7 @@ export const migrateUserToOrganization = onCall(async (request) => {
           createdAt: now,
           updatedAt: now,
         });
-      await db
+      await getDb()
         .collection("organizations")
         .doc(orgId)
         .collection("counters")
@@ -88,7 +86,7 @@ export const migrateUserToOrganization = onCall(async (request) => {
   const legacy = await userRef.collection("cotizaciones").get();
   let seq =
     (
-      await db
+      await getDb()
         .collection("organizations")
         .doc(orgId)
         .collection("counters")
@@ -98,7 +96,7 @@ export const migrateUserToOrganization = onCall(async (request) => {
 
   for (const doc of legacy.docs) {
     const data = doc.data();
-    const quoteRef = db
+    const quoteRef = getDb()
       .collection("organizations")
       .doc(orgId)
       .collection("quotes")
@@ -175,7 +173,7 @@ export const migrateUserToOrganization = onCall(async (request) => {
   }
 
   if (!dryRun) {
-    await db
+    await getDb()
       .collection("organizations")
       .doc(orgId)
       .collection("counters")
@@ -204,7 +202,7 @@ export const allocateQuoteNumber = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "organizationId requerido");
   }
 
-  const member = await db
+  const member = await getDb()
     .collection("organizations")
     .doc(orgId)
     .collection("members")
@@ -214,13 +212,13 @@ export const allocateQuoteNumber = onCall(async (request) => {
     throw new HttpsError("permission-denied", "No eres miembro activo");
   }
 
-  const counterRef = db
+  const counterRef = getDb()
     .collection("organizations")
     .doc(orgId)
     .collection("counters")
     .doc("quotes");
 
-  const result = await db.runTransaction(async (tx) => {
+  const result = await getDb().runTransaction(async (tx) => {
     const snap = await tx.get(counterRef);
     const current = (snap.data()?.seq as number) || 0;
     const next = current + 1;

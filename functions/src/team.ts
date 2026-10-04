@@ -1,12 +1,10 @@
-import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {
   EntitlementsLike,
   resolveMaxSeats,
 } from "./entitlements_policy";
-
-const db = admin.firestore();
+import {getDb} from "./firebase_admin";
 
 const ALLOWED_INVITE_ROLES = new Set(["admin", "sales", "readonly"]);
 
@@ -37,7 +35,7 @@ export const acceptOrgInvite = onCall(async (request) => {
     );
   }
 
-  const invites = await db
+  const invites = await getDb()
     .collectionGroup("invites")
     .where("token", "==", token)
     .limit(1)
@@ -57,7 +55,7 @@ export const acceptOrgInvite = onCall(async (request) => {
   const displayName = String(request.auth.token.name || email);
 
   try {
-    const result = await db.runTransaction(async (tx) => {
+    const result = await getDb().runTransaction(async (tx) => {
       const inviteSnap = await tx.get(inviteDoc.ref);
       if (!inviteSnap.exists) {
         throw new HttpsError("not-found", "Invitación no encontrada o usada");
@@ -71,9 +69,9 @@ export const acceptOrgInvite = onCall(async (request) => {
         );
       }
 
-      const orgRef = db.collection("organizations").doc(orgId);
+      const orgRef = getDb().collection("organizations").doc(orgId);
       const memberRef = orgRef.collection("members").doc(uid);
-      const membershipRef = db
+      const membershipRef = getDb()
         .collection("users")
         .doc(uid)
         .collection("memberships")
@@ -92,7 +90,7 @@ export const acceptOrgInvite = onCall(async (request) => {
         throw new HttpsError("failed-precondition", "Organización sin owner");
       }
 
-      const entSnap = await tx.get(db.collection("entitlements").doc(ownerUid));
+      const entSnap = await tx.get(getDb().collection("entitlements").doc(ownerUid));
       const entitlements = (entSnap.data() || null) as EntitlementsLike | null;
       const maxSeats = resolveMaxSeats(entitlements);
 
