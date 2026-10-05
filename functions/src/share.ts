@@ -1,8 +1,6 @@
-import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onRequest} from "firebase-functions/v2/https";
-
-const db = admin.firestore();
+import {getDb} from "./firebase_admin";
 
 function escapeHtml(value: string): string {
   return value
@@ -46,7 +44,7 @@ export const viewQuoteShare = onRequest({cors: true}, async (req, res) => {
     return;
   }
 
-  const ref = db.collection("quoteShares").doc(token);
+  const ref = getDb().collection("quoteShares").doc(token);
   const snap = await ref.get();
   if (!snap.exists) {
     res.status(404).send("Enlace no encontrado");
@@ -70,7 +68,7 @@ export const viewQuoteShare = onRequest({cors: true}, async (req, res) => {
   const orgId = String(data.organizationId || "");
   const quoteId = String(data.quoteId || "");
   if (orgId && quoteId) {
-    const qRef = db
+    const qRef = getDb()
       .collection("organizations")
       .doc(orgId)
       .collection("quotes")
@@ -151,7 +149,7 @@ export const acceptQuoteShare = onRequest({cors: true}, async (req, res) => {
     return;
   }
 
-  const ref = db.collection("quoteShares").doc(token);
+  const ref = getDb().collection("quoteShares").doc(token);
   const snap = await ref.get();
   if (!snap.exists) {
     res.status(404).send("Enlace no encontrado");
@@ -177,7 +175,7 @@ export const acceptQuoteShare = onRequest({cors: true}, async (req, res) => {
   const orgId = String(data.organizationId || "");
   const quoteId = String(data.quoteId || "");
   if (orgId && quoteId) {
-    const qRef = db
+    const qRef = getDb()
       .collection("organizations")
       .doc(orgId)
       .collection("quotes")
@@ -193,12 +191,12 @@ export const acceptQuoteShare = onRequest({cors: true}, async (req, res) => {
       },
       {merge: true},
     );
-    const activityId = db
+    const activityId = getDb()
       .collection("organizations")
       .doc(orgId)
       .collection("activities")
       .doc().id;
-    await db
+    await getDb()
       .collection("organizations")
       .doc(orgId)
       .collection("activities")
@@ -242,7 +240,7 @@ export const createQuoteShareLink = onCall(async (request) => {
       "quoteId y organizationId requeridos",
     );
   }
-  const qSnap = await db
+  const qSnap = await getDb()
     .collection("organizations")
     .doc(orgId)
     .collection("quotes")
@@ -255,7 +253,7 @@ export const createQuoteShareLink = onCall(async (request) => {
   const token = cryptoRandom();
   const now = new Date();
   const expires = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
-  await db.collection("quoteShares").doc(token).set({
+  await getDb().collection("quoteShares").doc(token).set({
     token,
     organizationId: orgId,
     quoteId,
