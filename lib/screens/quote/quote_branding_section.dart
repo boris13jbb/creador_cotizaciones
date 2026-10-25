@@ -6,6 +6,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../saas/models/org_branding.dart';
+import '../../saas/offline/branding_local_cache.dart';
+import '../../saas/offline/connectivity_monitor.dart';
+import '../../saas/offline/offline_controller.dart';
+import '../../saas/offline/offline_local_store.dart';
+import '../../saas/offline/offline_sync_service.dart';
+import '../../saas/offline/offline_sync_status.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/providers/quote_editor_controller.dart';
 import '../../saas/services/branding_storage_service.dart';
@@ -54,7 +60,13 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
       if (mounted) setState(() => _previewBytes = null);
       return;
     }
-    final bytes = await BrandingStorageService.instance.loadLogoBytes(path);
+    if (!mounted) return;
+    final auth = context.read<AuthController>();
+    final bytes = await BrandingStorageService.instance.loadLogoBytes(
+      path,
+      organizationId: auth.organizationId,
+      uid: auth.sessionUid,
+    );
     if (!mounted) return;
     setState(() => _previewBytes = bytes);
   }
@@ -95,13 +107,14 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
   }
 
   Future<void> _pickLogo() async {
+    if (_uploading) return;
     final auth = context.read<AuthController>();
     if (!auth.canCustomBranding) {
       await _ensurePro();
       return;
     }
     final orgId = auth.organizationId;
-    final uid = auth.user?.uid ?? auth.restSession?.uid ?? auth.profile?.uid;
+    final uid = auth.sessionUid;
     if (orgId == null || uid == null || uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -111,11 +124,25 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
       return;
     }
 
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 2048,
-      maxHeight: 2048,
-    );
+    final XFile? picked;
+    try {
+      picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No se pudo abrir la galería: '
+            '${'$e'.replaceFirst('Exception: ', '')}',
+          ),
+        ),
+      );
+      return;
+    }
     if (picked == null) return;
 
     setState(() => _uploading = true);
@@ -125,20 +152,85 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         bytes,
         fileName: picked.name,
       );
-      final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
-        orgId: orgId,
-        uid: uid,
-        bytes: bytes,
-        fileName: picked.name,
-      );
-      widget.controller.setLogoPath(uploaded.url);
+
+      final online = await ConnectivityMonitor.instance.probeFirebase();
+      String? logoRef;
+      var savedOffline = false;
+
+      if (online) {
+        try {
+          final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
+            orgId: orgId,
+            uid: uid,
+            bytes: bytes,
+            fileName: picked.name,
+          );
+          logoRef = uploaded.url;
+          await BrandingLocalCache.instance.saveLogoBytes(
+            organizationId: orgId,
+            uid: uid,
+            bytes: bytes,
+            branding: OrgBranding(
+              logoUrl: uploaded.url,
+              logoStoragePath: uploaded.storagePath,
+            ),
+            pendingUpload: false,
+          );
+        } catch (e) {
+          debugPrint('uploadOrgLogo online falló, guardando local: $e');
+        }
+      }
+
+      // Sin red o fallo de Storage: guardar archivo local y encolar subida.
+      if (logoRef == null || logoRef.isEmpty) {
+        final localPath = await BrandingLocalCache.instance.saveQuoteLogoBytes(
+          organizationId: orgId,
+          quoteId: widget.controller.quote.id,
+          bytes: bytes,
+        );
+        if (localPath == null || localPath.isEmpty) {
+          throw Exception(
+            'No se pudo guardar el logo en este dispositivo. '
+            'Revisa el espacio de almacenamiento e inténtalo de nuevo.',
+          );
+        }
+        logoRef = localPath;
+        savedOffline = true;
+
+        // Encola subida del archivo de esta cotización.
+        // logoLocalPath es temporal en dispositivo; la sync lo cambia a URL remota.
+        await OfflineLocalStore.instance.enqueue(
+          organizationId: orgId,
+          uid: uid,
+          entityType: OfflineEntityType.brandingLogo,
+          entityId: 'quote:${widget.controller.quote.id}',
+          operation: OfflineOperation.uploadFile,
+          payload: {
+            'logoLocalPath': localPath,
+            'quoteId': widget.controller.quote.id,
+          },
+          idempotencyKey: OfflineSyncService.idempotencyKey(
+            type: OfflineEntityType.brandingLogo,
+            entityId: 'quote:${widget.controller.quote.id}',
+            op: OfflineOperation.uploadFile,
+            revision: DateTime.now().toUtc().toIso8601String(),
+          ),
+        );
+        await OfflineController.instance.refresh();
+      }
+
+      // Override solo de esta cotización (no reaplicar identidad de empresa).
+      widget.controller.setLogoPath(logoRef);
       if (mounted) {
         setState(() => _previewBytes = bytes);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Logo aplicado a esta cotización. '
-              'Guárdalo en Identidad visual para usarlo en todas.',
+              savedOffline
+                  ? 'Logo de esta cotización guardado en el dispositivo. '
+                        'El de la empresa no se modifica.'
+                  : 'Logo aplicado solo a esta cotización. '
+                        'Usa Identidad visual si quieres cambiar el de la empresa.',
             ),
           ),
         );
@@ -146,11 +238,19 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+          SnackBar(
+            content: Text(
+              BrandingStorageService.describeUploadError(e),
+            ),
+          ),
         );
       }
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      if (mounted) {
+        setState(() => _uploading = false);
+      } else {
+        _uploading = false;
+      }
     }
   }
 
@@ -277,10 +377,20 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
-          child: !hasLogo || _previewBytes == null
+          child: !hasLogo
               ? Center(
                   child: Text(
-                    'Tu empresa todavía no tiene un logotipo',
+                    'Aún no hay logotipo en esta cotización.\n'
+                    'Puedes cargarlo desde la galería aunque no haya internet.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : _previewBytes == null
+              ? Center(
+                  child: Text(
+                    'Logo asignado, pero la vista previa no está disponible '
+                    'sin el archivo local. Vuelve a cargarlo desde la galería.',
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -331,7 +441,9 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
                           builder: (_) => const CompanyIdentityScreen(),
                         ),
                       );
-                      await _applyOrgIdentity();
+                      // No reaplicar automáticamente: el usuario puede haber
+                      // personalizado el logo solo de esta cotización.
+                      if (mounted) await _loadPreview();
                     },
               child: const Text('Configurar empresa'),
             ),

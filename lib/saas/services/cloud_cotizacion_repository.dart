@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:universal_io/io.dart';
 
 import '../../models/cotizacion.dart';
 import '../../models/servicio.dart';
@@ -16,6 +17,7 @@ import '../offline/offline_sync_status.dart';
 import '../providers/auth_controller.dart';
 import 'activity_repository.dart';
 import 'app_logger.dart';
+import 'branding_storage_service.dart';
 import 'firestore_rest_client.dart';
 import 'org_quote_repository.dart';
 import 'organization_service.dart';
@@ -715,6 +717,9 @@ class CloudCotizacionRepository {
       );
     }
 
+    // Si el logo es un archivo local (modo avión), súbelo antes de persistir remoto.
+    toSave = await _resolveLocalLogoForRemote(toSave);
+
     toSave = toSave.withRecalculatedTotal();
     await OrgQuoteRepository.instance.upsertQuote(toSave, session: session);
 
@@ -755,6 +760,43 @@ class CloudCotizacionRepository {
       status: OfflineSyncStatus.synced,
     );
     return toSave;
+  }
+
+  /// Convierte logoPath de archivo local a URL/Storage remota.
+  /// No escribe rutas locales en Firestore: si no puede subir, lanza error.
+  Future<Quote> _resolveLocalLogoForRemote(Quote quote) async {
+    final path = quote.logoPath;
+    if (path == null || path.isEmpty) return quote;
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('data:') ||
+        path.startsWith('users/') ||
+        path.startsWith('organizations/') ||
+        path.startsWith('local:')) {
+      return quote;
+    }
+    final looksLocal = path.startsWith('/') ||
+        path.contains('\\') ||
+        (path.length > 2 && path[1] == ':');
+    if (!looksLocal) return quote;
+    if (kIsWeb) {
+      throw Exception(
+        'No se puede sincronizar un logo con ruta local desde Web.',
+      );
+    }
+    final file = File(path);
+    if (!await file.exists()) {
+      throw Exception(
+        'El archivo local del logo ya no existe. Vuelve a cargarlo.',
+      );
+    }
+    final bytes = await file.readAsBytes();
+    final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
+      orgId: quote.organizationId,
+      uid: _uid,
+      bytes: bytes,
+    );
+    return quote.copyWith(logoPath: uploaded.url);
   }
 
   /// Lectura remota pura (cola de sync / detección de conflictos).

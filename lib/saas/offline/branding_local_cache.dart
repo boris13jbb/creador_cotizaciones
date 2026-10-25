@@ -46,6 +46,24 @@ class BrandingLocalCache {
     return file.path;
   }
 
+  /// Logo solo para una cotización (sin depender de Firebase).
+  Future<String?> saveQuoteLogoBytes({
+    required String organizationId,
+    required String quoteId,
+    required Uint8List bytes,
+  }) async {
+    final dir = await _orgDir(organizationId);
+    if (dir == null) return null;
+    final quotesDir = Directory(p.join(dir.path, 'quote_logos'));
+    if (!await quotesDir.exists()) {
+      await quotesDir.create(recursive: true);
+    }
+    final safeId = quoteId.replaceAll(RegExp(r'[^\w\-]+'), '_');
+    final file = File(p.join(quotesDir.path, '$safeId.bin'));
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
   Future<Uint8List?> loadLogoBytes({
     required String organizationId,
     required String uid,

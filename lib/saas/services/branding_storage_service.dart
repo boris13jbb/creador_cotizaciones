@@ -318,38 +318,43 @@ class BrandingStorageService {
     }
   }
 
+  bool _looksLikeLocalFilePath(String path) {
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('data:') ||
+        path.startsWith('users/') ||
+        path.startsWith('organizations/') ||
+        path.startsWith('local:')) {
+      return false;
+    }
+    // Android/iOS absolute, Windows drive, o rutas con separador.
+    return path.startsWith('/') ||
+        path.contains('\\') ||
+        (path.length > 2 && path[1] == ':');
+  }
+
+  bool _looksLikeRemoteLogoRef(String path) {
+    return path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('users/') ||
+        path.startsWith('organizations/');
+  }
+
   /// Obtiene bytes desde data URL, http(s), ruta local o Storage.
   ///
-  /// [organizationId]/[uid] permiten leer la caché offline sin red.
+  /// Prioridad: archivo/data de [logoPath] → caché org (fallback offline) → red.
+  /// No debe pisar un logo de cotización con el logo por defecto de la empresa.
   Future<Uint8List?> loadLogoBytes(
     String? logoPath, {
     String? organizationId,
     String? uid,
   }) async {
-    if (organizationId != null &&
-        uid != null &&
-        organizationId.isNotEmpty &&
-        uid.isNotEmpty) {
-      try {
-        final cached = await BrandingLocalCache.instance.loadLogoBytes(
-          organizationId: organizationId,
-          uid: uid,
-        );
-        if (cached != null && cached.isNotEmpty) return cached;
-      } catch (e) {
-        debugPrint('loadLogoBytes cache: $e');
-      }
-    }
+    final path = logoPath?.trim();
 
-    if (logoPath == null || logoPath.isEmpty) return null;
-
-    // Ruta de archivo local (modo offline).
-    if (!kIsWeb &&
-        (logoPath.contains('\\') ||
-            logoPath.startsWith('/') ||
-            logoPath.contains(':'))) {
+    // 1) Ruta local explícita de la cotización (modo offline / override).
+    if (path != null && path.isNotEmpty && !kIsWeb && _looksLikeLocalFilePath(path)) {
       try {
-        final file = File(logoPath);
+        final file = File(path);
         if (await file.exists()) {
           return await file.readAsBytes();
         }
@@ -358,10 +363,10 @@ class BrandingStorageService {
       }
     }
 
-    // Data URL no requiere red.
-    if (logoPath.startsWith('data:')) {
+    // 2) Data URL embebida.
+    if (path != null && path.startsWith('data:')) {
       try {
-        final b64 = logoPath.split(',').last;
+        final b64 = path.split(',').last;
         return Uint8List.fromList(base64Decode(b64));
       } catch (e) {
         debugPrint('loadLogoBytes data-url: $e');
@@ -369,27 +374,56 @@ class BrandingStorageService {
       }
     }
 
-    // Sin red: no intentar HTTP ni Storage (PDF offline debe ser 100 % local).
     final online = ConnectivityMonitor.instance.isEffectivelyOnline;
+    final orgIdForCache =
+        (organizationId != null && organizationId.isNotEmpty)
+        ? organizationId
+        : null;
+    final uidForCache = (uid != null && uid.isNotEmpty) ? uid : null;
+    final allowOrgCacheFallback =
+        path == null ||
+        path.isEmpty ||
+        (_looksLikeRemoteLogoRef(path) && !online);
+
+    // 3) Caché de empresa solo como respaldo (sin path o URL remota sin red).
+    if (allowOrgCacheFallback &&
+        orgIdForCache != null &&
+        uidForCache != null) {
+      try {
+        final cached = await BrandingLocalCache.instance.loadLogoBytes(
+          organizationId: orgIdForCache,
+          uid: uidForCache,
+        );
+        if (cached != null && cached.isNotEmpty) return cached;
+      } catch (e) {
+        debugPrint('loadLogoBytes cache: $e');
+      }
+    }
+
+    if (path == null || path.isEmpty) return null;
+
+    // Sin red: no HTTP/Storage (el PDF offline debe usar archivo/caché).
     if (!online) {
-      debugPrint('loadLogoBytes: offline, sin caché local para $logoPath');
+      debugPrint('loadLogoBytes: offline, sin bytes para $path');
       return null;
     }
 
     try {
-      if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+      if (path.startsWith('http://') || path.startsWith('https://')) {
         final res = await http
-            .get(Uri.parse(logoPath))
+            .get(Uri.parse(path))
             .timeout(const Duration(seconds: 25));
         if (res.statusCode >= 200 && res.statusCode < 300) {
           final bytes = res.bodyBytes;
-          if (organizationId != null && uid != null) {
+          final cacheOrg = orgIdForCache;
+          final cacheUid = uidForCache;
+          if (cacheOrg != null && cacheUid != null) {
             unawaited(
               BrandingLocalCache.instance.saveLogoBytes(
-                organizationId: organizationId,
-                uid: uid,
+                organizationId: cacheOrg,
+                uid: cacheUid,
                 bytes: bytes,
-                branding: OrgBranding(logoUrl: logoPath),
+                branding: OrgBranding(logoUrl: path),
               ),
             );
           }
@@ -397,12 +431,10 @@ class BrandingStorageService {
         }
         return null;
       }
-      // Web también puede leer por SDK si hay auth (getData).
       if (!saasUseRestBackend &&
-          (logoPath.startsWith('users/') ||
-              logoPath.startsWith('organizations/'))) {
+          (path.startsWith('users/') || path.startsWith('organizations/'))) {
         return await _storage
-            .ref(logoPath)
+            .ref(path)
             .getData(maxBytes)
             .timeout(const Duration(seconds: 25));
       }

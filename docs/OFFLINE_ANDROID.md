@@ -18,7 +18,12 @@
 | `sync_queue` | Operaciones pendientes idempotentes |
 | `offline_meta` | Metadatos de sesión |
 
-Los logos se guardan además en archivos bajo el directorio de documentos de la app (`offline_branding/{orgId}/logo.bin`).
+Los logos se guardan además en archivos bajo el directorio de documentos de la app:
+
+- Empresa: `offline_branding/{orgId}/logo.bin`
+- Por cotización (Condiciones, modo avión): `offline_branding/{orgId}/quote_logos/{quoteId}.bin`
+
+La ruta local solo vive en el dispositivo y en la cola. Al sincronizar se sube a Storage y se reemplaza por la URL remota antes de escribir Firestore (nunca se deja una ruta de archivo como URL permanente).
 
 ## Sincronización con Firebase
 

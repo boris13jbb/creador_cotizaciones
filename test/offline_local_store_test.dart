@@ -10,6 +10,7 @@ import 'package:creador_cotizaciones/saas/offline/offline_sync_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:universal_io/io.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -326,5 +327,53 @@ void main() {
     expect(loaded!.syncStatus, OfflineSyncStatus.conflict);
     expect(loaded.conflictPayloadJson, contains('remoteVersion'));
     expect(loaded.quote.clientName, 'X');
+  });
+
+  test('encola logo de cotización offline con quoteId y ruta local', () async {
+    final tmp = Directory.systemTemp.createTempSync('coti_quote_logo_');
+    addTearDown(() {
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
+    final file = File(p.join(tmp.path, 'quote_logos', 'q-logo-1.bin'));
+    file.parent.createSync(recursive: true);
+    await file.writeAsBytes(const [1, 2, 3, 4]);
+    final localPath = file.path;
+
+    expect(localPath.contains('quote_logos'), isTrue);
+    expect(localPath.startsWith('http'), isFalse);
+
+    await OfflineLocalStore.instance.enqueue(
+      organizationId: 'org-a',
+      uid: 'user-1',
+      entityType: OfflineEntityType.brandingLogo,
+      entityId: 'quote:q-logo-1',
+      operation: OfflineOperation.uploadFile,
+      payload: {
+        'logoLocalPath': localPath,
+        'quoteId': 'q-logo-1',
+      },
+      idempotencyKey: OfflineSyncService.idempotencyKey(
+        type: OfflineEntityType.brandingLogo,
+        entityId: 'quote:q-logo-1',
+        op: OfflineOperation.uploadFile,
+        revision: 'v1',
+      ),
+    );
+
+    final queue = await OfflineLocalStore.instance.pendingQueue(
+      organizationId: 'org-a',
+      uid: 'user-1',
+    );
+    final logoOps = queue
+        .where((e) => e.entityType == OfflineEntityType.brandingLogo)
+        .toList();
+    expect(logoOps.length, 1);
+    expect(logoOps.first.payload['quoteId'], 'q-logo-1');
+    expect(logoOps.first.payload['logoLocalPath'], localPath);
+    // La cola guarda ruta de archivo, no URL remota permanente.
+    expect(
+      '${logoOps.first.payload['logoLocalPath']}'.startsWith('https://'),
+      isFalse,
+    );
   });
 }

@@ -141,6 +141,32 @@ class OfflineSyncService {
           uid: item.uid,
           bytes: Uint8List.fromList(bytes),
         );
+        final quoteId = item.payload['quoteId'] as String?;
+        // Logo solo de cotización: actualiza la quote, no la identidad de empresa.
+        if (quoteId != null && quoteId.isNotEmpty) {
+          final local = await OfflineLocalStore.instance.getQuote(
+            organizationId: item.organizationId,
+            uid: item.uid,
+            quoteId: quoteId,
+          );
+          final base = local?.quote ??
+              await CloudCotizacionRepository.instance.getQuoteRemoteOnly(
+                quoteId,
+              );
+          if (base != null) {
+            final updated = base.copyWith(logoPath: uploaded.url);
+            await CloudCotizacionRepository.instance.saveQuoteRemoteOnly(
+              updated,
+              isNew: false,
+            );
+            await OfflineLocalStore.instance.upsertQuote(
+              uid: item.uid,
+              quote: updated,
+              status: OfflineSyncStatus.synced,
+            );
+          }
+          break;
+        }
         final brandingMap =
             Map<String, dynamic>.from(item.payload['branding'] as Map? ?? {});
         final branding = OrgBranding.fromMap(brandingMap).copyWith(
