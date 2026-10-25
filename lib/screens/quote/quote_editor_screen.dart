@@ -13,6 +13,7 @@ import '../../saas/providers/quote_editor_controller.dart';
 import '../../saas/services/catalog_repository.dart';
 import '../../saas/services/client_repository.dart';
 import '../../saas/services/quote_mapper.dart';
+import '../../theme/app_theme.dart';
 import '../../ui/layout/responsive.dart';
 import '../../ui/tokens/app_icons.dart';
 import '../catalog/catalog_screen.dart';
@@ -215,6 +216,16 @@ class _BottomBar extends StatelessWidget {
 
   final QuoteEditorController controller;
 
+  /// El theme usa [Size.fromHeight(48)] (ancho infinito). En un [Row] eso
+  /// provoca `BoxConstraints forces an infinite width`; aquí se limita solo
+  /// la altura mínima y el ancho queda al contenido.
+  static final ButtonStyle _filledInRow = FilledButton.styleFrom(
+    minimumSize: const Size(0, 48),
+  );
+  static final ButtonStyle _outlinedInRow = OutlinedButton.styleFrom(
+    minimumSize: const Size(0, 48),
+  );
+
   @override
   Widget build(BuildContext context) {
     final totals = controller.totals;
@@ -229,6 +240,7 @@ class _BottomBar extends StatelessWidget {
             children: [
               if (controller.step > 0)
                 OutlinedButton(
+                  style: _outlinedInRow,
                   onPressed: busy ? null : controller.back,
                   child: const Text('Atrás'),
                 ),
@@ -246,6 +258,7 @@ class _BottomBar extends StatelessWidget {
               const SizedBox(width: 12),
               if (controller.step < QuoteEditorController.stepCount - 1)
                 FilledButton(
+                  style: _filledInRow,
                   onPressed: busy
                       ? null
                       : () {
@@ -260,6 +273,7 @@ class _BottomBar extends StatelessWidget {
                 )
               else
                 FilledButton(
+                  style: _filledInRow,
                   onPressed: busy
                       ? null
                       : () async {
@@ -600,11 +614,18 @@ class _ConditionsStepState extends State<_ConditionsStep> {
   late final TextEditingController _note;
   late final TextEditingController _globalDisc;
   late final TextEditingController _charges;
+  late final TextEditingController _plazo;
+  late final TextEditingController _validez;
+  late final TextEditingController _garantia;
+  late final TextEditingController _terms;
+  late final TextEditingController _anticipoPct;
+  late final TextEditingController _saldoPct;
 
   @override
   void initState() {
     super.initState();
     final q = widget.controller.quote;
+    final legacy = q.legacyFields;
     _include = TextEditingController();
     _exclude = TextEditingController();
     _note = TextEditingController();
@@ -614,6 +635,27 @@ class _ConditionsStepState extends State<_ConditionsStep> {
     _charges = TextEditingController(
       text: q.charges.asDecimal.toStringAsFixed(2),
     );
+    _plazo = TextEditingController(text: '${legacy['tiempoEstimado'] ?? ''}');
+    final days = legacy['validezDias'];
+    _validez = TextEditingController(text: days == null ? '' : '$days');
+    _garantia = TextEditingController(text: '${legacy['garantia'] ?? ''}');
+    _terms = TextEditingController(text: q.conditions ?? '');
+    final split = _paymentSplit(q);
+    _anticipoPct = TextEditingController(text: split.$1);
+    _saldoPct = TextEditingController(text: split.$2);
+    // Alinea UI con payments del modelo / PDF según modalidad.
+    if (q.payments.isEmpty ||
+        (q.paymentMode == PaymentMode.split &&
+            q.legacyFields['anticipoPct'] == null)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.controller.quote.paymentMode == PaymentMode.single) {
+          widget.controller.setPaymentMode(PaymentMode.single);
+        } else {
+          _applyPaymentPercents();
+        }
+      });
+    }
   }
 
   @override
@@ -623,7 +665,131 @@ class _ConditionsStepState extends State<_ConditionsStep> {
     _note.dispose();
     _globalDisc.dispose();
     _charges.dispose();
+    _plazo.dispose();
+    _validez.dispose();
+    _garantia.dispose();
+    _terms.dispose();
+    _anticipoPct.dispose();
+    _saldoPct.dispose();
     super.dispose();
+  }
+
+  /// Deriva % de anticipo/saldo desde legacy o payments guardados.
+  (String, String) _paymentSplit(Quote q) {
+    final aLegacy = q.legacyFields['anticipoPct'];
+    final sLegacy = q.legacyFields['saldoPct'];
+    if (aLegacy is num || sLegacy is num) {
+      final a = (aLegacy as num?)?.round() ?? 50;
+      final s = (sLegacy as num?)?.round() ?? (100 - a);
+      return ('$a', '$s');
+    }
+    final payments = q.payments;
+    if (payments.isEmpty) return ('50', '50');
+    final totalCents = widget.controller.totals.total.cents;
+    if (totalCents <= 0) return ('50', '50');
+
+    int anticipo = 0;
+    int saldo = 0;
+    for (final p in payments) {
+      final label = '${p['label'] ?? ''}'.toLowerCase();
+      final cents = (p['amountCents'] as num?)?.round() ?? 0;
+      if (label.contains('anticipo') || label.contains('entrada')) {
+        anticipo += cents;
+      } else if (label.contains('saldo')) {
+        saldo += cents;
+      }
+    }
+    if (anticipo == 0 && saldo == 0 && payments.isNotEmpty) {
+      anticipo = (payments.first['amountCents'] as num?)?.round() ?? 0;
+      if (payments.length > 1) {
+        saldo = (payments.last['amountCents'] as num?)?.round() ?? 0;
+      }
+    }
+    final aPct = ((anticipo * 100) / totalCents).round().clamp(0, 100);
+    final sPct = saldo > 0
+        ? ((saldo * 100) / totalCents).round().clamp(0, 100)
+        : (100 - aPct);
+    return ('$aPct', '$sPct');
+  }
+
+  Widget _paymentBlock(Map<String, dynamic> p) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.secondaryGreen,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '${p['label'] ?? ''}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            MoneyCents((p['amountCents'] as num?)?.round() ?? 0).format(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _paymentBlocks(List<Map<String, dynamic>> payments) {
+    if (payments.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 420 && payments.length > 1;
+        if (!wide) {
+          return Column(
+            children: [
+              for (var i = 0; i < payments.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                _paymentBlock(payments[i]),
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < payments.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(child: _paymentBlock(payments[i])),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  void _applyPaymentPercents() {
+    final anticipo = (num.tryParse(_anticipoPct.text.replaceAll(',', '.')) ?? 0)
+        .clamp(0, 100)
+        .toDouble();
+    var saldo = (num.tryParse(_saldoPct.text.replaceAll(',', '.')) ?? 0)
+        .clamp(0, 100)
+        .toDouble();
+    if (anticipo + saldo > 100) {
+      saldo = 100 - anticipo;
+      _saldoPct.text = saldo.toStringAsFixed(
+        saldo == saldo.roundToDouble() ? 0 : 1,
+      );
+    }
+    widget.controller.setPaymentPercents(
+      anticipoPct: anticipo,
+      saldoPct: saldo,
+    );
   }
 
   Widget _chipEditor({
@@ -638,6 +804,7 @@ class _ConditionsStepState extends State<_ConditionsStep> {
         Text(title, style: Theme.of(context).textTheme.titleSmall),
         Wrap(
           spacing: 8,
+          runSpacing: 4,
           children: [
             for (final v in values)
               InputChip(
@@ -680,8 +847,134 @@ class _ConditionsStepState extends State<_ConditionsStep> {
   @override
   Widget build(BuildContext context) {
     final q = widget.controller.quote;
+    final totals = widget.controller.totals;
     return ListView(
       children: [
+        Text(
+          'Condiciones comerciales',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text('Forma de pago', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'Total base: ${totals.total.format()}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SegmentedButton<PaymentMode>(
+          segments: [
+            for (final m in PaymentMode.values)
+              ButtonSegment(value: m, label: Text(m.label)),
+          ],
+          selected: {q.paymentMode},
+          onSelectionChanged: (s) {
+            final mode = s.first;
+            widget.controller.setPaymentMode(mode);
+            if (mode == PaymentMode.split) {
+              final split = _paymentSplit(widget.controller.quote);
+              _anticipoPct.text = split.$1;
+              _saldoPct.text = split.$2;
+            }
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (q.paymentMode == PaymentMode.split) ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _anticipoPct,
+                  decoration: const InputDecoration(
+                    labelText: 'Anticipo / entrada %',
+                    suffixText: '%',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => _applyPaymentPercents(),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: TextField(
+                  controller: _saldoPct,
+                  decoration: const InputDecoration(
+                    labelText: 'Saldo pendiente %',
+                    suffixText: '%',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => _applyPaymentPercents(),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () {
+                _anticipoPct.text = '50';
+                _saldoPct.text = '50';
+                _applyPaymentPercents();
+              },
+              child: const Text('Usar 50% anticipo / 50% saldo'),
+            ),
+          ),
+        ] else
+          Text(
+            'El total se asigna íntegramente a un solo pago. '
+            'Saldo pendiente: ${MoneyCents.zero.format()}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        const SizedBox(height: AppSpacing.sm),
+        _paymentBlocks(q.payments),
+        const SizedBox(height: AppSpacing.md),
+        TextField(
+          controller: _plazo,
+          decoration: const InputDecoration(
+            labelText: 'Plazo de entrega',
+            hintText: 'Ej. 15 días hábiles',
+          ),
+          onChanged: (v) =>
+              widget.controller.setLegacyField('tiempoEstimado', v),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _validez,
+          decoration: const InputDecoration(
+            labelText: 'Vigencia de la cotización (días)',
+            hintText: 'Ej. 15',
+          ),
+          keyboardType: TextInputType.number,
+          onChanged: (v) {
+            final days = int.tryParse(v.trim());
+            widget.controller.setValidezDias(days);
+          },
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _garantia,
+          decoration: const InputDecoration(
+            labelText: 'Garantía',
+            hintText: 'Ej. 90 días por defectos de fabricación',
+          ),
+          maxLines: 2,
+          onChanged: (v) => widget.controller.setLegacyField('garantia', v),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        TextField(
+          controller: _terms,
+          decoration: const InputDecoration(
+            labelText: 'Términos y condiciones comerciales',
+            hintText: 'Condiciones generales aplicables a esta cotización',
+          ),
+          maxLines: 3,
+          onChanged: widget.controller.setConditions,
+        ),
+        const SizedBox(height: AppSpacing.lg),
         _chipEditor(
           title: 'Incluye',
           values: q.includes,
@@ -695,7 +988,7 @@ class _ConditionsStepState extends State<_ConditionsStep> {
           onChanged: widget.controller.setExcludes,
         ),
         _chipEditor(
-          title: 'Notas',
+          title: 'Observaciones adicionales',
           values: q.notes,
           input: _note,
           onChanged: widget.controller.setNotes,
@@ -707,6 +1000,8 @@ class _ConditionsStepState extends State<_ConditionsStep> {
           onChanged: (v) {
             final pct = num.tryParse(v.replaceAll(',', '.')) ?? 0;
             widget.controller.setGlobalDiscountBps((pct * 100).round());
+            // Recalcula tramos sobre el nuevo total.
+            _applyPaymentPercents();
           },
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -720,11 +1015,14 @@ class _ConditionsStepState extends State<_ConditionsStep> {
           onChanged: (v) {
             final n = num.tryParse(v.replaceAll(',', '.')) ?? 0;
             widget.controller.setCharges(MoneyCents.fromDecimal(n));
+            _applyPaymentPercents();
           },
         ),
         const SizedBox(height: AppSpacing.md),
         DropdownButtonFormField<QuoteStatus>(
+          key: ValueKey('status-${q.status.id}'),
           initialValue: q.status,
+          isExpanded: true,
           decoration: const InputDecoration(labelText: 'Estado'),
           items: [
             for (final s in QuoteStatus.values)

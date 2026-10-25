@@ -23,6 +23,10 @@ class Quote {
   final List<String> excludes;
   final List<String> notes;
   final List<Map<String, dynamic>> payments;
+
+  /// Modalidad explícita de forma de pago (no se infiere por importes).
+  final PaymentMode paymentMode;
+
   final String? conditions;
   final String? logoPath;
   final String? colorsJson;
@@ -60,6 +64,7 @@ class Quote {
     this.excludes = const [],
     this.notes = const [],
     this.payments = const [],
+    this.paymentMode = PaymentMode.split,
     this.conditions,
     this.logoPath,
     this.colorsJson,
@@ -96,6 +101,7 @@ class Quote {
     'excludes': excludes,
     'notes': notes,
     'payments': payments,
+    'paymentMode': paymentMode.id,
     'conditions': conditions,
     'logoPath': logoPath,
     'colorsJson': colorsJson,
@@ -154,6 +160,12 @@ class Quote {
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList(),
+      paymentMode: PaymentMode.fromId(
+        map['paymentMode'] as String? ??
+            (map['legacyFields'] is Map
+                ? (map['legacyFields'] as Map)['paymentMode'] as String?
+                : null),
+      ),
       conditions: map['conditions'] as String?,
       logoPath: map['logoPath'] as String?,
       colorsJson: map['colorsJson'] as String? ?? map['coloresJson'] as String?,
@@ -211,7 +223,9 @@ class Quote {
     List<String>? excludes,
     List<String>? notes,
     List<Map<String, dynamic>>? payments,
+    PaymentMode? paymentMode,
     String? conditions,
+    bool clearConditions = false,
     String? logoPath,
     bool clearLogoPath = false,
     String? colorsJson,
@@ -248,7 +262,8 @@ class Quote {
       excludes: excludes ?? this.excludes,
       notes: notes ?? this.notes,
       payments: payments ?? this.payments,
-      conditions: conditions ?? this.conditions,
+      paymentMode: paymentMode ?? this.paymentMode,
+      conditions: clearConditions ? null : (conditions ?? this.conditions),
       logoPath: clearLogoPath ? null : (logoPath ?? this.logoPath),
       colorsJson: clearColorsJson ? null : (colorsJson ?? this.colorsJson),
       subtitle: subtitle ?? this.subtitle,

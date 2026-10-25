@@ -80,7 +80,8 @@ class QuoteMapper {
       colorsJson: cot.coloresJson,
       subtitle: cot.subtitulo,
       footerText: cot.footerText,
-      extraFields: cot.camposExtra,
+      extraFields: _stripKnownExtraLabels(cot.camposExtra),
+      conditions: _valueFromCamposExtra(cot.camposExtra, _termsLabel),
       createdByUid: createdByUid,
       legacyUserPath: legacyUserPath,
       createdAt: DateTime.now().toUtc(),
@@ -94,11 +95,46 @@ class QuoteMapper {
         'firmaTecnicoLabel': cot.firmaTecnicoLabel,
         'firmaClienteLabel': cot.firmaClienteLabel,
         'validezDias': cot.validezDias,
+        'garantia':
+            _valueFromCamposExtra(cot.camposExtra, _garantiaLabel) ?? '',
         // Conserva total legacy si difiere del recalculado.
         'legacyTotalCents': MoneyCents.fromDecimal(cot.total).cents,
         'computedTotalCents': totals.total.cents,
       },
     );
+  }
+
+  static const _garantiaLabel = 'Garantía';
+  static const _termsLabel = 'Términos y condiciones';
+
+  static String? _valueFromCamposExtra(String? raw, String label) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final parts = raw.split('|');
+    for (var i = 0; i + 1 < parts.length; i += 2) {
+      if (parts[i].trim().toLowerCase() == label.toLowerCase()) {
+        final v = parts[i + 1].trim();
+        return v.isEmpty ? null : v;
+      }
+    }
+    return null;
+  }
+
+  static String? _stripKnownExtraLabels(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final parts = raw.split('|');
+    final kept = <String>[];
+    for (var i = 0; i + 1 < parts.length; i += 2) {
+      final label = parts[i].trim();
+      final lower = label.toLowerCase();
+      if (lower == _garantiaLabel.toLowerCase() ||
+          lower == _termsLabel.toLowerCase()) {
+        continue;
+      }
+      kept.add(parts[i]);
+      kept.add(parts[i + 1]);
+    }
+    if (kept.isEmpty) return null;
+    return kept.join('|');
   }
 
   static Cotizacion toCotizacion(Quote quote) {
@@ -163,9 +199,29 @@ class QuoteMapper {
       formaPagoJson: formaPago.isEmpty
           ? null
           : jsonEncode(formaPago.map((e) => e.toJson()).toList()),
-      camposExtra: quote.extraFields,
+      camposExtra: _camposExtraForPdf(quote),
       coloresJson: quote.colorsJson,
       quoteStatus: quote.status.id,
     );
+  }
+
+  /// Une campos extra con garantía/términos del dominio para el PDF legacy.
+  static String? _camposExtraForPdf(Quote quote) {
+    final chunks = <String>[];
+    final base = _stripKnownExtraLabels(quote.extraFields);
+    if (base != null && base.isNotEmpty) chunks.add(base);
+
+    final garantia = '${quote.legacyFields['garantia'] ?? ''}'.trim();
+    if (garantia.isNotEmpty) {
+      chunks.add('$_garantiaLabel|$garantia');
+    }
+
+    final terms = quote.conditions?.trim();
+    if (terms != null && terms.isNotEmpty) {
+      chunks.add('$_termsLabel|$terms');
+    }
+
+    if (chunks.isEmpty) return null;
+    return chunks.join('|');
   }
 }

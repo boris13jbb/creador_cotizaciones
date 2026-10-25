@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../config/saas_config.dart';
 import '../config/saas_platform.dart';
 import '../models/entitlements.dart';
+import '../models/org_branding.dart';
 import '../models/organization.dart';
 import '../models/saas_user_profile.dart';
 import '../services/auth_service.dart';
@@ -375,6 +376,53 @@ class AuthController extends ChangeNotifier {
     _user = null;
     _emailVerified = false;
     notifyListeners();
+  }
+
+  /// Recarga la organización activa desde Firestore/REST.
+  Future<void> refreshOrganization() async {
+    final orgId = organizationId;
+    if (orgId == null || orgId.isEmpty) return;
+    try {
+      final org = await OrganizationService.instance.getOrganization(
+        orgId,
+        session: _restSession,
+      );
+      if (org != null) {
+        _organization = org;
+        notifyListeners();
+      }
+    } catch (e, st) {
+      debugPrint('refreshOrganization: $e\n$st');
+    }
+  }
+
+  /// Persiste identidad visual en `organizations/{id}.branding`.
+  Future<bool> saveOrganizationBranding(OrgBranding branding) async {
+    final orgId = organizationId;
+    if (orgId == null || orgId.isEmpty) {
+      _error = 'No hay organización activa.';
+      notifyListeners();
+      return false;
+    }
+    if (!canCustomBranding) {
+      _error = 'Branding personalizado disponible en Pro o durante la prueba.';
+      notifyListeners();
+      return false;
+    }
+    _error = null;
+    try {
+      _organization = await OrganizationService.instance.updateBranding(
+        orgId: orgId,
+        branding: branding.toMap(),
+        session: _restSession,
+      );
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<bool> resetPassword(String email) async {

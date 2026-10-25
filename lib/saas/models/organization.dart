@@ -1,4 +1,5 @@
 import '../domain/org_enums.dart';
+import 'org_branding.dart';
 
 /// Empresa / organización comercial.
 class Organization {
@@ -12,6 +13,8 @@ class Organization {
   final Map<String, dynamic> branding;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  OrgBranding get visualIdentity => OrgBranding.fromMap(branding);
 
   const Organization({
     required this.id,

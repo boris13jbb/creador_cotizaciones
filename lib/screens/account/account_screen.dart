@@ -10,6 +10,7 @@ import '../catalog/catalog_screen.dart';
 import '../clients/clients_screen.dart';
 import '../legal/legal_screen.dart';
 import '../team/team_screen.dart';
+import 'company_identity_screen.dart';
 import 'pricing_screen.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -121,6 +122,25 @@ class AccountScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const TeamScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.branding_watermark_outlined),
+                title: const Text('Identidad visual'),
+                subtitle: Text(
+                  auth.canCustomBranding
+                      ? 'Logotipo y colores de la empresa'
+                      : 'Disponible en Pro o prueba',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CompanyIdentityScreen(),
+                    ),
                   );
                 },
               ),

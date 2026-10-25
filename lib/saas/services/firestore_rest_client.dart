@@ -139,10 +139,16 @@ class FirestoreRestClient {
     required AuthSession session,
     required String path,
     required Map<String, dynamic> data,
+    List<String>? updateMask,
   }) async {
+    final mask = updateMask ?? data.keys.toList();
+    final maskQuery = mask
+        .map((k) => 'updateMask.fieldPaths=${Uri.encodeQueryComponent(k)}')
+        .join('&');
+    final uri = Uri.parse('${_absolute(path)}?$maskQuery');
     final res = await _authorized(
       (token) => http.patch(
-        _absolute(path),
+        uri,
         headers: _headers(token),
         body: jsonEncode({'fields': _toFields(data)}),
       ),

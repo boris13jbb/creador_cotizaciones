@@ -6,7 +6,8 @@
     "indexes": "firestore.indexes.json"
   },
   "storage": {
-    "rules": "storage.rules"
+    "rules": "storage.rules",
+    "bucket": "cotiapp-saas-jb.firebasestorage.app"
   },
   "hosting": [
     {

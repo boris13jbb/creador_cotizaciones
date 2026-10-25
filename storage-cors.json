@@ -1,0 +1,24 @@
+[
+  {
+    "origin": [
+      "http://localhost:62313",
+      "http://localhost:5000",
+      "http://localhost:8080",
+      "http://127.0.0.1:62313",
+      "http://127.0.0.1:5000",
+      "http://127.0.0.1:8080",
+      "https://cotiapp-saas-jb.web.app",
+      "https://cotiapp-saas-jb.firebaseapp.com"
+    ],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "Content-Length",
+      "x-goog-resumable",
+      "x-goog-meta-uploadedby",
+      "x-goog-meta-orgid"
+    ]
+  }
+]

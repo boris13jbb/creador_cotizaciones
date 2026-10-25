@@ -266,4 +266,44 @@ class OrganizationService {
 
   String? orgIdFromProfile(SaasUserProfile? profile) =>
       profile?.defaultOrganizationId;
+
+  /// Actualiza solo `branding` (+ `updatedAt`) de la organización.
+  Future<Organization> updateBranding({
+    required String orgId,
+    required Map<String, dynamic> branding,
+    AuthSession? session,
+  }) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    // Solo REST en escritorio; en Web/móvil usar SDK (evitar colgarse si
+    // llega una session REST residual sin backend REST activo).
+    if (_useRest) {
+      final s = session ?? AuthService.instance.restSession;
+      if (s == null) throw Exception('Sesión no disponible');
+      await FirestoreRestClient.instance.upsertDocument(
+        session: s,
+        path: 'organizations/$orgId',
+        data: {'branding': branding, 'updatedAt': now},
+        updateMask: const ['branding', 'updatedAt'],
+      );
+      final refreshed = await getOrganization(orgId, session: s);
+      if (refreshed == null) {
+        throw Exception(
+          'No se pudo leer la organización tras guardar branding.',
+        );
+      }
+      return refreshed;
+    }
+
+    await _db.collection('organizations').doc(orgId).set({
+      'branding': branding,
+      'updatedAt': now,
+    }, SetOptions(merge: true));
+    final snap = await _db.collection('organizations').doc(orgId).get();
+    if (!snap.exists || snap.data() == null) {
+      throw Exception('Organización no encontrada');
+    }
+    final data = Map<String, dynamic>.from(snap.data()!);
+    data['id'] = snap.id;
+    return Organization.fromMap(data);
+  }
 }

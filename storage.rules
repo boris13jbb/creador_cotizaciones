@@ -10,19 +10,46 @@ service firebase.storage {
     }
 
     function isImage() {
-      return request.resource.contentType.matches('image/.*');
+      return request.resource.contentType != null
+        && request.resource.contentType.matches('image/.*');
     }
 
     function under5MB() {
       return request.resource.size < 5 * 1024 * 1024;
     }
 
-// Logos / firmas por usuario. Lectura vía download URL firmada (token).
-    // getData con SDK requiere ser propietario.
+    // Una sola lectura Firestore (máx. 2 docs por evaluación en Storage Rules).
+    function orgMember(orgId) {
+      return firestore.get(
+        /databases/(default)/documents/organizations/$(orgId)/members/$(request.auth.uid)
+      );
+    }
+
+    function isActiveOrgMember(orgId) {
+      let member = orgMember(orgId);
+      return isSignedIn()
+        && member.data.status == 'active';
+    }
+
+    function canManageOrgBranding(orgId) {
+      let member = orgMember(orgId);
+      return isSignedIn()
+        && member.data.status == 'active'
+        && (member.data.role == 'owner' || member.data.role == 'admin');
+    }
+
+    // Logos / firmas por usuario.
     match /users/{userId}/branding/{fileName} {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId) && isImage() && under5MB();
       allow delete: if isOwner(userId);
+    }
+
+    // Identidad visual por organización (aislamiento multiempresa).
+    match /organizations/{orgId}/branding/{fileName} {
+      allow read: if isActiveOrgMember(orgId);
+      allow write: if canManageOrgBranding(orgId) && isImage() && under5MB();
+      allow delete: if canManageOrgBranding(orgId);
     }
 
     match /{allPaths=**} {

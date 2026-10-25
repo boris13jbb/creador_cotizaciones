@@ -10,6 +10,7 @@ import '../models/cotizacion.dart';
 import '../models/forma_pago_item.dart';
 import '../models/servicio.dart';
 import '../saas/domain/quote_totals.dart';
+import '../saas/models/org_branding.dart';
 import '../saas/models/quote.dart';
 import '../saas/services/branding_storage_service.dart';
 import '../saas/services/quote_mapper.dart';
@@ -108,11 +109,23 @@ class PdfService {
             globalDiscountFixed: quote.globalDiscountFixed,
             charges: quote.charges,
           );
+    final logoLayout = OrgBranding.fromQuoteLegacy(
+      logoPath: cot.logoPath ?? quote?.logoPath,
+      colorsJson: cot.coloresJson ?? quote?.colorsJson,
+      legacy: quote?.legacyFields ?? const {},
+    );
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(36),
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(36),
+          // Marca de agua detrás del contenido en cada página.
+          buildBackground: (context) => _watermarkBackground(
+            logoImage: logoImage,
+            branding: logoLayout,
+          ),
+        ),
         footer: cot.footerText == null || cot.footerText!.isEmpty
             ? null
             : (context) => pw.Text(
@@ -121,98 +134,14 @@ class PdfService {
                 textAlign: pw.TextAlign.center,
               ),
         build: (context) => [
-          pw.Table(
-            columnWidths: {
-              0: const pw.FlexColumnWidth(2),
-              1: const pw.FixedColumnWidth(140),
-            },
-            children: [
-              pw.TableRow(
-                children: [
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(16),
-                    decoration: pw.BoxDecoration(color: _PdfColors.primary),
-                    child: pw.Row(
-                      children: [
-                        if (logoImage != null)
-                          pw.Container(
-                            width: 48,
-                            height: 48,
-                            margin: const pw.EdgeInsets.only(right: 12),
-                            child: pw.Image(logoImage, fit: pw.BoxFit.cover),
-                          ),
-                        pw.Expanded(
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            mainAxisSize: pw.MainAxisSize.min,
-                            children: [
-                              pw.Text(
-                                'COTIZACION DE SERVICIOS',
-                                style: pw.TextStyle(
-                                  color: PdfColors.white,
-                                  fontSize: 16,
-                                  fontWeight: pw.FontWeight.bold,
-                                ),
-                              ),
-                              if (subtitulo.isNotEmpty)
-                                pw.Text(
-                                  subtitulo,
-                                  style: pw.TextStyle(
-                                    color: PdfColors.white,
-                                    fontSize: 9,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(12),
-                    decoration: pw.BoxDecoration(color: _PdfColors.secondary),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      mainAxisAlignment: pw.MainAxisAlignment.center,
-                      mainAxisSize: pw.MainAxisSize.min,
-                      children: [
-                        pw.Text(
-                          'Nro. ${cot.numero}',
-                          style: pw.TextStyle(
-                            color: _PdfColors.textDark,
-                            fontSize: 10,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.Text(
-                          'Fecha: ${cot.fecha}',
-                          style: pw.TextStyle(
-                            color: _PdfColors.textDark,
-                            fontSize: 9,
-                          ),
-                        ),
-                        if (validez.isNotEmpty)
-                          pw.Text(
-                            validez,
-                            style: pw.TextStyle(
-                              color: _PdfColors.textDark,
-                              fontSize: 9,
-                            ),
-                          ),
-                        if (statusLabel != null)
-                          pw.Text(
-                            'Estado: $statusLabel',
-                            style: pw.TextStyle(
-                              color: _PdfColors.textDark,
-                              fontSize: 8,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          _headerTable(
+            logoImage: logoImage,
+            logoLayout: logoLayout,
+            subtitulo: subtitulo,
+            numero: cot.numero,
+            fecha: cot.fecha,
+            validez: validez,
+            statusLabel: statusLabel,
           ),
 
           pw.SizedBox(height: 20),
@@ -300,12 +229,34 @@ class PdfService {
             ),
           ],
 
-          if (cot.camposExtra != null && cot.camposExtra!.isNotEmpty) ...[
+          if (cot.camposExtraList.isNotEmpty) ...[
             pw.SizedBox(height: 12),
             _tituloSeccion('CAMPOS ADICIONALES'),
-            pw.Text(
-              cot.camposExtra!,
-              style: pw.TextStyle(color: _PdfColors.textGray, fontSize: 8.5),
+            ...cot.camposExtraList.map(
+              (e) => pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 2),
+                child: pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: '${e.key}: ',
+                        style: pw.TextStyle(
+                          color: _PdfColors.textDark,
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.TextSpan(
+                        text: e.value,
+                        style: pw.TextStyle(
+                          color: _PdfColors.textGray,
+                          fontSize: 8.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
 
@@ -477,6 +428,184 @@ class PdfService {
     );
   }
 
+  /// Capa de fondo: logo tenue. Vacío si está desactivada o no hay imagen.
+  static pw.Widget _watermarkBackground({
+    required pw.ImageProvider? logoImage,
+    required OrgBranding branding,
+  }) {
+    if (!branding.watermarkEnabled || logoImage == null) {
+      return pw.SizedBox.shrink();
+    }
+    final maxW = branding.watermarkSize.maxWidthPt;
+    final align = switch (branding.watermarkPosition) {
+      WatermarkPosition.center => pw.Alignment.center,
+      WatermarkPosition.topCenter => pw.Alignment.topCenter,
+      WatermarkPosition.bottomCenter => pw.Alignment.bottomCenter,
+      WatermarkPosition.bottomRight => pw.Alignment.bottomRight,
+    };
+    // Márgenes internos para no pegar la marca a los bordes físicos.
+    final pad = switch (branding.watermarkPosition) {
+      WatermarkPosition.center => const pw.EdgeInsets.all(48),
+      WatermarkPosition.topCenter => const pw.EdgeInsets.fromLTRB(48, 72, 48, 48),
+      WatermarkPosition.bottomCenter =>
+        const pw.EdgeInsets.fromLTRB(48, 48, 48, 72),
+      WatermarkPosition.bottomRight =>
+        const pw.EdgeInsets.fromLTRB(48, 48, 56, 64),
+    };
+
+    return pw.FullPage(
+      ignoreMargins: true,
+      child: pw.Opacity(
+        opacity: branding.watermarkOpacity,
+        child: pw.Padding(
+          padding: pad,
+          child: pw.Align(
+            alignment: align,
+            child: pw.ConstrainedBox(
+              constraints: pw.BoxConstraints(maxWidth: maxW, maxHeight: maxW),
+              child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Encabezado con logo (tamaño/alineación) + meta de cotización.
+  /// Limitación: solo ubicación [LogoPlacement.header] en la plantilla actual.
+  static pw.Widget _headerTable({
+    required pw.ImageProvider? logoImage,
+    required OrgBranding logoLayout,
+    required String subtitulo,
+    required String numero,
+    required String fecha,
+    required String validez,
+    required String? statusLabel,
+  }) {
+    final size = logoLayout.logoSizePt.clamp(
+      OrgBranding.minLogoSizePt,
+      OrgBranding.maxLogoSizePt,
+    );
+    pw.Widget? logoWidget;
+    if (logoImage != null) {
+      logoWidget = pw.Container(
+        height: size,
+        constraints: pw.BoxConstraints(maxWidth: size * 2.2),
+        child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+      );
+    }
+
+    final titleBlock = pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [
+        pw.Text(
+          'COTIZACION DE SERVICIOS',
+          style: pw.TextStyle(
+            color: PdfColors.white,
+            fontSize: 16,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+        if (subtitulo.isNotEmpty)
+          pw.Text(
+            subtitulo,
+            style: pw.TextStyle(color: PdfColors.white, fontSize: 9),
+          ),
+      ],
+    );
+
+    late final pw.Widget headerContent;
+    if (logoWidget == null) {
+      headerContent = titleBlock;
+    } else {
+      switch (logoLayout.logoAlignment) {
+        case LogoAlignment.center:
+          headerContent = pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [logoWidget, pw.SizedBox(height: 8), titleBlock],
+          );
+        case LogoAlignment.right:
+          headerContent = pw.Row(
+            children: [
+              pw.Expanded(child: titleBlock),
+              pw.SizedBox(width: 12),
+              logoWidget,
+            ],
+          );
+        case LogoAlignment.left:
+          headerContent = pw.Row(
+            children: [
+              logoWidget,
+              pw.SizedBox(width: 12),
+              pw.Expanded(child: titleBlock),
+            ],
+          );
+      }
+    }
+
+    return pw.Table(
+      columnWidths: {
+        0: const pw.FlexColumnWidth(2),
+        1: const pw.FixedColumnWidth(140),
+      },
+      children: [
+        pw.TableRow(
+          children: [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(color: _PdfColors.primary),
+              child: headerContent,
+            ),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(color: _PdfColors.secondary),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                mainAxisAlignment: pw.MainAxisAlignment.center,
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(
+                    'Nro. $numero',
+                    style: pw.TextStyle(
+                      color: _PdfColors.textDark,
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(
+                    'Fecha: $fecha',
+                    style: pw.TextStyle(
+                      color: _PdfColors.textDark,
+                      fontSize: 9,
+                    ),
+                  ),
+                  if (validez.isNotEmpty)
+                    pw.Text(
+                      validez,
+                      style: pw.TextStyle(
+                        color: _PdfColors.textDark,
+                        fontSize: 9,
+                      ),
+                    ),
+                  if (statusLabel != null)
+                    pw.Text(
+                      'Estado: $statusLabel',
+                      style: pw.TextStyle(
+                        color: _PdfColors.textDark,
+                        fontSize: 8,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   static pw.Widget _tablaInformacionProyecto(Cotizacion cot) {
     return pw.Table(
       border: pw.TableBorder.all(color: _PdfColors.border, width: 0.5),
@@ -599,6 +728,7 @@ class PdfService {
   static pw.Widget _bloquesFormaPago(Cotizacion cot, NumberFormat fmt) {
     final t = cot.total;
     // Usar formaPago personalizada si está disponible, de lo contrario usar default
+    // (anticipo/saldo). Un solo pago llega como un único ítem "UN SOLO PAGO".
     final List<FormaPagoItem> items;
     if (cot.formaPago.isNotEmpty) {
       items = cot.formaPago;
@@ -610,14 +740,9 @@ class PdfService {
           monto: t * 0.5,
         ),
         FormaPagoItem(
-          etiqueta: 'ENTREGA',
-          descripcion: '25% mitad',
-          monto: t * 0.25,
-        ),
-        FormaPagoItem(
           etiqueta: 'SALDO',
-          descripcion: '25% final',
-          monto: t * 0.25,
+          descripcion: '50% final',
+          monto: t * 0.5,
         ),
       ];
     }

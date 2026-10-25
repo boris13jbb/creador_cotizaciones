@@ -77,3 +77,23 @@ enum CatalogItemStatus {
     );
   }
 }
+
+/// Modalidad de forma de pago de la cotización.
+/// Cotizaciones antiguas sin valor → [split] (anticipo/saldo).
+enum PaymentMode {
+  single('single'),
+  split('split');
+
+  const PaymentMode(this.id);
+  final String id;
+
+  static PaymentMode fromId(String? id) {
+    if (id == PaymentMode.single.id) return PaymentMode.single;
+    return PaymentMode.split;
+  }
+
+  String get label => switch (this) {
+    PaymentMode.single => 'Un solo pago',
+    PaymentMode.split => 'Anticipo y saldo',
+  };
+}
