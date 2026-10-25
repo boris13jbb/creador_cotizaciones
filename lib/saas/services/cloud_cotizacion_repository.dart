@@ -8,6 +8,11 @@ import '../../models/servicio.dart';
 import '../config/saas_platform.dart';
 import '../domain/org_enums.dart';
 import '../models/quote.dart';
+import '../offline/connectivity_monitor.dart';
+import '../offline/offline_controller.dart';
+import '../offline/offline_local_store.dart';
+import '../offline/offline_sync_service.dart';
+import '../offline/offline_sync_status.dart';
 import '../providers/auth_controller.dart';
 import 'activity_repository.dart';
 import 'app_logger.dart';
@@ -182,6 +187,7 @@ class CloudCotizacionRepository {
     if (useEmptyStoreForTests) return [];
 
     final orgId = _orgId;
+    List<Cotizacion> remote = [];
     if (orgId != null && orgId.isNotEmpty) {
       try {
         final page = await OrgQuoteRepository.instance.listQuotes(
@@ -189,18 +195,61 @@ class CloudCotizacionRepository {
           limit: 200,
           session: _auth?.restSession,
         );
-        if (page.items.isNotEmpty) {
-          return [for (final q in page.items) QuoteMapper.toCotizacion(q)];
+        remote = [for (final q in page.items) QuoteMapper.toCotizacion(q)];
+        // Espejo local de lo remoto (disponible offline después).
+        try {
+          final uid = _uid;
+          for (final q in page.items) {
+            await OfflineLocalStore.instance.upsertQuote(
+              uid: uid,
+              quote: q,
+              status: OfflineSyncStatus.synced,
+            );
+          }
+        } catch (e) {
+          debugPrint('obtenerTodas mirror: $e');
         }
       } catch (e, st) {
         debugPrint('obtenerTodas org: $e\n$st');
       }
     }
 
+    if (orgId != null && orgId.isNotEmpty) {
+      try {
+        final local = await OfflineLocalStore.instance.listQuotes(
+          organizationId: orgId,
+          uid: _uid,
+        );
+        final byId = <String, Cotizacion>{
+          for (final c in remote) c.id: c,
+        };
+        for (final rec in local) {
+          final cot = QuoteMapper.toCotizacion(rec.quote)
+              .withOfflineSyncStatus(rec.syncStatus.id);
+          final preferLocal =
+              rec.syncStatus == OfflineSyncStatus.pending ||
+              rec.syncStatus == OfflineSyncStatus.conflict ||
+              rec.syncStatus == OfflineSyncStatus.error ||
+              !byId.containsKey(cot.id);
+          if (preferLocal) {
+            byId[cot.id] = cot;
+          }
+        }
+        if (byId.isNotEmpty) {
+          final merged = byId.values.toList()
+            ..sort((a, b) => b.fecha.compareTo(a.fecha));
+          return merged;
+        }
+      } catch (e) {
+        debugPrint('obtenerTodas local: $e');
+      }
+    }
+
+    if (remote.isNotEmpty) return remote;
     return _obtenerLegacy();
   }
 
-  /// Historial paginado por cursor (`updatedAt`). Fallback legacy: una sola página.
+  /// Historial paginado por cursor (`updatedAt`). Fusiona pendientes locales.
   Future<CotizacionPage> obtenerPagina({
     int limit = 20,
     String? startAfterUpdatedAt,
@@ -211,6 +260,10 @@ class CloudCotizacionRepository {
     }
 
     final orgId = _orgId;
+    List<Cotizacion> remote = [];
+    String? nextCursor;
+    var hasMore = false;
+
     if (orgId != null && orgId.isNotEmpty) {
       try {
         final page = await OrgQuoteRepository.instance.listQuotes(
@@ -220,25 +273,133 @@ class CloudCotizacionRepository {
           startAfterUpdatedAt: startAfterUpdatedAt,
           session: _auth?.restSession,
         );
-        if (page.items.isNotEmpty ||
-            startAfterUpdatedAt != null ||
-            (status != null && status.isNotEmpty)) {
-          return CotizacionPage(
-            items: [for (final q in page.items) QuoteMapper.toCotizacion(q)],
-            nextCursor: page.nextCursor,
-            hasMore: page.hasMore,
-          );
+        remote = [for (final q in page.items) QuoteMapper.toCotizacion(q)];
+        nextCursor = page.nextCursor;
+        hasMore = page.hasMore;
+        try {
+          for (final q in page.items) {
+            await OfflineLocalStore.instance.upsertQuote(
+              uid: _uid,
+              quote: q,
+              status: OfflineSyncStatus.synced,
+            );
+          }
+        } catch (e) {
+          debugPrint('obtenerPagina mirror: $e');
         }
       } catch (e, st) {
         debugPrint('obtenerPagina org: $e\n$st');
       }
     }
 
+    // Primera página (o fallo de red): incluir locales pendientes/solo-dispositivo.
+    if (orgId != null &&
+        orgId.isNotEmpty &&
+        startAfterUpdatedAt == null) {
+      try {
+        final local = await OfflineLocalStore.instance.listQuotes(
+          organizationId: orgId,
+          uid: _uid,
+        );
+        final byId = <String, Cotizacion>{for (final c in remote) c.id: c};
+        for (final rec in local) {
+          if (status != null &&
+              status.isNotEmpty &&
+              rec.quote.status.id != status) {
+            continue;
+          }
+          final cot = QuoteMapper.toCotizacion(rec.quote)
+              .withOfflineSyncStatus(rec.syncStatus.id);
+          final preferLocal =
+              rec.syncStatus == OfflineSyncStatus.pending ||
+              rec.syncStatus == OfflineSyncStatus.conflict ||
+              rec.syncStatus == OfflineSyncStatus.error ||
+              !byId.containsKey(cot.id);
+          if (preferLocal) {
+            byId[cot.id] = cot;
+          } else {
+            byId[cot.id] = byId[cot.id]!.withOfflineSyncStatus(
+              OfflineSyncStatus.synced.id,
+            );
+          }
+        }
+        final merged = byId.values.toList()
+          ..sort((a, b) => b.fecha.compareTo(a.fecha));
+        if (merged.isNotEmpty || remote.isNotEmpty) {
+          return CotizacionPage(
+            items: merged.take(limit).toList(),
+            nextCursor: nextCursor,
+            hasMore: hasMore || merged.length > limit,
+          );
+        }
+      } catch (e) {
+        debugPrint('obtenerPagina local: $e');
+      }
+    } else if (remote.isNotEmpty) {
+      return CotizacionPage(
+        items: remote,
+        nextCursor: nextCursor,
+        hasMore: hasMore,
+      );
+    }
+
     if (startAfterUpdatedAt != null || (status != null && status.isNotEmpty)) {
+      if (remote.isNotEmpty) {
+        return CotizacionPage(
+          items: remote,
+          nextCursor: nextCursor,
+          hasMore: hasMore,
+        );
+      }
       return const CotizacionPage(items: [], hasMore: false);
     }
     final legacy = await _obtenerLegacy();
     return CotizacionPage(items: legacy, nextCursor: null, hasMore: false);
+  }
+
+  /// Resuelve conflicto offline: conserva local (fuerza push) o adopta remoto.
+  Future<Quote> resolveQuoteConflict({
+    required String quoteId,
+    required bool keepLocal,
+  }) async {
+    final orgId = _orgId;
+    if (orgId == null || orgId.isEmpty) {
+      throw Exception('Se requiere organización.');
+    }
+    final local = await OfflineLocalStore.instance.getQuote(
+      organizationId: orgId,
+      uid: _uid,
+      quoteId: quoteId,
+    );
+    if (local == null) {
+      throw Exception('No hay versión local del conflicto.');
+    }
+    if (keepLocal) {
+      final pushed = await saveQuoteRemoteOnly(local.quote, isNew: false);
+      await OfflineLocalStore.instance.markQuoteStatus(
+        organizationId: orgId,
+        uid: _uid,
+        quoteId: quoteId,
+        status: OfflineSyncStatus.synced,
+      );
+      await OfflineController.instance.refresh();
+      return pushed;
+    }
+    final remote = await OrgQuoteRepository.instance.getQuote(
+      orgId: orgId,
+      quoteId: quoteId,
+      session: _auth?.restSession,
+    );
+    if (remote == null) {
+      throw Exception('No se pudo leer la versión remota.');
+    }
+    await OfflineLocalStore.instance.upsertQuote(
+      uid: _uid,
+      quote: remote,
+      status: OfflineSyncStatus.synced,
+    );
+    await OfflineController.instance.refresh();
+    return remote;
   }
 
   Future<List<Cotizacion>> _obtenerLegacy() async {
@@ -380,7 +541,7 @@ class CloudCotizacionRepository {
     await prefs.setString('prefijo_cotizacion_$_uid', prefijo);
   }
 
-  /// Guarda dominio [Quote] (fuente de verdad Fase 4) + dual-write legacy.
+  /// Guarda dominio [Quote]: primero local persistente; luego Firebase si hay red.
   Future<Quote> saveQuote(Quote quote, {required bool isNew}) async {
     final access = _auth?.access;
     final max = access?.maxCotizaciones ?? 5;
@@ -402,14 +563,143 @@ class CloudCotizacionRepository {
     }
 
     final session = _auth?.restSession;
-    await OrgQuoteRepository.instance.requireWritableOrg(
-      orgId: orgId,
-      uid: _uid,
-      session: session,
-    );
+    final online = await ConnectivityMonitor.instance.probeFirebase();
 
     var toSave = quote.copyWith(organizationId: orgId);
     if (isNew && toSave.sequence <= 0) {
+      if (online) {
+        try {
+          final org = await OrganizationService.instance.getOrganization(
+            orgId,
+            session: session,
+          );
+          final allocated = await OrgQuoteRepository.instance.allocateNumber(
+            orgId: orgId,
+            prefix: org?.quotePrefix ?? 'COT',
+            session: session,
+          );
+          toSave = toSave.copyWith(
+            sequence: allocated.sequence,
+            number: allocated.number,
+          );
+        } catch (e) {
+          debugPrint('allocateNumber offline fallback: $e');
+          toSave = _withLocalProvisionalNumber(toSave);
+        }
+      } else {
+        toSave = _withLocalProvisionalNumber(toSave);
+      }
+    }
+
+    toSave = toSave
+        .copyWith(
+          updatedByUid: _uid,
+          legacyUserPath: 'users/$_uid/cotizaciones/${toSave.id}',
+          updatedAt: DateTime.now().toUtc(),
+        )
+        .withRecalculatedTotal();
+
+    // Persistencia local inmediata (no depende de Firebase).
+    try {
+      await OfflineLocalStore.instance.upsertQuote(
+        uid: _uid,
+        quote: toSave,
+        status: OfflineSyncStatus.pending,
+      );
+    } catch (e, st) {
+      debugPrint('offline quote save: $e\n$st');
+      if (!online) rethrow;
+    }
+
+    if (!online) {
+      await _enqueueQuoteSync(toSave, isNew: isNew);
+      await OfflineController.instance.refresh();
+      return toSave;
+    }
+
+    try {
+      await OrgQuoteRepository.instance.requireWritableOrg(
+        orgId: orgId,
+        uid: _uid,
+        session: session,
+      );
+
+      // Conflicto: remoto más nuevo con distinta versión.
+      final remote = await OrgQuoteRepository.instance.getQuote(
+        orgId: orgId,
+        quoteId: toSave.id,
+        session: session,
+      );
+      if (remote != null &&
+          !isNew &&
+          remote.updatedAt.isAfter(toSave.updatedAt) &&
+          remote.version != toSave.version) {
+        final conflictMeta =
+            '{"remoteUpdatedAt":"${remote.updatedAt.toIso8601String()}",'
+            '"remoteVersion":${remote.version},"remoteNumber":"${remote.number}"}';
+        await OfflineLocalStore.instance.upsertQuote(
+          uid: _uid,
+          quote: toSave,
+          status: OfflineSyncStatus.conflict,
+          conflictPayloadJson: conflictMeta,
+        );
+        throw Exception(
+          'Conflicto de sincronización: esta cotización cambió en otro dispositivo. '
+          'Revisa ambas versiones antes de sobrescribir.',
+        );
+      }
+
+      await saveQuoteRemoteOnly(toSave, isNew: isNew);
+      await OfflineLocalStore.instance.markQuoteStatus(
+        organizationId: orgId,
+        uid: _uid,
+        quoteId: toSave.id,
+        status: OfflineSyncStatus.synced,
+      );
+      await OfflineController.instance.refresh();
+      return toSave;
+    } catch (e) {
+      if (e.toString().contains('Conflicto de sincronización')) rethrow;
+      debugPrint('saveQuote remote failed, queued: $e');
+      await _enqueueQuoteSync(toSave, isNew: isNew);
+      await OfflineController.instance.refresh();
+      return toSave;
+    }
+  }
+
+  Quote _withLocalProvisionalNumber(Quote quote) {
+    final short = quote.id.length >= 8
+        ? quote.id.substring(0, 8).toUpperCase()
+        : quote.id.toUpperCase();
+    return quote.copyWith(sequence: 0, number: 'LOCAL-$short');
+  }
+
+  Future<void> _enqueueQuoteSync(Quote quote, {required bool isNew}) async {
+    final payload = quote.toMap()..['__isNew'] = isNew;
+    await OfflineLocalStore.instance.enqueue(
+      organizationId: quote.organizationId,
+      uid: _uid,
+      entityType: OfflineEntityType.quote,
+      entityId: quote.id,
+      operation: OfflineOperation.upsert,
+      payload: payload,
+      idempotencyKey: OfflineSyncService.idempotencyKey(
+        type: OfflineEntityType.quote,
+        entityId: quote.id,
+        op: OfflineOperation.upsert,
+        revision: quote.updatedAt.toUtc().toIso8601String(),
+      ),
+    );
+  }
+
+  /// Escritura remota pura (usada por la cola de sync; no re-encola).
+  Future<Quote> saveQuoteRemoteOnly(Quote quote, {required bool isNew}) async {
+    final orgId = quote.organizationId;
+    final session = _auth?.restSession;
+
+    var toSave = quote;
+    if (isNew &&
+        (toSave.sequence <= 0 || toSave.number.startsWith('LOCAL-'))) {
       final org = await OrganizationService.instance.getOrganization(
         orgId,
         session: session,
@@ -425,13 +715,7 @@ class CloudCotizacionRepository {
       );
     }
 
-    toSave = toSave
-        .copyWith(
-          updatedByUid: _uid,
-          legacyUserPath: 'users/$_uid/cotizaciones/${toSave.id}',
-        )
-        .withRecalculatedTotal();
-
+    toSave = toSave.withRecalculatedTotal();
     await OrgQuoteRepository.instance.upsertQuote(toSave, session: session);
 
     try {
@@ -464,10 +748,17 @@ class CloudCotizacionRepository {
     } catch (e, st) {
       debugPrint('dual-write legacy quote: $e\n$st');
     }
+
+    await OfflineLocalStore.instance.upsertQuote(
+      uid: _uid,
+      quote: toSave,
+      status: OfflineSyncStatus.synced,
+    );
     return toSave;
   }
 
-  Future<Quote?> getQuote(String quoteId) async {
+  /// Lectura remota pura (cola de sync / detección de conflictos).
+  Future<Quote?> getQuoteRemoteOnly(String quoteId) async {
     final orgId = _orgId;
     if (orgId == null || orgId.isEmpty) return null;
     return OrgQuoteRepository.instance.getQuote(
@@ -475,6 +766,40 @@ class CloudCotizacionRepository {
       quoteId: quoteId,
       session: _auth?.restSession,
     );
+  }
+
+  Future<Quote?> getQuote(String quoteId) async {
+    final orgId = _orgId;
+    if (orgId == null || orgId.isEmpty) return null;
+
+    LocalQuoteRecord? local;
+    try {
+      local = await OfflineLocalStore.instance.getQuote(
+        organizationId: orgId,
+        uid: _uid,
+        quoteId: quoteId,
+      );
+    } catch (_) {}
+
+    try {
+      final remote = await OrgQuoteRepository.instance.getQuote(
+        orgId: orgId,
+        quoteId: quoteId,
+        session: _auth?.restSession,
+      );
+      if (remote != null) {
+        if (local != null &&
+            (local.syncStatus == OfflineSyncStatus.pending ||
+                local.syncStatus == OfflineSyncStatus.conflict ||
+                local.quote.updatedAt.isAfter(remote.updatedAt))) {
+          return local.quote;
+        }
+        return remote;
+      }
+    } catch (e) {
+      debugPrint('getQuote remote: $e');
+    }
+    return local?.quote;
   }
 
   Future<Quote> duplicateQuote(String quoteId) async {

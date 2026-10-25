@@ -8,7 +8,14 @@ import '../models/entitlements.dart';
 import '../models/org_branding.dart';
 import '../models/organization.dart';
 import '../models/saas_user_profile.dart';
+import '../offline/connectivity_monitor.dart';
+import '../offline/offline_controller.dart';
+import '../offline/offline_local_store.dart';
+import '../offline/offline_sync_service.dart';
+import '../offline/branding_local_cache.dart';
+import '../offline/offline_sync_status.dart';
 import '../services/auth_service.dart';
+import '../services/branding_storage_service.dart';
 import '../services/entitlements_calculator.dart';
 import '../services/entitlements_repository.dart';
 import '../services/firestore_rest_client.dart';
@@ -238,6 +245,7 @@ class AuthController extends ChangeNotifier {
             session: session,
           );
         }
+        _precacheBrandingForOffline();
         return;
       }
 
@@ -256,6 +264,7 @@ class AuthController extends ChangeNotifier {
         _profile = _profile!.copyWith(defaultOrganizationId: _organization!.id);
       }
       _error = null;
+      _precacheBrandingForOffline();
     } catch (e, st) {
       debugPrint('ensureOrganization: $e\n$st');
       _organization = null;
@@ -367,6 +376,10 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final uid = sessionUid;
+    if (uid != null) {
+      await OfflineController.instance.onSignOut(uid: uid);
+    }
     await AuthService.instance.signOut();
     _restSession = null;
     _profile = null;
@@ -389,6 +402,7 @@ class AuthController extends ChangeNotifier {
       );
       if (org != null) {
         _organization = org;
+        _precacheBrandingForOffline();
         notifyListeners();
       }
     } catch (e, st) {
@@ -396,9 +410,26 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  void _precacheBrandingForOffline() {
+    final org = _organization;
+    final uid = sessionUid;
+    if (org == null || uid == null || uid.isEmpty) return;
+    // ignore: discarded_futures
+    BrandingStorageService.instance.precacheOrgBranding(
+      organizationId: org.id,
+      uid: uid,
+      branding: org.visualIdentity,
+    );
+  }
+
+  String? get sessionUid =>
+      _user?.uid ?? _restSession?.uid ?? _profile?.uid;
+
   /// Persiste identidad visual en `organizations/{id}.branding`.
+  /// Sin red: guarda local + encola sync (no pierde el cambio).
   Future<bool> saveOrganizationBranding(OrgBranding branding) async {
     final orgId = organizationId;
+    final uid = sessionUid;
     if (orgId == null || orgId.isEmpty) {
       _error = 'No hay organización activa.';
       notifyListeners();
@@ -410,15 +441,94 @@ class AuthController extends ChangeNotifier {
       return false;
     }
     _error = null;
+
+    if (uid != null) {
+      try {
+        await BrandingLocalCache.instance.saveBrandingConfig(
+          organizationId: orgId,
+          uid: uid,
+          branding: branding,
+          pending: true,
+        );
+      } catch (e) {
+        debugPrint('branding local cache: $e');
+      }
+    }
+
+    final online = await ConnectivityMonitor.instance.probeFirebase();
+    if (!online) {
+      if (uid != null) {
+        await OfflineLocalStore.instance.enqueue(
+          organizationId: orgId,
+          uid: uid,
+          entityType: OfflineEntityType.brandingConfig,
+          entityId: orgId,
+          operation: OfflineOperation.upsert,
+          payload: branding.toMap(),
+          idempotencyKey: OfflineSyncService.idempotencyKey(
+            type: OfflineEntityType.brandingConfig,
+            entityId: orgId,
+            op: OfflineOperation.upsert,
+            revision: DateTime.now().toUtc().toIso8601String(),
+          ),
+        );
+        await OfflineController.instance.refresh();
+      }
+      if (_organization != null) {
+        final o = _organization!;
+        _organization = Organization(
+          id: o.id,
+          name: o.name,
+          legalName: o.legalName,
+          taxId: o.taxId,
+          currency: o.currency,
+          quotePrefix: o.quotePrefix,
+          ownerUid: o.ownerUid,
+          branding: branding.toMap(),
+          createdAt: o.createdAt,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      notifyListeners();
+      return true;
+    }
+
     try {
       _organization = await OrganizationService.instance.updateBranding(
         orgId: orgId,
         branding: branding.toMap(),
         session: _restSession,
       );
+      if (uid != null) {
+        await BrandingLocalCache.instance.saveBrandingConfig(
+          organizationId: orgId,
+          uid: uid,
+          branding: branding,
+          pending: false,
+        );
+      }
       notifyListeners();
       return true;
     } catch (e) {
+      if (uid != null) {
+        await OfflineLocalStore.instance.enqueue(
+          organizationId: orgId,
+          uid: uid,
+          entityType: OfflineEntityType.brandingConfig,
+          entityId: orgId,
+          operation: OfflineOperation.upsert,
+          payload: branding.toMap(),
+          idempotencyKey: OfflineSyncService.idempotencyKey(
+            type: OfflineEntityType.brandingConfig,
+            entityId: orgId,
+            op: OfflineOperation.upsert,
+            revision: DateTime.now().toUtc().toIso8601String(),
+          ),
+        );
+        await OfflineController.instance.refresh();
+        notifyListeners();
+        return true;
+      }
       _error = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;

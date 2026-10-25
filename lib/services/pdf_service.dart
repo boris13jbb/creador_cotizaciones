@@ -77,6 +77,8 @@ class PdfService {
     pw.ImageProvider? logoImage;
     final logoBytes = await BrandingStorageService.instance.loadLogoBytes(
       cot.logoPath ?? quote?.logoPath,
+      organizationId: quote?.organizationId,
+      uid: quote?.createdByUid,
     );
     if (logoBytes != null) {
       logoImage = pw.MemoryImage(logoBytes);

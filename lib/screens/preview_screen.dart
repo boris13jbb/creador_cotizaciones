@@ -10,6 +10,7 @@ import '../models/cotizacion.dart';
 import '../saas/models/org_client.dart';
 import '../saas/models/quote.dart';
 import '../saas/providers/auth_controller.dart';
+import '../saas/offline/pdf_local_archive.dart';
 import '../saas/services/client_repository.dart';
 import '../saas/services/cloud_cotizacion_repository.dart';
 import '../saas/services/quote_share_service.dart';
@@ -65,11 +66,25 @@ class _PreviewScreenState extends State<PreviewScreen> {
     if (mounted) setState(() => _loadingQuote = false);
   }
 
-  Future<Uint8List> _buildPdf(PdfPageFormat format) {
-    if (_quote != null) {
-      return PdfService.generarPDFFromQuote(_quote!);
-    }
-    return PdfService.generarPDF(_cotizacion);
+  Future<Uint8List> _buildPdf(PdfPageFormat format) async {
+    final bytes = _quote != null
+        ? await PdfService.generarPDFFromQuote(_quote!)
+        : await PdfService.generarPDF(_cotizacion);
+    // Persistencia local del PDF (disponible tras cerrar la app).
+    try {
+      final orgId =
+          _quote?.organizationId ??
+          (mounted ? context.read<AuthController>().organizationId : null);
+      if (orgId != null && orgId.isNotEmpty) {
+        await PdfLocalArchive.instance.saveQuotePdf(
+          organizationId: orgId,
+          quoteId: _cotizacion.id,
+          number: _cotizacion.numero,
+          bytes: bytes,
+        );
+      }
+    } catch (_) {}
+    return bytes;
   }
 
   Future<void> _exportarWord(BuildContext context) async {

@@ -9,6 +9,7 @@ import '../../screens/historial_screen.dart';
 import '../../screens/home_screen.dart';
 import '../../screens/nueva_cotizacion_screen.dart';
 import '../../screens/reports/reports_screen.dart';
+import '../../widgets/offline_status_banner.dart';
 import '../layout/responsive.dart';
 import '../tokens/app_icons.dart';
 import '../widgets/plan_badge.dart';
@@ -63,6 +64,14 @@ class _AppShellState extends State<AppShell> {
       AppDestination.account => const AccountScreen(embeddedInShell: true),
     };
 
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const OfflineStatusBanner(),
+        Expanded(child: body),
+      ],
+    );
+
     if (useRail) {
       return Scaffold(
         body: SafeArea(
@@ -114,7 +123,7 @@ class _AppShellState extends State<AppShell> {
                 ],
               ),
               const VerticalDivider(width: 1),
-              Expanded(child: body),
+              Expanded(child: content),
             ],
           ),
         ),
@@ -137,7 +146,7 @@ class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
-      body: body,
+      body: content,
       floatingActionButton: _destination == AppDestination.home
           ? _nuevaCotizacionFab(context)
           : null,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../saas/config/saas_config.dart';
+import '../../saas/offline/offline_controller.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/services/billing_service.dart';
 import '../../ui/layout/responsive.dart';
@@ -237,16 +238,33 @@ class AccountScreen extends StatelessWidget {
                   style: TextStyle(color: Colors.red),
                 ),
                 onTap: () async {
+                  final hasPending =
+                      await OfflineController.instance.hasUnsyncedWork();
+                  if (!context.mounted) return;
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Cerrar sesión'),
-                      content: const Text('¿Seguro que deseas salir?'),
+                      content: Text(
+                        hasPending
+                            ? 'Hay cambios pendientes de sincronizar en este dispositivo. '
+                                  'No se borrarán, pero otra cuenta no podrá verlos. '
+                                  '¿Seguro que deseas salir?'
+                            : '¿Seguro que deseas salir?',
+                      ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, false),
                           child: const Text('Cancelar'),
                         ),
+                        if (hasPending)
+                          TextButton(
+                            onPressed: () async {
+                              await OfflineController.instance.syncNow();
+                              if (ctx.mounted) Navigator.pop(ctx, false);
+                            },
+                            child: const Text('Sincronizar primero'),
+                          ),
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           child: const Text('Salir'),

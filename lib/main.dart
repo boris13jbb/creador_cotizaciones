@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
+import 'saas/offline/offline_controller.dart';
 import 'saas/providers/auth_controller.dart';
 import 'saas/services/app_logger.dart';
 import 'saas/services/cloud_cotizacion_repository.dart';
@@ -51,12 +52,24 @@ void main() async {
   final themeController = ThemeController();
   await themeController.load();
   CloudCotizacionRepository.instance.bindAuth(authController);
+  authController.addListener(() {
+    // ignore: discarded_futures
+    OfflineController.instance.bindSession(
+      uid: authController.sessionUid,
+      organizationId: authController.organizationId,
+    );
+  });
+  await OfflineController.instance.bindSession(
+    uid: authController.sessionUid,
+    organizationId: authController.organizationId,
+  );
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: authController),
         ChangeNotifierProvider.value(value: themeController),
+        ChangeNotifierProvider.value(value: OfflineController.instance),
       ],
       child: const CotiApp(),
     ),

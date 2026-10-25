@@ -7,6 +7,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../saas/models/org_branding.dart';
+import '../../saas/offline/branding_local_cache.dart';
+import '../../saas/offline/connectivity_monitor.dart';
+import '../../saas/offline/offline_controller.dart';
+import '../../saas/offline/offline_local_store.dart';
+import '../../saas/offline/offline_sync_service.dart';
+import '../../saas/offline/offline_sync_status.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/services/branding_storage_service.dart';
 import '../../saas/services/organization_service.dart';
@@ -78,6 +84,8 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
       }
       final bytes = await BrandingStorageService.instance.loadLogoBytes(
         identity.logoUrl,
+        organizationId: org?.id,
+        uid: uid,
       );
       if (!mounted) return;
       setState(() {
@@ -171,19 +179,61 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
           bytes,
           fileName: file.name,
         );
-        final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
-          orgId: orgId,
-          uid: uid,
-          bytes: bytes,
-          fileName: file.name,
-        );
 
-        final next = previousDraft.copyWith(
-          logoUrl: uploaded.url,
-          logoStoragePath: uploaded.storagePath,
-        );
+        final online = await ConnectivityMonitor.instance.probeFirebase();
+        late final OrgBranding next;
+        var offlinePending = false;
 
-        // Persistir en la organización; si falla Firestore, no dejar preview nueva.
+        if (online) {
+          final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
+            orgId: orgId,
+            uid: uid,
+            bytes: bytes,
+            fileName: file.name,
+          );
+          next = previousDraft.copyWith(
+            logoUrl: uploaded.url,
+            logoStoragePath: uploaded.storagePath,
+          );
+          await BrandingLocalCache.instance.saveLogoBytes(
+            organizationId: orgId,
+            uid: uid,
+            bytes: bytes,
+            branding: next,
+            pendingUpload: false,
+          );
+        } else {
+          final localPath = await BrandingLocalCache.instance.saveLogoBytes(
+            organizationId: orgId,
+            uid: uid,
+            bytes: bytes,
+            branding: previousDraft,
+            pendingUpload: true,
+          );
+          next = previousDraft.copyWith(
+            logoUrl: localPath ?? previousDraft.logoUrl,
+          );
+          await OfflineLocalStore.instance.enqueue(
+            organizationId: orgId,
+            uid: uid,
+            entityType: OfflineEntityType.brandingLogo,
+            entityId: orgId,
+            operation: OfflineOperation.uploadFile,
+            payload: {
+              'logoLocalPath': localPath,
+              'branding': next.toMap(),
+            },
+            idempotencyKey: OfflineSyncService.idempotencyKey(
+              type: OfflineEntityType.brandingLogo,
+              entityId: orgId,
+              op: OfflineOperation.uploadFile,
+              revision: DateTime.now().toUtc().toIso8601String(),
+            ),
+          );
+          await OfflineController.instance.refresh();
+          offlinePending = true;
+        }
+
         final saved = await auth
             .saveOrganizationBranding(next)
             .timeout(
@@ -208,7 +258,11 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
           _previewBytes = bytes;
           _error = null;
         });
-        _showMessage('Logotipo subido y guardado en la organización.');
+        _showMessage(
+          offlinePending
+              ? 'Logo guardado en el dispositivo (pendiente de subir).'
+              : 'Logotipo subido y guardado en la organización.',
+        );
       });
     } catch (e, st) {
       debugPrint('upload logo UI: $e\n$st');

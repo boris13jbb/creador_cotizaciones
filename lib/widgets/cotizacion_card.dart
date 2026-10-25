@@ -25,6 +25,21 @@ class CotizacionCard extends StatelessWidget {
     this.onNewVersion,
   });
 
+  (String, Color)? get _offlineBadge {
+    switch (cotizacion.offlineSyncStatus) {
+      case 'pending':
+      case 'error':
+        return ('Solo dispositivo', Colors.orange.shade800);
+      case 'conflict':
+        return ('Conflicto', Colors.red.shade700);
+      default:
+        if (cotizacion.numero.startsWith('LOCAL-')) {
+          return ('Solo dispositivo', Colors.orange.shade800);
+        }
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(
@@ -76,6 +91,27 @@ class CotizacionCard extends StatelessWidget {
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.secondaryGreen,
+                      ),
+                    ),
+                  ),
+                ],
+                if (_offlineBadge != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _offlineBadge!.$2.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _offlineBadge!.$1,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _offlineBadge!.$2,
                       ),
                     ),
                   ),

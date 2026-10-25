@@ -6,8 +6,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:universal_io/io.dart';
 
 import '../config/saas_platform.dart';
+import '../models/org_branding.dart';
+import '../offline/branding_local_cache.dart';
+import '../offline/connectivity_monitor.dart';
 
 /// Resultado de validación de imagen de logo.
 enum LogoImageKind { png, jpeg, webp, unknown }
@@ -314,20 +318,82 @@ class BrandingStorageService {
     }
   }
 
-  /// Obtiene bytes desde data URL, http(s) o ruta Storage.
-  Future<Uint8List?> loadLogoBytes(String? logoPath) async {
+  /// Obtiene bytes desde data URL, http(s), ruta local o Storage.
+  ///
+  /// [organizationId]/[uid] permiten leer la caché offline sin red.
+  Future<Uint8List?> loadLogoBytes(
+    String? logoPath, {
+    String? organizationId,
+    String? uid,
+  }) async {
+    if (organizationId != null &&
+        uid != null &&
+        organizationId.isNotEmpty &&
+        uid.isNotEmpty) {
+      try {
+        final cached = await BrandingLocalCache.instance.loadLogoBytes(
+          organizationId: organizationId,
+          uid: uid,
+        );
+        if (cached != null && cached.isNotEmpty) return cached;
+      } catch (e) {
+        debugPrint('loadLogoBytes cache: $e');
+      }
+    }
+
     if (logoPath == null || logoPath.isEmpty) return null;
-    try {
-      if (logoPath.startsWith('data:')) {
+
+    // Ruta de archivo local (modo offline).
+    if (!kIsWeb &&
+        (logoPath.contains('\\') ||
+            logoPath.startsWith('/') ||
+            logoPath.contains(':'))) {
+      try {
+        final file = File(logoPath);
+        if (await file.exists()) {
+          return await file.readAsBytes();
+        }
+      } catch (e) {
+        debugPrint('loadLogoBytes local file: $e');
+      }
+    }
+
+    // Data URL no requiere red.
+    if (logoPath.startsWith('data:')) {
+      try {
         final b64 = logoPath.split(',').last;
         return Uint8List.fromList(base64Decode(b64));
+      } catch (e) {
+        debugPrint('loadLogoBytes data-url: $e');
+        return null;
       }
+    }
+
+    // Sin red: no intentar HTTP ni Storage (PDF offline debe ser 100 % local).
+    final online = ConnectivityMonitor.instance.isEffectivelyOnline;
+    if (!online) {
+      debugPrint('loadLogoBytes: offline, sin caché local para $logoPath');
+      return null;
+    }
+
+    try {
       if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
         final res = await http
             .get(Uri.parse(logoPath))
             .timeout(const Duration(seconds: 25));
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          return res.bodyBytes;
+          final bytes = res.bodyBytes;
+          if (organizationId != null && uid != null) {
+            unawaited(
+              BrandingLocalCache.instance.saveLogoBytes(
+                organizationId: organizationId,
+                uid: uid,
+                bytes: bytes,
+                branding: OrgBranding(logoUrl: logoPath),
+              ),
+            );
+          }
+          return bytes;
         }
         return null;
       }
@@ -344,6 +410,40 @@ class BrandingStorageService {
       debugPrint('loadLogoBytes: $e');
     }
     return null;
+  }
+
+  /// Descarga branding/logo con red y deja caché local para PDF offline.
+  Future<void> precacheOrgBranding({
+    required String organizationId,
+    required String uid,
+    required OrgBranding branding,
+  }) async {
+    if (kIsWeb) return;
+    try {
+      await BrandingLocalCache.instance.saveBrandingConfig(
+        organizationId: organizationId,
+        uid: uid,
+        branding: branding,
+        pending: false,
+      );
+      if (!branding.hasLogo) return;
+      final bytes = await loadLogoBytes(
+        branding.logoUrl,
+        organizationId: organizationId,
+        uid: uid,
+      );
+      if (bytes != null && bytes.isNotEmpty) {
+        await BrandingLocalCache.instance.saveLogoBytes(
+          organizationId: organizationId,
+          uid: uid,
+          bytes: bytes,
+          branding: branding,
+          pendingUpload: false,
+        );
+      }
+    } catch (e) {
+      debugPrint('precacheOrgBranding: $e');
+    }
   }
 }
 

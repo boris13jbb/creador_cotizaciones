@@ -12,6 +12,8 @@ import '../models/org_branding.dart';
 import '../models/org_client.dart';
 import '../models/organization.dart';
 import '../models/quote.dart';
+import '../offline/offline_local_store.dart';
+import '../offline/offline_sync_status.dart';
 import '../services/cloud_cotizacion_repository.dart';
 import '../services/organization_service.dart';
 import '../services/quote_draft_store.dart';
@@ -590,7 +592,21 @@ class QuoteEditorController extends ChangeNotifier {
       quote = saved;
       isNew = false;
       dirty = false;
-      draftHint = 'Guardado en la nube';
+      var pendingLocal = saved.number.startsWith('LOCAL-');
+      try {
+        final rec = await OfflineLocalStore.instance.getQuote(
+          organizationId: saved.organizationId,
+          uid: uid,
+          quoteId: saved.id,
+        );
+        pendingLocal =
+            pendingLocal ||
+            rec?.syncStatus == OfflineSyncStatus.pending ||
+            rec?.syncStatus == OfflineSyncStatus.error;
+      } catch (_) {}
+      draftHint = pendingLocal
+          ? 'Guardada en este dispositivo (pendiente de sincronizar)'
+          : 'Guardada correctamente';
       await QuoteDraftStore.instance.clear(uid);
       saving = false;
       notifyListeners();

@@ -10,6 +10,7 @@ import '../services/db_service.dart';
 import '../ui/layout/responsive.dart';
 import '../ui/widgets/async_state_view.dart';
 import '../widgets/cotizacion_card.dart';
+import '../widgets/quote_conflict_dialog.dart';
 import 'nueva_cotizacion_screen.dart';
 import 'preview_screen.dart';
 
@@ -316,6 +317,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 return CotizacionCard(
                   cotizacion: cot,
                   onTap: () async {
+                    if (cot.offlineSyncStatus == 'conflict') {
+                      final resolved = await showQuoteConflictDialog(
+                        context,
+                        quoteId: cot.id,
+                        quoteNumber: cot.numero,
+                      );
+                      if (resolved != null) await _loadInitial();
+                      if (resolved == null) return;
+                    }
+                    if (!context.mounted) return;
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -325,6 +336,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     if (result == true) await _loadInitial();
                   },
                   onEdit: () async {
+                    if (cot.offlineSyncStatus == 'conflict') {
+                      final resolved = await showQuoteConflictDialog(
+                        context,
+                        quoteId: cot.id,
+                        quoteNumber: cot.numero,
+                      );
+                      if (resolved != null) await _loadInitial();
+                      if (resolved != true) return;
+                    }
+                    if (!context.mounted) return;
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
