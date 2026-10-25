@@ -12,8 +12,14 @@ class OfflineDatabase {
   static const dbName = 'cotiapp_offline.db';
   static const schemaVersion = 1;
 
+  /// Solo pruebas: permite aislar el archivo SQLite entre suites en paralelo.
+  @visibleForTesting
+  static String? databaseNameOverride;
+
   Database? _db;
   bool _factoryReady = false;
+
+  String get _resolvedDbName => databaseNameOverride ?? dbName;
 
   /// Inicializa factory FFI en desktop; en Android/iOS usa sqflite nativo.
   Future<void> ensureFactory() async {
@@ -36,7 +42,7 @@ class OfflineDatabase {
     if (_db != null) return _db!;
     await ensureFactory();
     final dir = await getDatabasesPath();
-    final path = p.join(dir, dbName);
+    final path = p.join(dir, _resolvedDbName);
     _db = await openDatabase(
       path,
       version: schemaVersion,

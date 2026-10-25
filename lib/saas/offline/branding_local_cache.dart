@@ -12,9 +12,15 @@ class BrandingLocalCache {
   BrandingLocalCache._();
   static final BrandingLocalCache instance = BrandingLocalCache._();
 
+  /// Solo pruebas: evita `path_provider` en unit tests.
+  @visibleForTesting
+  static String? documentsRootOverride;
+
   Future<Directory?> _orgDir(String organizationId) async {
     if (kIsWeb) return null;
-    final root = await getApplicationDocumentsDirectory();
+    final root = documentsRootOverride != null
+        ? Directory(documentsRootOverride!)
+        : await getApplicationDocumentsDirectory();
     final dir = Directory(p.join(root.path, 'offline_branding', organizationId));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
