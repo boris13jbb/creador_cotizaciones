@@ -102,12 +102,34 @@ No se borran datos legacy. No hay migración destructiva en este commit.
 ### Concurrencia / Emulator
 
 La atomicidad se garantiza por transacción Firestore + query `limit(max+1)`.
-Hay prueba unitaria de serialización en `quote_limit.test.ts`.
+- Unitaria: `quote_limit.test.ts` (modelo serializado).
+- Integración Emulator: `functions/src/create_org_quote.emulator.test.ts`
+  vía núcleo `executeCreateOrgQuote` (transacciones reales Admin → Emulator).
 
-**Emulator E2E de concurrencia:** no ejecutado en esta sesión (depende de
-`firebase emulators:exec` + harness adicional). No afirmar validación de
-integración concurrente hasta correrlo.
+```bash
+firebase emulators:exec --only firestore --project cotiapp-rules-test ^
+  "npm --prefix functions run test:emulator"
+```
 
-## Pruebas locales ejecutadas
+Rules (create denegado / legacy / updates):
 
-Ver informe de la sesión (functions `npm test`, flutter tests afectados).
+```bash
+firebase emulators:exec --only firestore --project cotiapp-rules-test ^
+  "npm --prefix test/rules test"
+```
+
+Offline sync: cobertura en cliente (`offline_sync_service` + tests locales);
+no es escenario del Emulator de Functions.
+
+## Pruebas locales ejecutadas (2026-10-26, predespliegue)
+
+| Suite | Comando | Resultado |
+|-------|---------|-----------|
+| Unitarias Functions | `npm --prefix functions test` | **21 pass** (`quote_limit` + `entitlements_policy`) |
+| Integración Emulator | `firebase emulators:exec --only firestore --project cotiapp-rules-test "npm --prefix functions run test:emulator"` | **5 pass** (tope 5/6, carrera 1 cupo, idempotencia, outsider, alreadyExists) |
+| Rules Emulator | `firebase emulators:exec --only firestore --project cotiapp-rules-test "npm --prefix test/rules test"` | **17 pass** (create quotes/legacy denegado; update autorizado) |
+| Flutter | `flutter test test/quote_limit_client_test.dart test/offline_local_store_test.dart` | **10 pass** |
+
+**Concurrencia:** comprobada en Emulator (2 writes paralelos con 1 cupo → 1 éxito + 1 `resource-exhausted`; `quotes.size == 5` y `counters/quotes.seq == 5`). No basta la unitaria de serialización.
+
+**Offline sync E2E con Emulator:** no ejecutado; hay ruta de código en `offline_sync_service` + detección cliente. Pendiente smoke manual en dispositivo.

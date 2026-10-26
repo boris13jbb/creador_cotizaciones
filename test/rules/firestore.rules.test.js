@@ -223,7 +223,7 @@ describe("organizations/{orgId} aislamiento", () => {
     await assertFails(getDoc(doc(bob.firestore(), "organizations/org1")));
   });
 
-  test("sales escribe quote; readonly no", async () => {
+  test("P0: cliente no puede create quote (solo createOrgQuote / Admin)", async () => {
     await seedOrgWithMember("org2", "alice", "owner");
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), "organizations/org2/members/carol"), {
@@ -246,7 +246,9 @@ describe("organizations/{orgId} aislamiento", () => {
 
     const dave = testEnv.authenticatedContext("dave");
     const carol = testEnv.authenticatedContext("carol");
+    const alice = testEnv.authenticatedContext("alice");
     const quote = {
+      id: "q1",
       organizationId: "org2",
       number: "COT-1",
       status: "draft",
@@ -254,11 +256,94 @@ describe("organizations/{orgId} aislamiento", () => {
       createdAt: now(),
       updatedAt: now(),
     };
-    await assertSucceeds(
+    await assertFails(
       setDoc(doc(dave.firestore(), "organizations/org2/quotes/q1"), quote)
     );
     await assertFails(
-      setDoc(doc(carol.firestore(), "organizations/org2/quotes/q2"), quote)
+      setDoc(doc(carol.firestore(), "organizations/org2/quotes/q2"), {
+        ...quote,
+        id: "q2",
+      })
+    );
+    await assertFails(
+      setDoc(doc(alice.firestore(), "organizations/org2/quotes/q3"), {
+        ...quote,
+        id: "q3",
+      })
+    );
+  });
+
+  test("P0: sales puede update quote existente; externo no; no cambia orgId", async () => {
+    await seedOrgWithMember("org2b", "alice", "owner");
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "organizations/org2b/members/dave"), {
+        organizationId: "org2b",
+        uid: "dave",
+        role: "sales",
+        status: "active",
+        createdAt: now(),
+        updatedAt: now(),
+      });
+      await setDoc(doc(ctx.firestore(), "organizations/org2b/quotes/q1"), {
+        id: "q1",
+        organizationId: "org2b",
+        number: "COT-1",
+        status: "draft",
+        totalCents: 100,
+        clientName: "A",
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    });
+    const dave = testEnv.authenticatedContext("dave");
+    const bob = testEnv.authenticatedContext("bob");
+    await assertSucceeds(
+      updateDoc(doc(dave.firestore(), "organizations/org2b/quotes/q1"), {
+        clientName: "B",
+        updatedAt: now(),
+      })
+    );
+    await assertFails(
+      updateDoc(doc(bob.firestore(), "organizations/org2b/quotes/q1"), {
+        clientName: "Hack",
+      })
+    );
+    await assertFails(
+      updateDoc(doc(dave.firestore(), "organizations/org2b/quotes/q1"), {
+        organizationId: "other-org",
+      })
+    );
+  });
+
+  test("P0: legacy users/cotizaciones create denegado; update de existente ok", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "users/alice/cotizaciones/c1"), {
+        userId: "alice",
+        numero: "COT-1",
+        cliente: "X",
+        total: 10,
+        updatedAt: now(),
+      });
+    });
+    const alice = testEnv.authenticatedContext("alice");
+    await assertFails(
+      setDoc(doc(alice.firestore(), "users/alice/cotizaciones/c-new"), {
+        userId: "alice",
+        numero: "COT-2",
+        cliente: "Y",
+        total: 20,
+      })
+    );
+    await assertSucceeds(
+      updateDoc(doc(alice.firestore(), "users/alice/cotizaciones/c1"), {
+        cliente: "X2",
+      })
+    );
+    const bob = testEnv.authenticatedContext("bob");
+    await assertFails(
+      updateDoc(doc(bob.firestore(), "users/alice/cotizaciones/c1"), {
+        cliente: "Hack",
+      })
     );
   });
 
