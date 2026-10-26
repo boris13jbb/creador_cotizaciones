@@ -12,9 +12,7 @@ void main() {
       isTrue,
     );
     expect(
-      QuoteCreateService.isLimitExceededError(
-        Exception('resource-exhausted'),
-      ),
+      QuoteCreateService.isLimitExceededError(Exception('resource-exhausted')),
       isTrue,
     );
     expect(
@@ -27,5 +25,19 @@ void main() {
     const msg = 'Límite del plan Free: máximo 5 cotizaciones.';
     final err = QuoteLimitExceededException(msg);
     expect(err.toString(), msg);
+  });
+
+  test('payloadMarksNewQuote tolera bool/int/string tras JSON', () {
+    expect(QuoteCreateService.payloadMarksNewQuote({'__isNew': true}), isTrue);
+    expect(QuoteCreateService.payloadMarksNewQuote({'__isNew': 1}), isTrue);
+    expect(
+      QuoteCreateService.payloadMarksNewQuote({'__isNew': 'true'}),
+      isTrue,
+    );
+    expect(
+      QuoteCreateService.payloadMarksNewQuote({'__isNew': false}),
+      isFalse,
+    );
+    expect(QuoteCreateService.payloadMarksNewQuote({}), isFalse);
   });
 }

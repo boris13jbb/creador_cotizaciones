@@ -28,6 +28,10 @@ class AuthController extends ChangeNotifier {
   AuthController() {
     if (!saasUseRestBackend) {
       _sub = AuthService.instance.authStateChanges.listen(_onAuthChanged);
+      // userChanges refleja emailVerified tras reload() sin rehacer todo el bootstrap.
+      _userChangesSub = AuthService.instance.userChanges.listen(
+        _onUserProfileFlags,
+      );
     }
     _bootstrap();
   }
@@ -82,6 +86,7 @@ class AuthController extends ChangeNotifier {
   }
 
   StreamSubscription<User?>? _sub;
+  StreamSubscription<User?>? _userChangesSub;
   StreamSubscription<SaasUserProfile?>? _profileSub;
   StreamSubscription<Entitlements?>? _entitlementsSub;
 
@@ -94,6 +99,7 @@ class AuthController extends ChangeNotifier {
   bool _loading = true;
   String? _error;
   bool _emailVerified = false;
+  String? _emailVerificationHint;
 
   User? get user => _user;
   AuthSession? get restSession => _restSession;
@@ -111,6 +117,9 @@ class AuthController extends ChangeNotifier {
   bool get canManageTeam => _access.canManageTeam;
   bool get canExportReportsCsv => _access.canExportReportsCsv;
   bool get isEmailVerified => _emailVerified;
+
+  /// Aviso seguro (discrepancia de correo / red); sin tokens ni UID completo.
+  String? get emailVerificationHint => _emailVerificationHint;
   bool get isTrialing => _access.isTrialing;
   SubscriptionPlan get effectivePlan => _access.effectivePlan;
   String? get organizationId =>
@@ -132,6 +141,20 @@ class AuthController extends ChangeNotifier {
       _restSession = AuthService.instance.restSession;
     }
     await _onAuthChanged(AuthService.instance.currentUser);
+  }
+
+  /// Solo flags ligeros (emailVerified / email); no recarga perfil ni org.
+  void _onUserProfileFlags(User? user) {
+    if (user == null) return;
+    final changed =
+        _emailVerified != user.emailVerified || _user?.email != user.email;
+    if (!changed) return;
+    _user = user;
+    _emailVerified = user.emailVerified;
+    if (_emailVerified) {
+      _emailVerificationHint = null;
+    }
+    notifyListeners();
   }
 
   Future<void> _onAuthChanged(User? user) async {
@@ -422,8 +445,7 @@ class AuthController extends ChangeNotifier {
     );
   }
 
-  String? get sessionUid =>
-      _user?.uid ?? _restSession?.uid ?? _profile?.uid;
+  String? get sessionUid => _user?.uid ?? _restSession?.uid ?? _profile?.uid;
 
   /// Persiste identidad visual en `organizations/{id}.branding`.
   /// Sin red: guarda local + encola sync (no pierde el cambio).
@@ -559,15 +581,45 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshEmailVerification() async {
-    await AuthService.instance.reloadUser();
+  /// Actualiza `emailVerified` desde Firebase Auth (no reenvía el correo).
+  Future<AuthEmailStatus> refreshEmailVerification() async {
+    _error = null;
+    final status = await AuthService.instance.reloadAndReadEmailStatus();
     if (!saasUseRestBackend) {
       _user = AuthService.instance.currentUser;
-      _emailVerified = _user?.emailVerified ?? false;
-    } else {
-      _emailVerified = AuthService.instance.isEmailVerified;
+    }
+    if (status.hasSession) {
+      _emailVerified = status.emailVerified;
+    }
+    final sessionEmail = status.email;
+    final profileEmail = _profile?.email;
+    if (status.ok &&
+        sessionEmail.isNotEmpty &&
+        profileEmail != null &&
+        profileEmail.isNotEmpty &&
+        !AuthEmailStatus.emailsMatch(sessionEmail, profileEmail)) {
+      _emailVerificationHint =
+          'La sesión activa no coincide con el correo del perfil mostrado. '
+          'Abre el enlace de verificación con la misma cuenta con la que '
+          'iniciaste sesión en CotiApp.';
+    } else if (status.emailVerified) {
+      _emailVerificationHint = null;
+    } else if (status.errorCode == 'unavailable') {
+      _emailVerificationHint =
+          status.errorMessage ??
+          'Sin conexión: no se pudo actualizar el estado del correo.';
+    } else if (!status.ok && status.errorMessage != null) {
+      _emailVerificationHint = status.errorMessage;
+    } else if (!status.emailVerified) {
+      _emailVerificationHint =
+          'Firebase aún no marca este correo como verificado. '
+          'Si acabas de abrir el enlace, pulsa «Actualizar estado».';
+    }
+    if (status.errorCode != null && status.errorMessage != null) {
+      _error = status.errorMessage;
     }
     notifyListeners();
+    return status;
   }
 
   Future<String?> exportMyDataJson() async {
@@ -657,6 +709,7 @@ class AuthController extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
+    _userChangesSub?.cancel();
     _profileSub?.cancel();
     _entitlementsSub?.cancel();
     super.dispose();

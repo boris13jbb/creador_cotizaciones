@@ -9,9 +9,7 @@ void main() {
         'Límite del plan Free: máximo 5 cotizaciones. Actualiza a Pro para continuar.';
     expect(QuoteCreateService.isLimitExceededError(Exception(msg)), isTrue);
     expect(
-      QuoteCreateService.isLimitExceededError(
-        QuoteLimitExceededException(msg),
-      ),
+      QuoteCreateService.isLimitExceededError(QuoteLimitExceededException(msg)),
       isTrue,
     );
   });

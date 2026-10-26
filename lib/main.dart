@@ -33,13 +33,22 @@ void main() async {
   };
 
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    // En Android, google-services puede registrar [DEFAULT] en nativo mientras
+    // Firebase.apps (Dart) aún está vacío → initializeApp lanza duplicate-app.
+    // Tratar ese código como OK; Auth/Functions usan la app existente.
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
   } catch (e, st) {
-    // En Windows el núcleo puede inicializar y fallar plugins; Auth/Firestore
-    // usan REST en escritorio, así que la UI puede seguir.
-    debugPrint('Firebase.initializeApp: $e\n$st');
+    final text = e.toString();
+    if (text.contains('duplicate-app')) {
+      debugPrint('Firebase.initializeApp: app [DEFAULT] ya existía (OK)');
+    } else {
+      // En Windows el núcleo puede fallar plugins; Auth/Firestore usan REST.
+      debugPrint('Firebase.initializeApp: $e\n$st');
+    }
   }
 
   try {

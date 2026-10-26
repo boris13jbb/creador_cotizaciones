@@ -89,6 +89,66 @@ class AuthService {
     return session;
   }
 
+  /// True si hay usuario nativo o sesión REST usable para callables.
+  bool get hasCallableAuthSession {
+    if (saasUseRestBackend) {
+      final s = _restSession;
+      return s != null && s.uid.isNotEmpty && s.idToken.isNotEmpty;
+    }
+    final u = currentUser;
+    return u != null && u.uid.isNotEmpty;
+  }
+
+  /// Garantiza un ID token usable antes de invocar Cloud Functions.
+  ///
+  /// En Android/iOS/Web el SDK callable adjunta el token de [currentUser];
+  /// si está ausente o no se puede renovar, la Function responde
+  /// `unauthenticated`. No registra el token.
+  ///
+  /// [forceRefresh]: fuerza renovación (útil tras cold start / sync offline).
+  Future<void> ensureCallableAuth({bool forceRefresh = true}) async {
+    if (saasUseRestBackend) {
+      await ensureValidRestSession();
+      return;
+    }
+    final user = currentUser;
+    if (user == null || user.uid.isEmpty) {
+      throw CallableAuthException(
+        code: 'unauthenticated',
+        message: 'Debes iniciar sesión para sincronizar.',
+      );
+    }
+    try {
+      final token = await user.getIdToken(forceRefresh);
+      if (token == null || token.isEmpty) {
+        throw CallableAuthException(
+          code: 'unauthenticated',
+          message: 'No se pudo renovar la sesión. Vuelve a iniciar sesión.',
+        );
+      }
+    } on CallableAuthException {
+      rethrow;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('ensureCallableAuth Auth[${e.code}]: token no disponible');
+      throw CallableAuthException(
+        code: e.code == 'network-request-failed'
+            ? 'unavailable'
+            : 'unauthenticated',
+        message: e.code == 'network-request-failed'
+            ? 'Sin conexión para renovar la sesión.'
+            : 'Sesión inválida. Vuelve a iniciar sesión.',
+        cause: e,
+      );
+    } catch (e) {
+      debugPrint('ensureCallableAuth falló (sin token en log)');
+      throw CallableAuthException(
+        code: 'unauthenticated',
+        message: 'No se pudo preparar la sesión para Cloud Functions.',
+        cause: e,
+      );
+    }
+  }
+
   Future<AuthSession> _refreshOrThrow(AuthSession session) async {
     try {
       final refreshed = await IdentityToolkitClient.instance.refresh(
@@ -213,12 +273,105 @@ class AuthService {
   }
 
   Future<void> reloadUser() async {
+    await reloadAndReadEmailStatus();
+  }
+
+  /// Recarga el usuario Auth y lee `emailVerified` fresco.
+  ///
+  /// Tras verificar el correo en el navegador, el SDK local no se actualiza
+  /// solo: hace falta `reload()` + volver a leer `currentUser`.
+  Future<AuthEmailStatus> reloadAndReadEmailStatus() async {
     if (saasUseRestBackend) {
-      final session = await ensureValidRestSession();
-      await _refreshRestAccountFlags(session);
-      return;
+      try {
+        final session = await ensureValidRestSession();
+        await _refreshRestAccountFlags(session);
+        return AuthEmailStatus(
+          hasSession: true,
+          email: session.email,
+          emailVerified: _restEmailVerified,
+          uidPrefix: _uidPrefix(session.uid),
+        );
+      } catch (e) {
+        final network =
+            e.toString().toLowerCase().contains('network') ||
+            e.toString().contains('Sin conexión');
+        return AuthEmailStatus(
+          hasSession: _restSession != null,
+          email: _restSession?.email ?? '',
+          emailVerified: _restEmailVerified,
+          uidPrefix: _uidPrefix(_restSession?.uid),
+          errorCode: network ? 'unavailable' : 'failed-precondition',
+          errorMessage: e.toString().replaceFirst('Exception: ', ''),
+        );
+      }
     }
-    await currentUser?.reload();
+
+    final before = currentUser;
+    if (before == null) {
+      return const AuthEmailStatus(
+        hasSession: false,
+        email: '',
+        emailVerified: false,
+        errorCode: 'unauthenticated',
+        errorMessage: 'No hay sesión activa para actualizar el correo.',
+      );
+    }
+
+    try {
+      await before.reload();
+      // Tras reload, la instancia anterior puede estar obsoleta.
+      final fresh = currentUser;
+      if (fresh == null) {
+        return const AuthEmailStatus(
+          hasSession: false,
+          email: '',
+          emailVerified: false,
+          errorCode: 'unauthenticated',
+          errorMessage: 'La sesión ya no está disponible.',
+        );
+      }
+      // Renueva el ID token para que claim/estado queden alineados en callables.
+      await fresh.getIdToken(true);
+      return AuthEmailStatus(
+        hasSession: true,
+        email: fresh.email ?? '',
+        emailVerified: fresh.emailVerified,
+        uidPrefix: _uidPrefix(fresh.uid),
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint('reloadAndReadEmailStatus Auth[${e.code}]');
+      return AuthEmailStatus(
+        hasSession: currentUser != null,
+        email: currentUser?.email ?? before.email ?? '',
+        emailVerified: currentUser?.emailVerified ?? before.emailVerified,
+        uidPrefix: _uidPrefix(currentUser?.uid ?? before.uid),
+        errorCode: e.code == 'network-request-failed' ? 'unavailable' : e.code,
+        errorMessage: _mapNative(e),
+      );
+    } catch (e) {
+      debugPrint('reloadAndReadEmailStatus: $e');
+      return AuthEmailStatus(
+        hasSession: currentUser != null,
+        email: currentUser?.email ?? before.email ?? '',
+        emailVerified: currentUser?.emailVerified ?? false,
+        uidPrefix: _uidPrefix(currentUser?.uid ?? before.uid),
+        errorCode: 'internal',
+        errorMessage: 'No se pudo actualizar el estado del correo.',
+      );
+    }
+  }
+
+  /// Cambios de perfil/claims (incluye emailVerified tras reload).
+  Stream<User?> get userChanges {
+    if (saasUseRestBackend) {
+      return _restAuthController.stream;
+    }
+    return _native.userChanges();
+  }
+
+  static String? _uidPrefix(String? uid) {
+    if (uid == null || uid.isEmpty) return null;
+    return uid.length <= 6 ? uid : uid.substring(0, 6);
   }
 
   Future<void> signOut() async {
@@ -291,4 +444,52 @@ class AuthService {
         return e.message ?? 'Error de autenticación (${e.code}).';
     }
   }
+}
+
+/// Estado de verificación de correo tras un reload (sin tokens).
+class AuthEmailStatus {
+  const AuthEmailStatus({
+    required this.hasSession,
+    required this.email,
+    required this.emailVerified,
+    this.uidPrefix,
+    this.errorCode,
+    this.errorMessage,
+  });
+
+  final bool hasSession;
+  final String email;
+  final bool emailVerified;
+  final String? uidPrefix;
+  final String? errorCode;
+  final String? errorMessage;
+
+  bool get ok => errorCode == null && hasSession;
+
+  /// Compara correos de forma segura (case-insensitive).
+  static bool emailsMatch(String? a, String? b) {
+    final x = (a ?? '').trim().toLowerCase();
+    final y = (b ?? '').trim().toLowerCase();
+    if (x.isEmpty || y.isEmpty) return true;
+    return x == y;
+  }
+}
+
+/// Fallo al preparar Auth para callables (código estable para sync/UI).
+class CallableAuthException implements Exception {
+  CallableAuthException({
+    required this.code,
+    required this.message,
+    this.cause,
+  });
+
+  final String code;
+  final String message;
+  final Object? cause;
+
+  bool get isUnauthenticated =>
+      code == 'unauthenticated' || code == 'UNAUTHENTICATED';
+
+  @override
+  String toString() => 'CallableAuthException($code): $message';
 }
