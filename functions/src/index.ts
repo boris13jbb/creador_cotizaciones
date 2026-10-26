@@ -354,6 +354,8 @@ export {viewQuoteShare, createQuoteShareLink, acceptQuoteShare} from "./share";
 
 export {acceptOrgInvite} from "./team";
 
+export {createOrgQuote} from "./create_org_quote";
+
 export {reportClientError} from "./observability";
 
 export {

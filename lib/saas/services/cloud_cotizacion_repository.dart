@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:universal_io/io.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../models/cotizacion.dart';
 import '../../models/servicio.dart';
@@ -21,6 +24,7 @@ import 'branding_storage_service.dart';
 import 'firestore_rest_client.dart';
 import 'org_quote_repository.dart';
 import 'organization_service.dart';
+import 'quote_create_service.dart';
 import 'quote_mapper.dart';
 
 /// Página de historial adaptada al modelo UI.
@@ -96,18 +100,21 @@ class CloudCotizacionRepository {
     }
 
     final orgId = _orgId;
-    if (orgId != null && orgId.isNotEmpty) {
-      await _upsertOrgQuote(cot, orgId: orgId, isNew: !exists);
-      // Dual-write legacy durante transición (no pierde datos si falla org).
-      try {
-        await _upsertLegacy(cot);
-      } catch (e, st) {
-        debugPrint('dual-write legacy: $e\n$st');
-      }
-      return;
+    if (orgId == null || orgId.isEmpty) {
+      // Sin org no hay createOrgQuote ni cupo autoritativo; AuthGate exige org.
+      throw Exception(
+        'Se requiere una organización para crear cotizaciones. '
+        'Completa el alta de empresa antes de continuar.',
+      );
     }
 
-    await _upsertLegacy(cot);
+    await _upsertOrgQuote(cot, orgId: orgId, isNew: !exists);
+    // Dual-write legacy best-effort (update de docs existentes; create legacy cerrado en rules).
+    try {
+      await _upsertLegacy(cot);
+    } catch (e, st) {
+      debugPrint('dual-write legacy: $e\n$st');
+    }
   }
 
   Future<void> _upsertOrgQuote(
@@ -120,22 +127,11 @@ class CloudCotizacionRepository {
       orgId,
       session: session,
     );
-    var sequence = 0;
-    var number = cot.numero;
-    if (isNew) {
-      final allocated = await OrgQuoteRepository.instance.allocateNumber(
-        orgId: orgId,
-        prefix: org?.quotePrefix ?? 'COT',
-        session: session,
-      );
-      sequence = allocated.sequence;
-      number = allocated.number;
-    }
-
+    final shortId = cot.id.length >= 8 ? cot.id.substring(0, 8) : cot.id;
     final quote = QuoteMapper.fromCotizacion(
       Cotizacion(
         id: cot.id,
-        numero: number,
+        numero: isNew ? 'LOCAL-$shortId' : cot.numero,
         fecha: cot.fecha,
         cliente: cot.cliente,
         ubicacion: cot.ubicacion,
@@ -160,13 +156,14 @@ class CloudCotizacionRepository {
       ),
       organizationId: orgId,
       createdByUid: _uid,
-      sequence: sequence,
+      sequence: 0,
       currency: org?.currency ?? 'USD',
       legacyUserPath: 'users/$_uid/cotizaciones/${cot.id}',
       status: QuoteStatus.draft,
     );
 
-    await OrgQuoteRepository.instance.upsertQuote(quote, session: session);
+    // Creaciones: Function autoritativa. Updates: upsert cliente.
+    await saveQuoteRemoteOnly(quote, isNew: isNew);
   }
 
   Future<void> _upsertLegacy(Cotizacion cot) async {
@@ -559,9 +556,10 @@ class CloudCotizacionRepository {
 
     final orgId = _orgId;
     if (orgId == null || orgId.isEmpty) {
-      final cot = QuoteMapper.toCotizacion(quote);
-      await _upsertLegacy(cot);
-      return quote;
+      throw Exception(
+        'Se requiere una organización para guardar cotizaciones. '
+        'Completa el alta de empresa antes de continuar.',
+      );
     }
 
     final session = _auth?.restSession;
@@ -662,6 +660,20 @@ class CloudCotizacionRepository {
       return toSave;
     } catch (e) {
       if (e.toString().contains('Conflicto de sincronización')) rethrow;
+      if (e is QuoteLimitExceededException ||
+          QuoteCreateService.isLimitExceededError(e)) {
+        await OfflineLocalStore.instance.upsertQuote(
+          uid: _uid,
+          quote: toSave,
+          status: OfflineSyncStatus.error,
+          conflictPayloadJson: jsonEncode({
+            'code': 'resource-exhausted',
+            'message': e.toString().replaceFirst('Exception: ', ''),
+          }),
+        );
+        await OfflineController.instance.refresh();
+        rethrow;
+      }
       debugPrint('saveQuote remote failed, queued: $e');
       await _enqueueQuoteSync(toSave, isNew: isNew);
       await OfflineController.instance.refresh();
@@ -695,33 +707,37 @@ class CloudCotizacionRepository {
   }
 
   /// Escritura remota pura (usada por la cola de sync; no re-encola).
+  ///
+  /// Creaciones (`isNew`) pasan por Cloud Function `createOrgQuote`
+  /// (límite Free autoritativo). Actualizaciones usan upsert cliente.
   Future<Quote> saveQuoteRemoteOnly(Quote quote, {required bool isNew}) async {
     final orgId = quote.organizationId;
     final session = _auth?.restSession;
 
     var toSave = quote;
-    if (isNew &&
-        (toSave.sequence <= 0 || toSave.number.startsWith('LOCAL-'))) {
-      final org = await OrganizationService.instance.getOrganization(
-        orgId,
-        session: session,
-      );
-      final allocated = await OrgQuoteRepository.instance.allocateNumber(
-        orgId: orgId,
-        prefix: org?.quotePrefix ?? 'COT',
-        session: session,
-      );
-      toSave = toSave.copyWith(
-        sequence: allocated.sequence,
-        number: allocated.number,
-      );
-    }
 
     // Si el logo es un archivo local (modo avión), súbelo antes de persistir remoto.
     toSave = await _resolveLocalLogoForRemote(toSave);
-
     toSave = toSave.withRecalculatedTotal();
-    await OrgQuoteRepository.instance.upsertQuote(toSave, session: session);
+
+    if (isNew) {
+      try {
+        toSave = await QuoteCreateService.instance.createOrgQuote(toSave);
+      } on QuoteLimitExceededException catch (e) {
+        await OfflineLocalStore.instance.upsertQuote(
+          uid: _uid,
+          quote: toSave,
+          status: OfflineSyncStatus.error,
+          conflictPayloadJson: jsonEncode({
+            'code': 'resource-exhausted',
+            'message': e.message,
+          }),
+        );
+        rethrow;
+      }
+    } else {
+      await OrgQuoteRepository.instance.upsertQuote(toSave, session: session);
+    }
 
     try {
       await ActivityRepository.instance.append(
@@ -857,21 +873,27 @@ class CloudCotizacionRepository {
     final max = access?.maxCotizaciones ?? 5;
     final actuales = await obtenerTodas();
     if (actuales.length >= max) {
-      throw Exception('Límite del plan: máximo $max cotizaciones.');
+      throw QuoteLimitExceededException(
+        'Límite del plan: máximo $max cotizaciones.',
+      );
     }
-    final prefix = await getPrefijo();
-    final copy = await OrgQuoteRepository.instance.duplicateQuote(
-      source: existing,
-      prefix: prefix,
-      createdByUid: _uid,
-      session: _auth?.restSession,
-    );
-    try {
-      await _upsertLegacy(QuoteMapper.toCotizacion(copy));
-    } catch (e, st) {
-      debugPrint('dual-write duplicate: $e\n$st');
-    }
-    return copy;
+    final now = DateTime.now().toUtc();
+    final draft = existing
+        .copyWith(
+          id: const Uuid().v4(),
+          number: 'LOCAL-DUP',
+          sequence: 0,
+          status: QuoteStatus.draft,
+          version: 1,
+          previousVersionId: null,
+          createdByUid: _uid,
+          updatedByUid: _uid,
+          createdAt: now,
+          updatedAt: now,
+        )
+        .withRecalculatedTotal();
+    // Creación autoritativa (límite servidor + numeración).
+    return saveQuote(draft, isNew: true);
   }
 
   Future<Quote> createQuoteVersion(String quoteId) async {
@@ -883,17 +905,27 @@ class CloudCotizacionRepository {
     if (existing == null) {
       throw Exception('Cotización no encontrada.');
     }
-    final next = await OrgQuoteRepository.instance.createVersion(
-      source: existing,
-      createdByUid: _uid,
+    await OrgQuoteRepository.instance.updateStatus(
+      quote: existing,
+      status: QuoteStatus.archived,
       session: _auth?.restSession,
     );
-    try {
-      await _upsertLegacy(QuoteMapper.toCotizacion(next));
-    } catch (e, st) {
-      debugPrint('dual-write version: $e\n$st');
-    }
-    return next;
+    final now = DateTime.now().toUtc();
+    final draft = existing
+        .copyWith(
+          id: const Uuid().v4(),
+          number: existing.number,
+          sequence: existing.sequence,
+          status: QuoteStatus.draft,
+          version: existing.version + 1,
+          previousVersionId: existing.id,
+          createdByUid: _uid,
+          updatedByUid: _uid,
+          createdAt: now,
+          updatedAt: now,
+        )
+        .withRecalculatedTotal();
+    return saveQuote(draft, isNew: true);
   }
 
   Future<Quote> setQuoteStatus(String quoteId, QuoteStatus status) async {

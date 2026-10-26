@@ -116,10 +116,27 @@ class OfflineSyncService {
             );
           }
         }
-        await CloudCotizacionRepository.instance.saveQuoteRemoteOnly(
-          quote,
-          isNew: isNew,
-        );
+        try {
+          await CloudCotizacionRepository.instance.saveQuoteRemoteOnly(
+            quote,
+            isNew: isNew,
+          );
+        } catch (e) {
+          // Cupo Free agotado: conservar local, no borrar, marcar error recuperable.
+          if (isNew &&
+              (e.toString().contains('resource-exhausted') ||
+                  e.toString().toLowerCase().contains('límite del plan') ||
+                  e.toString().toLowerCase().contains('limite del plan'))) {
+            await OfflineLocalStore.instance.upsertQuote(
+              uid: item.uid,
+              quote: quote,
+              status: OfflineSyncStatus.error,
+              conflictPayloadJson:
+                  '{"code":"resource-exhausted","message":"${e.toString().replaceAll('"', "'")}"}',
+            );
+          }
+          rethrow;
+        }
         await OfflineLocalStore.instance.markQuoteStatus(
           organizationId: item.organizationId,
           uid: item.uid,
