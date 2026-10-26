@@ -140,7 +140,10 @@ class QuoteEditorController extends ChangeNotifier {
     }
   }
 
-  /// Copia logo/colores/layout de la org a la cotización (sin marcar dirty).
+  /// Aplica colores/layout de la org y quita override de logo (hereda global).
+  ///
+  /// No copia `logoUrl` en `logoPath`: eso se interpretaría como personalización
+  /// fija y no reflejaría cambios posteriores en Identidad visual.
   Future<void> applyOrganizationBranding({Organization? organization}) async {
     try {
       final org =
@@ -149,8 +152,7 @@ class QuoteEditorController extends ChangeNotifier {
       if (org == null) return;
       final identity = org.visualIdentity;
       quote = quote.copyWith(
-        logoPath: identity.logoUrl,
-        clearLogoPath: !identity.hasLogo,
+        clearLogoPath: true,
         colorsJson: identity.colorsJson,
         clearColorsJson:
             identity.colorsJson == null || identity.colorsJson!.isEmpty,
@@ -590,7 +592,6 @@ class QuoteEditorController extends ChangeNotifier {
         isNew: isNew,
       );
       quote = saved;
-      isNew = false;
       dirty = false;
       var pendingLocal = saved.number.startsWith('LOCAL-');
       try {
@@ -602,8 +603,15 @@ class QuoteEditorController extends ChangeNotifier {
         pendingLocal =
             pendingLocal ||
             rec?.syncStatus == OfflineSyncStatus.pending ||
-            rec?.syncStatus == OfflineSyncStatus.error;
+            rec?.syncStatus == OfflineSyncStatus.error ||
+            rec?.syncStatus == OfflineSyncStatus.conflict;
       } catch (_) {}
+      // Solo marcar isNew=false tras sync remoto. Si createOrgQuote falló y
+      // quedó en cola, forzar isNew=false haría que el siguiente guardado
+      // use upsert cliente (bloqueado por rules create:false).
+      if (!pendingLocal) {
+        isNew = false;
+      }
       draftHint = pendingLocal
           ? 'Guardada en este dispositivo (pendiente de sincronizar)'
           : 'Guardada correctamente';

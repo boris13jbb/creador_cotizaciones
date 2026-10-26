@@ -278,7 +278,8 @@ void main() {
     expect(controller.quote.payments.first['amountCents'], totalBefore);
     expect(controller.totals.total.cents, totalBefore);
 
-    final pending = totalBefore -
+    final pending =
+        totalBefore -
         ((controller.quote.payments.first['amountCents'] as num?)?.round() ??
             0);
     expect(pending, 0);
@@ -302,12 +303,16 @@ void main() {
 
     controller.setPaymentMode(PaymentMode.single);
     controller.setGlobalDiscountBps(1000);
-    expect(controller.quote.payments.single['amountCents'],
-        controller.totals.total.cents);
+    expect(
+      controller.quote.payments.single['amountCents'],
+      controller.totals.total.cents,
+    );
 
     controller.setCharges(const MoneyCents(2500));
-    expect(controller.quote.payments.single['amountCents'],
-        controller.totals.total.cents);
+    expect(
+      controller.quote.payments.single['amountCents'],
+      controller.totals.total.cents,
+    );
     expect(controller.quote.paymentMode, PaymentMode.single);
 
     controller.dispose();
@@ -335,10 +340,7 @@ void main() {
       controller.quote.payments.any((p) => p['label'] == 'ANTICIPO'),
       isTrue,
     );
-    expect(
-      controller.quote.payments.any((p) => p['label'] == 'SALDO'),
-      isTrue,
-    );
+    expect(controller.quote.payments.any((p) => p['label'] == 'SALDO'), isTrue);
     final sum = controller.quote.payments.fold<int>(
       0,
       (a, p) => a + ((p['amountCents'] as num?)?.round() ?? 0),
@@ -362,16 +364,8 @@ void main() {
     final bytes = QuoteMapper.toCotizacion(
       legacy.copyWith(
         payments: [
-          {
-            'label': 'ANTICIPO',
-            'description': '50%',
-            'amountCents': 5000,
-          },
-          {
-            'label': 'SALDO',
-            'description': '50%',
-            'amountCents': 5000,
-          },
+          {'label': 'ANTICIPO', 'description': '50%', 'amountCents': 5000},
+          {'label': 'SALDO', 'description': '50%', 'amountCents': 5000},
         ],
       ),
     );
@@ -381,7 +375,9 @@ void main() {
   test('PDF un solo pago y anticipo/saldo generan documento válido', () async {
     final single = _sampleQuote().copyWith(
       paymentMode: PaymentMode.single,
-      payments: QuoteEditorController.buildSinglePayment(const MoneyCents(10000)),
+      payments: QuoteEditorController.buildSinglePayment(
+        const MoneyCents(10000),
+      ),
     );
     final split = _sampleQuote().copyWith(
       paymentMode: PaymentMode.split,

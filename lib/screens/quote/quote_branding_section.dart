@@ -15,6 +15,7 @@ import '../../saas/offline/offline_sync_status.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/providers/quote_editor_controller.dart';
 import '../../saas/services/branding_storage_service.dart';
+import '../../saas/services/quote_logo_resolver.dart';
 import '../../ui/layout/responsive.dart';
 import '../../widgets/simple_color_dialog.dart';
 import '../account/company_identity_screen.dart';
@@ -32,16 +33,22 @@ class QuoteBrandingSection extends StatefulWidget {
 
 class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
   bool _uploading = false;
+  bool _previewLoading = false;
   Uint8List? _previewBytes;
+  String? _previewSourceKey;
 
   static final ButtonStyle _tonalCompact = FilledButton.styleFrom(
     minimumSize: const Size(0, 48),
   );
 
+  String _sourceKey(String? quoteLogo, OrgBranding? org) {
+    return '${quoteLogo ?? ''}|${org?.logoUrl ?? ''}|${org?.logoStoragePath ?? ''}';
+  }
+
   @override
   void initState() {
     super.initState();
-    _loadPreview();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPreview());
   }
 
   @override
@@ -55,20 +62,45 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
   }
 
   Future<void> _loadPreview() async {
-    final path = widget.controller.quote.logoPath;
-    if (path == null || path.isEmpty) {
-      if (mounted) setState(() => _previewBytes = null);
-      return;
-    }
     if (!mounted) return;
     final auth = context.read<AuthController>();
+    final orgBranding = auth.organization?.visualIdentity;
+    final quoteLogo = widget.controller.quote.logoPath;
+    final key = _sourceKey(quoteLogo, orgBranding);
+    final resolved = QuoteLogoResolver.resolveLogoPath(
+      quoteLogoPath: quoteLogo,
+      orgBranding: orgBranding,
+    );
+
+    setState(() {
+      _previewLoading = true;
+      _previewSourceKey = key;
+      if (resolved == null || resolved.isEmpty) {
+        _previewBytes = null;
+      }
+    });
+
+    if (resolved == null || resolved.isEmpty) {
+      if (mounted) setState(() => _previewLoading = false);
+      return;
+    }
+
     final bytes = await BrandingStorageService.instance.loadLogoBytes(
-      path,
+      resolved,
       organizationId: auth.organizationId,
       uid: auth.sessionUid,
+      cacheRemoteAsOrgLogo: !QuoteLogoResolver.hasCustomLogo(
+        quoteLogo,
+        orgBranding: orgBranding,
+      ),
     );
     if (!mounted) return;
-    setState(() => _previewBytes = bytes);
+    // Evitar aplicar resultado obsoleto si cambió el origen mientras cargaba.
+    if (_previewSourceKey != key) return;
+    setState(() {
+      _previewBytes = bytes;
+      _previewLoading = false;
+    });
   }
 
   Map<String, String> _colorsOf(String? json) {
@@ -153,41 +185,36 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         fileName: picked.name,
       );
 
+      final quoteId = widget.controller.quote.id;
       final online = await ConnectivityMonitor.instance.probeFirebase();
       String? logoRef;
       var savedOffline = false;
 
+      // Siempre conservar copia local por cotización (no tocar logo.bin de empresa).
+      final localPath = await BrandingLocalCache.instance.saveQuoteLogoBytes(
+        organizationId: orgId,
+        quoteId: quoteId,
+        bytes: bytes,
+      );
+
       if (online) {
         try {
-          final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
-            orgId: orgId,
-            uid: uid,
-            bytes: bytes,
-            fileName: picked.name,
-          );
+          final uploaded = await BrandingStorageService.instance
+              .uploadQuoteLogo(
+                orgId: orgId,
+                quoteId: quoteId,
+                uid: uid,
+                bytes: bytes,
+                fileName: picked.name,
+              );
           logoRef = uploaded.url;
-          await BrandingLocalCache.instance.saveLogoBytes(
-            organizationId: orgId,
-            uid: uid,
-            bytes: bytes,
-            branding: OrgBranding(
-              logoUrl: uploaded.url,
-              logoStoragePath: uploaded.storagePath,
-            ),
-            pendingUpload: false,
-          );
         } catch (e) {
-          debugPrint('uploadOrgLogo online falló, guardando local: $e');
+          debugPrint('uploadQuoteLogo online falló, guardando local: $e');
         }
       }
 
-      // Sin red o fallo de Storage: guardar archivo local y encolar subida.
+      // Sin red o fallo de Storage: ruta local + cola (uploadQuoteLogo en sync).
       if (logoRef == null || logoRef.isEmpty) {
-        final localPath = await BrandingLocalCache.instance.saveQuoteLogoBytes(
-          organizationId: orgId,
-          quoteId: widget.controller.quote.id,
-          bytes: bytes,
-        );
         if (localPath == null || localPath.isEmpty) {
           throw Exception(
             'No se pudo guardar el logo en este dispositivo. '
@@ -197,21 +224,16 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         logoRef = localPath;
         savedOffline = true;
 
-        // Encola subida del archivo de esta cotización.
-        // logoLocalPath es temporal en dispositivo; la sync lo cambia a URL remota.
         await OfflineLocalStore.instance.enqueue(
           organizationId: orgId,
           uid: uid,
           entityType: OfflineEntityType.brandingLogo,
-          entityId: 'quote:${widget.controller.quote.id}',
+          entityId: 'quote:$quoteId',
           operation: OfflineOperation.uploadFile,
-          payload: {
-            'logoLocalPath': localPath,
-            'quoteId': widget.controller.quote.id,
-          },
+          payload: {'logoLocalPath': localPath, 'quoteId': quoteId},
           idempotencyKey: OfflineSyncService.idempotencyKey(
             type: OfflineEntityType.brandingLogo,
-            entityId: 'quote:${widget.controller.quote.id}',
+            entityId: 'quote:$quoteId',
             op: OfflineOperation.uploadFile,
             revision: DateTime.now().toUtc().toIso8601String(),
           ),
@@ -219,7 +241,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         await OfflineController.instance.refresh();
       }
 
-      // Override solo de esta cotización (no reaplicar identidad de empresa).
+      // Override solo de esta cotización (no toca Identidad visual).
       widget.controller.setLogoPath(logoRef);
       if (mounted) {
         setState(() => _previewBytes = bytes);
@@ -239,9 +261,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              BrandingStorageService.describeUploadError(e),
-            ),
+            content: Text(BrandingStorageService.describeUploadError(e)),
           ),
         );
       }
@@ -263,10 +283,10 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Quitar logo de esta cotización'),
+        title: const Text('Quitar personalización'),
         content: const Text(
-          'Solo se quita de esta cotización. '
-          'El logo de la empresa en Identidad visual no se elimina.',
+          'Esta cotización volverá a usar el logo global de la empresa. '
+          'Identidad visual no se modifica.',
         ),
         actions: [
           TextButton(
@@ -297,7 +317,12 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     await _loadPreview();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Identidad de la empresa aplicada')),
+        const SnackBar(
+          content: Text(
+            'Identidad de la empresa aplicada. '
+            'Esta cotización vuelve a usar el logo global vigente.',
+          ),
+        ),
       );
     }
   }
@@ -333,12 +358,28 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     final q = widget.controller.quote;
     final colors = _colorsOf(q.colorsJson);
     final locked = !auth.canCustomBranding;
+    final orgBranding = auth.organization?.visualIdentity;
     final layout = OrgBranding.fromQuoteLegacy(
       logoPath: q.logoPath,
       colorsJson: q.colorsJson,
       legacy: q.legacyFields,
     );
-    final hasLogo = q.logoPath != null && q.logoPath!.isNotEmpty;
+    final hasCustomLogo = QuoteLogoResolver.hasCustomLogo(
+      q.logoPath,
+      orgBranding: orgBranding,
+    );
+    final resolvedPath = QuoteLogoResolver.resolveLogoPath(
+      quoteLogoPath: q.logoPath,
+      orgBranding: orgBranding,
+    );
+    final hasEffectiveLogo =
+        resolvedPath != null && resolvedPath.trim().isNotEmpty;
+    final sourceKey = _sourceKey(q.logoPath, orgBranding);
+    if (sourceKey != _previewSourceKey && !_previewLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadPreview();
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,6 +407,19 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               : 'Logo y colores del PDF. Configura el predeterminado en Mi cuenta.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        if (hasEffectiveLogo) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Chip(
+            visualDensity: VisualDensity.compact,
+            avatar: Icon(
+              hasCustomLogo ? Icons.image_outlined : Icons.business_outlined,
+              size: 16,
+            ),
+            label: Text(
+              hasCustomLogo ? 'Logo personalizado' : 'Logo de la empresa',
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         Container(
           width: double.infinity,
@@ -377,11 +431,19 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
-          child: !hasLogo
+          child: _previewLoading
+              ? const Center(
+                  child: SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : !hasEffectiveLogo
               ? Center(
                   child: Text(
-                    'Aún no hay logotipo en esta cotización.\n'
-                    'Puedes cargarlo desde la galería aunque no haya internet.',
+                    'No hay logo de empresa ni personalizado.\n'
+                    'Configúralo en Mi cuenta o cárgalo desde la galería.',
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -389,8 +451,11 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               : _previewBytes == null
               ? Center(
                   child: Text(
-                    'Logo asignado, pero la vista previa no está disponible '
-                    'sin el archivo local. Vuelve a cargarlo desde la galería.',
+                    hasCustomLogo
+                        ? 'No se pudo cargar la vista previa del logo '
+                              'personalizado. Vuelve a subirlo desde la galería.'
+                        : 'Hay logo de empresa, pero no se pudo cargar la '
+                              'imagen. Revisa Identidad visual o tu conexión.',
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -424,12 +489,14 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.image_outlined),
-              label: Text(hasLogo ? 'Cambiar logotipo' : 'Subir logotipo'),
+              label: Text(
+                hasCustomLogo ? 'Cambiar logotipo' : 'Subir logotipo',
+              ),
             ),
-            if (hasLogo)
+            if (hasCustomLogo)
               TextButton(
                 onPressed: _uploading ? null : _clearLogo,
-                child: const Text('Eliminar logotipo'),
+                child: const Text('Quitar personalización'),
               ),
             TextButton(
               onPressed: locked
@@ -441,16 +508,16 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
                           builder: (_) => const CompanyIdentityScreen(),
                         ),
                       );
-                      // No reaplicar automáticamente: el usuario puede haber
-                      // personalizado el logo solo de esta cotización.
+                      // Tras cambiar Identidad visual, refrescar herencia.
                       if (mounted) await _loadPreview();
                     },
               child: const Text('Configurar empresa'),
             ),
-            TextButton(
-              onPressed: locked ? null : _applyOrgIdentity,
-              child: const Text('Usar logo de empresa'),
-            ),
+            if (hasCustomLogo)
+              TextButton(
+                onPressed: locked ? null : _applyOrgIdentity,
+                child: const Text('Usar logo de empresa'),
+              ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -491,11 +558,12 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
           onChanged: locked
               ? null
               : (v) {
-                  if (v && !hasLogo) {
+                  if (v && !hasEffectiveLogo) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'Sube o aplica el logo de la empresa primero.',
+                          'Configura el logo de la empresa en Identidad visual '
+                          'o sube uno para esta cotización.',
                         ),
                       ),
                     );
@@ -512,7 +580,8 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
           value: layout.watermarkOpacityPct.toDouble(),
           min: OrgBranding.minWatermarkOpacityPct.toDouble(),
           max: OrgBranding.maxWatermarkOpacityPct.toDouble(),
-          divisions: OrgBranding.maxWatermarkOpacityPct -
+          divisions:
+              OrgBranding.maxWatermarkOpacityPct -
               OrgBranding.minWatermarkOpacityPct,
           label: '${layout.watermarkOpacityPct}%',
           onChanged: locked || !layout.watermarkEnabled
@@ -529,8 +598,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
           selected: {layout.watermarkSize},
           onSelectionChanged: locked || !layout.watermarkEnabled
               ? null
-              : (s) =>
-                    widget.controller.applyWatermarkSettings(size: s.first),
+              : (s) => widget.controller.applyWatermarkSettings(size: s.first),
         ),
         const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<WatermarkPosition>(

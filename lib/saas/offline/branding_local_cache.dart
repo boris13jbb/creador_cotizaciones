@@ -21,7 +21,9 @@ class BrandingLocalCache {
     final root = documentsRootOverride != null
         ? Directory(documentsRootOverride!)
         : await getApplicationDocumentsDirectory();
-    final dir = Directory(p.join(root.path, 'offline_branding', organizationId));
+    final dir = Directory(
+      p.join(root.path, 'offline_branding', organizationId),
+    );
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -75,15 +77,21 @@ class BrandingLocalCache {
     required String uid,
   }) async {
     if (kIsWeb) return null;
-    final cached = await OfflineLocalStore.instance.getBranding(
-      organizationId: organizationId,
-      uid: uid,
-    );
-    final path = cached?.logoLocalPath;
-    if (path == null || path.isEmpty) return null;
-    final file = File(path);
-    if (!await file.exists()) return null;
-    return file.readAsBytes();
+    try {
+      final cached = await OfflineLocalStore.instance.getBranding(
+        organizationId: organizationId,
+        uid: uid,
+      );
+      final path = cached?.logoLocalPath;
+      if (path == null || path.isEmpty) return null;
+      final file = File(path);
+      if (!await file.exists()) return null;
+      return file.readAsBytes();
+    } catch (e) {
+      // p. ej. databaseFactory no inicializado en tests sin sqflite_ffi.
+      debugPrint('BrandingLocalCache.loadLogoBytes: $e');
+      return null;
+    }
   }
 
   Future<void> saveBrandingConfig({

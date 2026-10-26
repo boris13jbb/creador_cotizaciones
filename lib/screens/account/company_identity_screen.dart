@@ -219,10 +219,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
             entityType: OfflineEntityType.brandingLogo,
             entityId: orgId,
             operation: OfflineOperation.uploadFile,
-            payload: {
-              'logoLocalPath': localPath,
-              'branding': next.toMap(),
-            },
+            payload: {'logoLocalPath': localPath, 'branding': next.toMap()},
             idempotencyKey: OfflineSyncService.idempotencyKey(
               type: OfflineEntityType.brandingLogo,
               entityId: orgId,
@@ -694,9 +691,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                                   return;
                                 }
                                 setState(() {
-                                  _draft = _draft.copyWith(
-                                    watermarkEnabled: v,
-                                  );
+                                  _draft = _draft.copyWith(watermarkEnabled: v);
                                 });
                               },
                       ),
@@ -752,7 +747,9 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                             busy || locked || !_draft.watermarkEnabled
                             ? null
                             : (s) => setState(() {
-                                _draft = _draft.copyWith(watermarkSize: s.first);
+                                _draft = _draft.copyWith(
+                                  watermarkSize: s.first,
+                                );
                               }),
                       ),
                       const SizedBox(height: AppSpacing.md),
@@ -883,10 +880,7 @@ class _LogoPreviewCard extends StatelessWidget {
 
 /// Vista previa de página A4 simplificada con marca de agua.
 class _WatermarkPreviewCard extends StatelessWidget {
-  const _WatermarkPreviewCard({
-    required this.bytes,
-    required this.branding,
-  });
+  const _WatermarkPreviewCard({required this.bytes, required this.branding});
 
   final Uint8List? bytes;
   final OrgBranding branding;
@@ -954,11 +948,23 @@ class _WatermarkPreviewCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Container(height: 8, width: 160, color: const Color(0xFFE0E0E0)),
+                  Container(
+                    height: 8,
+                    width: 160,
+                    color: const Color(0xFFE0E0E0),
+                  ),
                   const SizedBox(height: 8),
-                  Container(height: 8, width: 220, color: const Color(0xFFE0E0E0)),
+                  Container(
+                    height: 8,
+                    width: 220,
+                    color: const Color(0xFFE0E0E0),
+                  ),
                   const SizedBox(height: 8),
-                  Container(height: 8, width: 180, color: const Color(0xFFE0E0E0)),
+                  Container(
+                    height: 8,
+                    width: 180,
+                    color: const Color(0xFFE0E0E0),
+                  ),
                   const Spacer(),
                   Align(
                     alignment: Alignment.centerRight,

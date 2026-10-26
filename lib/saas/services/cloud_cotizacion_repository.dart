@@ -219,18 +219,18 @@ class CloudCotizacionRepository {
           organizationId: orgId,
           uid: _uid,
         );
-        final byId = <String, Cotizacion>{
-          for (final c in remote) c.id: c,
-        };
+        final byId = <String, Cotizacion>{for (final c in remote) c.id: c};
         for (final rec in local) {
-          final cot = QuoteMapper.toCotizacion(rec.quote)
-              .withOfflineSyncStatus(rec.syncStatus.id);
-          final preferLocal =
+          final cot = QuoteMapper.toCotizacion(
+            rec.quote,
+          ).withOfflineSyncStatus(rec.syncStatus.id);
+          final pendingLike =
               rec.syncStatus == OfflineSyncStatus.pending ||
               rec.syncStatus == OfflineSyncStatus.conflict ||
-              rec.syncStatus == OfflineSyncStatus.error ||
-              !byId.containsKey(cot.id);
-          if (preferLocal) {
+              rec.syncStatus == OfflineSyncStatus.error;
+          // Synced + presente en remoto → conservar remoto (no reinyectar draft).
+          final useLocal = pendingLike || !byId.containsKey(cot.id);
+          if (useLocal) {
             byId[cot.id] = cot;
           }
         }
@@ -292,9 +292,7 @@ class CloudCotizacionRepository {
     }
 
     // Primera página (o fallo de red): incluir locales pendientes/solo-dispositivo.
-    if (orgId != null &&
-        orgId.isNotEmpty &&
-        startAfterUpdatedAt == null) {
+    if (orgId != null && orgId.isNotEmpty && startAfterUpdatedAt == null) {
       try {
         final local = await OfflineLocalStore.instance.listQuotes(
           organizationId: orgId,
@@ -307,8 +305,9 @@ class CloudCotizacionRepository {
               rec.quote.status.id != status) {
             continue;
           }
-          final cot = QuoteMapper.toCotizacion(rec.quote)
-              .withOfflineSyncStatus(rec.syncStatus.id);
+          final cot = QuoteMapper.toCotizacion(
+            rec.quote,
+          ).withOfflineSyncStatus(rec.syncStatus.id);
           final preferLocal =
               rec.syncStatus == OfflineSyncStatus.pending ||
               rec.syncStatus == OfflineSyncStatus.conflict ||
@@ -449,7 +448,20 @@ class CloudCotizacionRepository {
 
   Future<int> getProximoNumero() async {
     final orgId = _orgId;
-    if (orgId != null && orgId.isNotEmpty && !_useRest) {
+    if (orgId != null && orgId.isNotEmpty) {
+      if (_useRest) {
+        final session = _auth?.restSession;
+        if (session != null) {
+          final data = await FirestoreRestClient.instance.getDocument(
+            session: session,
+            path: 'organizations/$orgId/counters/quotes',
+          );
+          final seq = (data?['seq'] as num?)?.toInt() ?? 0;
+          return seq + 1;
+        }
+        // Sin sesión REST: no inventar desde SharedPreferences de otro dispositivo.
+        return 1;
+      }
       final snap = await _firestore
           .collection('organizations')
           .doc(orgId)
@@ -566,29 +578,10 @@ class CloudCotizacionRepository {
     final online = await ConnectivityMonitor.instance.probeFirebase();
 
     var toSave = quote.copyWith(organizationId: orgId);
+    // Numeración autoritativa en createOrgQuote (evita reservar contador cliente
+    // y luego fallar la Function dejando huecos / estados inconsistentes).
     if (isNew && toSave.sequence <= 0) {
-      if (online) {
-        try {
-          final org = await OrganizationService.instance.getOrganization(
-            orgId,
-            session: session,
-          );
-          final allocated = await OrgQuoteRepository.instance.allocateNumber(
-            orgId: orgId,
-            prefix: org?.quotePrefix ?? 'COT',
-            session: session,
-          );
-          toSave = toSave.copyWith(
-            sequence: allocated.sequence,
-            number: allocated.number,
-          );
-        } catch (e) {
-          debugPrint('allocateNumber offline fallback: $e');
-          toSave = _withLocalProvisionalNumber(toSave);
-        }
-      } else {
-        toSave = _withLocalProvisionalNumber(toSave);
-      }
+      toSave = _withLocalProvisionalNumber(toSave);
     }
 
     toSave = toSave
@@ -736,7 +729,18 @@ class CloudCotizacionRepository {
         rethrow;
       }
     } else {
-      await OrgQuoteRepository.instance.upsertQuote(toSave, session: session);
+      // Red de seguridad: si el editor perdió isNew tras un fallo previo, el
+      // documento aún no existe → upsert sería create y rules lo deniegan.
+      final remote = await OrgQuoteRepository.instance.getQuote(
+        orgId: orgId,
+        quoteId: toSave.id,
+        session: session,
+      );
+      if (remote == null) {
+        toSave = await QuoteCreateService.instance.createOrgQuote(toSave);
+      } else {
+        await OrgQuoteRepository.instance.upsertQuote(toSave, session: session);
+      }
     }
 
     try {
@@ -791,7 +795,8 @@ class CloudCotizacionRepository {
         path.startsWith('local:')) {
       return quote;
     }
-    final looksLocal = path.startsWith('/') ||
+    final looksLocal =
+        path.startsWith('/') ||
         path.contains('\\') ||
         (path.length > 2 && path[1] == ':');
     if (!looksLocal) return quote;
@@ -807,8 +812,9 @@ class CloudCotizacionRepository {
       );
     }
     final bytes = await file.readAsBytes();
-    final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
+    final uploaded = await BrandingStorageService.instance.uploadQuoteLogo(
       orgId: quote.organizationId,
+      quoteId: quote.id,
       uid: _uid,
       bytes: bytes,
     );
@@ -846,10 +852,12 @@ class CloudCotizacionRepository {
         session: _auth?.restSession,
       );
       if (remote != null) {
+        // Solo preferir local si hay cambios pendientes/conflicto (no un
+        // payload synced obsoleto que revierta un archive remoto).
         if (local != null &&
             (local.syncStatus == OfflineSyncStatus.pending ||
                 local.syncStatus == OfflineSyncStatus.conflict ||
-                local.quote.updatedAt.isAfter(remote.updatedAt))) {
+                local.syncStatus == OfflineSyncStatus.error)) {
           return local.quote;
         }
         return remote;
@@ -905,11 +913,8 @@ class CloudCotizacionRepository {
     if (existing == null) {
       throw Exception('Cotización no encontrada.');
     }
-    await OrgQuoteRepository.instance.updateStatus(
-      quote: existing,
-      status: QuoteStatus.archived,
-      session: _auth?.restSession,
-    );
+    // Archiva la versión previa también en SQLite (mismo criterio que setQuoteStatus).
+    await setQuoteStatus(quoteId, QuoteStatus.archived);
     final now = DateTime.now().toUtc();
     final draft = existing
         .copyWith(
@@ -937,30 +942,78 @@ class CloudCotizacionRepository {
     if (existing == null) {
       throw Exception('Cotización no encontrada.');
     }
-    final updated = await OrgQuoteRepository.instance.updateStatus(
-      quote: existing,
+    final fromStatus = existing.status;
+    final updated = existing.copyWith(
       status: status,
-      session: _auth?.restSession,
+      updatedByUid: _uid,
+      updatedAt: DateTime.now().toUtc(),
     );
-    await ActivityRepository.instance.append(
-      organizationId: orgId,
-      type: 'quote_status_changed',
-      actorUid: _uid,
-      message: '${existing.number}: ${existing.status.id} → ${status.id}',
-      entityType: 'quote',
-      entityId: quoteId,
-      metadata: {'from': existing.status.id, 'to': status.id},
-      session: _auth?.restSession,
-    );
+
+    // Local-first: si solo se escribe remoto, SQLite queda en draft y el merge
+    // del historial reinyecta la versión local (parece que «no archiva»).
+    final online = await ConnectivityMonitor.instance.probeFirebase();
+    var persisted = updated;
+    var localSync = OfflineSyncStatus.pending;
+
+    if (online) {
+      try {
+        persisted = await OrgQuoteRepository.instance.updateStatus(
+          quote: existing,
+          status: status,
+          session: _auth?.restSession,
+        );
+        // Asegurar updatedAt/status coherentes con lo pedido.
+        persisted = persisted.copyWith(
+          status: status,
+          updatedByUid: _uid,
+          updatedAt: persisted.updatedAt.isAfter(updated.updatedAt)
+              ? persisted.updatedAt
+              : updated.updatedAt,
+        );
+        localSync = OfflineSyncStatus.synced;
+      } catch (e) {
+        debugPrint('setQuoteStatus remote failed, queue: $e');
+        await _enqueueQuoteSync(updated, isNew: false);
+      }
+    } else {
+      await _enqueueQuoteSync(updated, isNew: false);
+    }
+
+    try {
+      await OfflineLocalStore.instance.upsertQuote(
+        uid: _uid,
+        quote: persisted,
+        status: localSync,
+      );
+    } catch (e) {
+      debugPrint('setQuoteStatus local mirror: $e');
+      if (!online) rethrow;
+    }
+
+    try {
+      await ActivityRepository.instance.append(
+        organizationId: orgId,
+        type: 'quote_status_changed',
+        actorUid: _uid,
+        message: '${existing.number}: ${fromStatus.id} → ${status.id}',
+        entityType: 'quote',
+        entityId: quoteId,
+        metadata: {'from': fromStatus.id, 'to': status.id},
+        session: _auth?.restSession,
+      );
+    } catch (e) {
+      debugPrint('setQuoteStatus activity: $e');
+    }
     AppLogger.instance.info(
       'quote_status_changed',
       fields: {
         'orgId': orgId,
         'quoteId': quoteId,
-        'from': existing.status.id,
+        'from': fromStatus.id,
         'to': status.id,
       },
     );
-    return updated;
+    await OfflineController.instance.refresh();
+    return persisted;
   }
 }
