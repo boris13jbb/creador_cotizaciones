@@ -13,10 +13,18 @@ const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const stripePricePro = defineSecret("STRIPE_PRICE_PRO");
 const stripePriceBusiness = defineSecret("STRIPE_PRICE_BUSINESS");
 
-/** SDK Stripe solo cuando un handler de billing lo necesita (discovery). */
+/**
+ * SDK Stripe solo en handlers de billing.
+ * Usar import() real (no el require que emite tsc bajo commonjs) para no
+ * arrastrar el paquete `stripe` (~0.4–5s en frío) al discovery del CLI.
+ */
 async function createStripeClient(secret: string): Promise<Stripe> {
-  const {default: StripeCtor} = await import("stripe");
-  return new StripeCtor(secret);
+  const dynamicImport = new Function(
+    "m",
+    "return import(m)",
+  ) as (m: string) => Promise<{default: new (apiKey: string) => Stripe}>;
+  const mod = await dynamicImport("stripe");
+  return new mod.default(secret);
 }
 
 type EntitlementsDoc = {
