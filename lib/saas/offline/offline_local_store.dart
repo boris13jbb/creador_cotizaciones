@@ -328,12 +328,27 @@ class OfflineLocalStore {
     }
   }
 
+  /// Cola elegible para el worker.
+  ///
+  /// Por defecto respeta backoff (`next_attempt_at`). Con [forceIgnoreBackoff]
+  /// (sync manual del usuario) incluye todas las filas incompletas.
   Future<List<SyncQueueItem>> pendingQueue({
     required String organizationId,
     required String uid,
     int limit = 50,
+    bool forceIgnoreBackoff = false,
   }) async {
     final db = await OfflineDatabase.instance.database;
+    if (forceIgnoreBackoff) {
+      final rows = await db.query(
+        'sync_queue',
+        where: 'organization_id = ? AND uid = ? AND completed_at IS NULL',
+        whereArgs: [organizationId, uid],
+        orderBy: 'id ASC',
+        limit: limit,
+      );
+      return rows.map(SyncQueueItem.fromRow).toList();
+    }
     final now = DateTime.now().toUtc().toIso8601String();
     final rows = await db.query(
       'sync_queue',
@@ -358,6 +373,107 @@ class OfflineLocalStore {
       [organizationId, uid],
     );
     return (r.first['c'] as int?) ?? 0;
+  }
+
+  /// Conteos seguros para diagnóstico (sin payloads ni PII).
+  Future<OfflineQueueDiagnostics> queueDiagnostics({
+    required String organizationId,
+    required String uid,
+  }) async {
+    final db = await OfflineDatabase.instance.database;
+    final now = DateTime.now().toUtc().toIso8601String();
+    final incomplete = await countPending(
+      organizationId: organizationId,
+      uid: uid,
+    );
+    final eligibleRows = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM sync_queue '
+      'WHERE organization_id = ? AND uid = ? AND completed_at IS NULL '
+      'AND next_attempt_at <= ?',
+      [organizationId, uid, now],
+    );
+    final eligible = (eligibleRows.first['c'] as int?) ?? 0;
+    final pendingQuotes = await countPendingQuotes(
+      organizationId: organizationId,
+      uid: uid,
+    );
+    final quoteQueueRows = await db.rawQuery(
+      "SELECT COUNT(*) AS c FROM sync_queue "
+      "WHERE organization_id = ? AND uid = ? AND completed_at IS NULL "
+      "AND entity_type = ?",
+      [organizationId, uid, OfflineEntityType.quote.id],
+    );
+    final quoteQueue = (quoteQueueRows.first['c'] as int?) ?? 0;
+    return OfflineQueueDiagnostics(
+      incompleteQueue: incomplete,
+      eligibleNow: eligible,
+      blockedByBackoff: (incomplete - eligible).clamp(0, incomplete),
+      pendingLocalQuotes: pendingQuotes,
+      incompleteQuoteQueue: quoteQueue,
+    );
+  }
+
+  /// Reencola cotizaciones locales no sincronizadas que no tienen fila activa
+  /// en `sync_queue`. Conserva el mismo `quote.id` (idempotencia en servidor).
+  ///
+  /// Devuelve cuántas filas se encolaron. No borra ni marca synced.
+  Future<int> ensureQueueForUnsyncedQuotes({
+    required String organizationId,
+    required String uid,
+  }) async {
+    final unsynced = await listQuotes(organizationId: organizationId, uid: uid);
+    var enqueued = 0;
+    for (final rec in unsynced) {
+      if (rec.syncStatus == OfflineSyncStatus.synced) continue;
+      final q = rec.quote;
+      final hasActive = await _hasActiveQueueRow(
+        organizationId: organizationId,
+        uid: uid,
+        entityType: OfflineEntityType.quote,
+        entityId: q.id,
+      );
+      if (hasActive) continue;
+      final isNew =
+          q.number.startsWith('LOCAL-') ||
+          q.sequence <= 0 ||
+          rec.syncStatus == OfflineSyncStatus.pending ||
+          rec.syncStatus == OfflineSyncStatus.error;
+      final payload = q.toMap()..['__isNew'] = isNew;
+      // Misma forma que OfflineSyncService.idempotencyKey (evitar import circular).
+      final key =
+          '${OfflineEntityType.quote.id}:${OfflineOperation.upsert.id}:'
+          '${q.id}:repair-${q.updatedAt.toUtc().toIso8601String()}';
+      await enqueue(
+        organizationId: organizationId,
+        uid: uid,
+        entityType: OfflineEntityType.quote,
+        entityId: q.id,
+        operation: OfflineOperation.upsert,
+        payload: payload,
+        idempotencyKey: key,
+      );
+      enqueued++;
+    }
+    return enqueued;
+  }
+
+  Future<bool> _hasActiveQueueRow({
+    required String organizationId,
+    required String uid,
+    required OfflineEntityType entityType,
+    required String entityId,
+  }) async {
+    final db = await OfflineDatabase.instance.database;
+    final rows = await db.query(
+      'sync_queue',
+      columns: ['id'],
+      where:
+          'organization_id = ? AND uid = ? AND entity_type = ? '
+          'AND entity_id = ? AND completed_at IS NULL',
+      whereArgs: [organizationId, uid, entityType.id, entityId],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
   }
 
   Future<int> countPendingQuotes({
@@ -396,7 +512,11 @@ class OfflineLocalStore {
     );
   }
 
-  Future<void> markQueueFailed(int id, String error, {Duration? backoff}) async {
+  Future<void> markQueueFailed(
+    int id,
+    String error, {
+    Duration? backoff,
+  }) async {
     final db = await OfflineDatabase.instance.database;
     final rows = await db.query(
       'sync_queue',
@@ -405,7 +525,8 @@ class OfflineLocalStore {
       whereArgs: [id],
       limit: 1,
     );
-    final attempts = (rows.isEmpty ? 0 : (rows.first['attempts'] as int? ?? 0)) + 1;
+    final attempts =
+        (rows.isEmpty ? 0 : (rows.first['attempts'] as int? ?? 0)) + 1;
     final delay = backoff ?? Duration(seconds: (1 << attempts.clamp(0, 6)) * 5);
     final next = DateTime.now().toUtc().add(delay);
     await db.update(
@@ -435,4 +556,31 @@ class OfflineLocalStore {
       'value': uid,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
+}
+
+/// Conteos de cola vs UI (sin PII).
+class OfflineQueueDiagnostics {
+  const OfflineQueueDiagnostics({
+    required this.incompleteQueue,
+    required this.eligibleNow,
+    required this.blockedByBackoff,
+    required this.pendingLocalQuotes,
+    required this.incompleteQuoteQueue,
+  });
+
+  final int incompleteQueue;
+  final int eligibleNow;
+  final int blockedByBackoff;
+  final int pendingLocalQuotes;
+  final int incompleteQuoteQueue;
+
+  /// Cotizaciones locales pendientes sin fila activa en cola.
+  int get orphanLocalQuotes =>
+      (pendingLocalQuotes - incompleteQuoteQueue).clamp(0, pendingLocalQuotes);
+
+  @override
+  String toString() =>
+      'QueueDiag(incomplete=$incompleteQueue eligible=$eligibleNow '
+      'backoff=$blockedByBackoff localQuotes=$pendingLocalQuotes '
+      'quoteQueue=$incompleteQuoteQueue orphan=$orphanLocalQuotes)';
 }

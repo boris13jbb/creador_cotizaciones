@@ -33,9 +33,7 @@ Future<bool?> showQuoteConflictDialog(
             } catch (e) {
               if (ctx.mounted) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(
-                    content: Text('$e'.replaceFirst('Exception: ', '')),
-                  ),
+                  SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
                 );
               }
             }
@@ -53,9 +51,7 @@ Future<bool?> showQuoteConflictDialog(
             } catch (e) {
               if (ctx.mounted) {
                 ScaffoldMessenger.of(ctx).showSnackBar(
-                  SnackBar(
-                    content: Text('$e'.replaceFirst('Exception: ', '')),
-                  ),
+                  SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
                 );
               }
             }

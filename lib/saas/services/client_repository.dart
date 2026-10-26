@@ -57,7 +57,8 @@ class ClientRepository {
       }
     }
 
-    final online = ConnectivityMonitor.instance.isEffectivelyOnline ||
+    final online =
+        ConnectivityMonitor.instance.isEffectivelyOnline ||
         await ConnectivityMonitor.instance.probeFirebase();
 
     if (!online) {

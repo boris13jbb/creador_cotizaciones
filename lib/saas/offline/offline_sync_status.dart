@@ -58,10 +58,4 @@ enum OfflineOperation {
 }
 
 /// Estado agregado mostrado en la UI.
-enum OfflineUiStatus {
-  online,
-  offline,
-  syncing,
-  pendingChanges,
-  syncError,
-}
+enum OfflineUiStatus { online, offline, syncing, pendingChanges, syncError }

@@ -14,19 +14,89 @@ import '../team/team_screen.dart';
 import 'company_identity_screen.dart';
 import 'pricing_screen.dart';
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key, this.embeddedInShell = false});
 
   final bool embeddedInShell;
 
   @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen>
+    with WidgetsBindingObserver {
+  bool _refreshingEmail = false;
+  bool _syncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Solo consulta Auth; no reenvía correo.
+      context.read<AuthController>().refreshEmailVerification();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<AuthController>().refreshEmailVerification();
+    }
+  }
+
+  Future<void> _onRefreshEmail(AuthController auth) async {
+    setState(() => _refreshingEmail = true);
+    try {
+      final status = await auth.refreshEmailVerification();
+      if (!mounted) return;
+      final msg = status.emailVerified
+          ? 'Correo verificado correctamente'
+          : (auth.emailVerificationHint ??
+                'Aún no verificado. Si abriste el enlace, pulsa de nuevo «Actualizar estado».');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _refreshingEmail = false);
+    }
+  }
+
+  Future<void> _onSyncNow() async {
+    setState(() => _syncing = true);
+    try {
+      final offline = OfflineController.instance;
+      final before = offline.pendingQuotes;
+      await offline.syncNow();
+      if (!mounted) return;
+      final after = offline.pendingQuotes;
+      final err = offline.lastError;
+      final msg = (err != null && err.isNotEmpty)
+          ? 'Sync: $before→$after pendientes. Error: $err'
+          : (after == 0
+                ? 'Sincronización completada'
+                : 'Sync parcial: quedan $after cotiz. pendientes');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final themeCtrl = context.watch<ThemeController>();
+    final offline = context.watch<OfflineController>();
     final profile = auth.profile;
     final access = auth.access;
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !embeddedInShell || useRail;
+    final showAppBar = !widget.embeddedInShell || useRail;
+    final sessionEmail = auth.user?.email ?? profile?.email ?? '';
 
     return Scaffold(
       appBar: showAppBar ? AppBar(title: const Text('Mi cuenta')) : null,
@@ -50,38 +120,106 @@ class AccountScreen extends StatelessWidget {
                   profile?.displayName ?? 'Usuario',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                subtitle: Text(profile?.email ?? auth.user?.email ?? ''),
+                subtitle: Text(sessionEmail),
               ),
-              if (!auth.isEmailVerified)
+              if (auth.isEmailVerified)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.mark_email_read_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: const Text('Correo verificado'),
+                  subtitle: Text(sessionEmail),
+                )
+              else
                 Card(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? null
                       : const Color(0xFFFFF4DE),
-                  child: ListTile(
-                    leading: const Icon(Icons.mark_email_unread_outlined),
-                    title: const Text('Verifica tu correo'),
-                    subtitle: const Text(
-                      'Te enviamos un enlace de verificación. '
-                      'Revisa tu bandeja o reenvíalo.',
-                    ),
-                    trailing: TextButton(
-                      onPressed: () async {
-                        final ok = await auth.sendEmailVerification();
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              ok
-                                  ? 'Correo de verificación enviado'
-                                  : (auth.error ?? 'No se pudo enviar'),
-                            ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.mark_email_unread_outlined),
+                          title: const Text('Verifica tu correo'),
+                          subtitle: Text(
+                            auth.emailVerificationHint ??
+                                'Si ya abriste el enlace en el navegador, '
+                                    'pulsa «Actualizar estado». No hace falta '
+                                    'reenviar salvo que no hayas recibido el correo.',
                           ),
-                        );
-                      },
-                      child: const Text('Reenviar'),
+                        ),
+                        OverflowBar(
+                          alignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: _refreshingEmail
+                                  ? null
+                                  : () => _onRefreshEmail(auth),
+                              child: _refreshingEmail
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Actualizar estado'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final ok = await auth.sendEmailVerification();
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? 'Correo de verificación enviado'
+                                          : (auth.error ?? 'No se pudo enviar'),
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: const Text('Reenviar'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              if (offline.hasPending ||
+                  (offline.lastError != null &&
+                      offline.lastError!.isNotEmpty)) ...[
+                const SizedBox(height: 8),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.cloud_sync_outlined),
+                    title: Text(
+                      offline.pendingQuotes > 0
+                          ? 'Cambios pendientes · ${offline.pendingQuotes} cotiz.'
+                          : offline.statusLabel(),
+                    ),
+                    subtitle: Text(
+                      offline.lastError ??
+                          'Solo en este dispositivo hasta sincronizar.',
+                    ),
+                    trailing: TextButton(
+                      onPressed: _syncing ? null : _onSyncNow,
+                      child: _syncing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Sincronizar'),
+                    ),
+                  ),
+                ),
+              ],
               const Divider(),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -238,8 +376,8 @@ class AccountScreen extends StatelessWidget {
                   style: TextStyle(color: Colors.red),
                 ),
                 onTap: () async {
-                  final hasPending =
-                      await OfflineController.instance.hasUnsyncedWork();
+                  final hasPending = await OfflineController.instance
+                      .hasUnsyncedWork();
                   if (!context.mounted) return;
                   final confirm = await showDialog<bool>(
                     context: context,

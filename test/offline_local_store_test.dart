@@ -348,10 +348,7 @@ void main() {
       entityType: OfflineEntityType.brandingLogo,
       entityId: 'quote:q-logo-1',
       operation: OfflineOperation.uploadFile,
-      payload: {
-        'logoLocalPath': localPath,
-        'quoteId': 'q-logo-1',
-      },
+      payload: {'logoLocalPath': localPath, 'quoteId': 'q-logo-1'},
       idempotencyKey: OfflineSyncService.idempotencyKey(
         type: OfflineEntityType.brandingLogo,
         entityId: 'quote:q-logo-1',
@@ -376,4 +373,186 @@ void main() {
       isFalse,
     );
   });
+
+  test(
+    'UI pendingQuotes vs worker: backoff deja cola vacía hasta forzar',
+    () async {
+      final now = DateTime.now().toUtc();
+      for (var i = 0; i < 5; i++) {
+        final quote = Quote(
+          id: 'q-back-$i',
+          organizationId: 'org-a',
+          number: 'LOCAL-B$i',
+          sequence: 0,
+          clientName: 'C$i',
+          issueDate: now,
+          total: MoneyCents.zero,
+          createdByUid: 'user-1',
+          createdAt: now,
+          updatedAt: now,
+        );
+        await OfflineLocalStore.instance.upsertQuote(
+          uid: 'user-1',
+          quote: quote,
+          status: OfflineSyncStatus.error,
+        );
+        await OfflineLocalStore.instance.enqueue(
+          organizationId: 'org-a',
+          uid: 'user-1',
+          entityType: OfflineEntityType.quote,
+          entityId: quote.id,
+          operation: OfflineOperation.upsert,
+          payload: quote.toMap()..['__isNew'] = true,
+          idempotencyKey: 'quote:upsert:${quote.id}:v1',
+        );
+      }
+
+      final queueBefore = await OfflineLocalStore.instance.pendingQueue(
+        organizationId: 'org-a',
+        uid: 'user-1',
+      );
+      expect(queueBefore.length, 5);
+
+      // Simula fallos previos: backoff en el futuro.
+      for (final item in queueBefore) {
+        await OfflineLocalStore.instance.markQueueFailed(
+          item.id,
+          'simulated',
+          backoff: const Duration(hours: 1),
+        );
+      }
+
+      final uiCount = await OfflineLocalStore.instance.countPendingQuotes(
+        organizationId: 'org-a',
+        uid: 'user-1',
+      );
+      expect(uiCount, 5);
+
+      final eligible = await OfflineLocalStore.instance.pendingQueue(
+        organizationId: 'org-a',
+        uid: 'user-1',
+      );
+      expect(eligible, isEmpty, reason: 'backoff debe excluir del worker');
+
+      final forced = await OfflineLocalStore.instance.pendingQueue(
+        organizationId: 'org-a',
+        uid: 'user-1',
+        forceIgnoreBackoff: true,
+      );
+      expect(forced.length, 5);
+
+      final diag = await OfflineLocalStore.instance.queueDiagnostics(
+        organizationId: 'org-a',
+        uid: 'user-1',
+      );
+      expect(diag.pendingLocalQuotes, 5);
+      expect(diag.incompleteQueue, 5);
+      expect(diag.eligibleNow, 0);
+      expect(diag.blockedByBackoff, 5);
+    },
+  );
+
+  test('repara cotizaciones locales sin fila de cola (huérfanas)', () async {
+    final now = DateTime.now().toUtc();
+    final quote = Quote(
+      id: 'q-orphan-1',
+      organizationId: 'org-a',
+      number: 'LOCAL-ORPHAN1',
+      sequence: 0,
+      clientName: 'Huérfana',
+      issueDate: now,
+      total: MoneyCents.zero,
+      createdByUid: 'user-1',
+      createdAt: now,
+      updatedAt: now,
+    );
+    await OfflineLocalStore.instance.upsertQuote(
+      uid: 'user-1',
+      quote: quote,
+      status: OfflineSyncStatus.pending,
+    );
+
+    expect(
+      await OfflineLocalStore.instance.countPendingQuotes(
+        organizationId: 'org-a',
+        uid: 'user-1',
+      ),
+      1,
+    );
+    expect(
+      await OfflineLocalStore.instance.pendingQueue(
+        organizationId: 'org-a',
+        uid: 'user-1',
+        forceIgnoreBackoff: true,
+      ),
+      isEmpty,
+    );
+
+    final n = await OfflineLocalStore.instance.ensureQueueForUnsyncedQuotes(
+      organizationId: 'org-a',
+      uid: 'user-1',
+    );
+    expect(n, 1);
+
+    final queue = await OfflineLocalStore.instance.pendingQueue(
+      organizationId: 'org-a',
+      uid: 'user-1',
+      forceIgnoreBackoff: true,
+    );
+    expect(queue.length, 1);
+    expect(queue.first.entityId, 'q-orphan-1');
+    expect(queue.first.payload['__isNew'], isTrue);
+    // Segunda reparación no duplica fila activa.
+    expect(
+      await OfflineLocalStore.instance.ensureQueueForUnsyncedQuotes(
+        organizationId: 'org-a',
+        uid: 'user-1',
+      ),
+      0,
+    );
+  });
+
+  test(
+    'archivar actualiza payload local a archived (no retiene draft)',
+    () async {
+      final now = DateTime.now().toUtc();
+      final draft = Quote(
+        id: 'q-arch-1',
+        organizationId: 'org-a',
+        number: 'COT-009',
+        sequence: 9,
+        status: QuoteStatus.draft,
+        clientName: 'Cliente',
+        issueDate: now,
+        total: const MoneyCents(1000),
+        createdByUid: 'user-1',
+        createdAt: now,
+        updatedAt: now,
+      );
+      await OfflineLocalStore.instance.upsertQuote(
+        uid: 'user-1',
+        quote: draft,
+        status: OfflineSyncStatus.synced,
+      );
+
+      final archived = draft.copyWith(
+        status: QuoteStatus.archived,
+        updatedAt: now.add(const Duration(seconds: 1)),
+      );
+      await OfflineLocalStore.instance.upsertQuote(
+        uid: 'user-1',
+        quote: archived,
+        status: OfflineSyncStatus.synced,
+      );
+
+      final loaded = await OfflineLocalStore.instance.getQuote(
+        organizationId: 'org-a',
+        uid: 'user-1',
+        quoteId: 'q-arch-1',
+      );
+      expect(loaded, isNotNull);
+      expect(loaded!.quote.status, QuoteStatus.archived);
+      expect(loaded.syncStatus, OfflineSyncStatus.synced);
+    },
+  );
 }

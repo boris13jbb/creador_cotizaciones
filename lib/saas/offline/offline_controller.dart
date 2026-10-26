@@ -23,7 +23,8 @@ class OfflineController extends ChangeNotifier {
   bool _syncing = false;
 
   OfflineUiStatus get status => _status;
-  bool get hasPending => pendingOps > 0 || pendingQuotes > 0 || pendingFiles > 0;
+  bool get hasPending =>
+      pendingOps > 0 || pendingQuotes > 0 || pendingFiles > 0;
 
   Future<void> bindSession({
     required String? uid,
@@ -105,13 +106,20 @@ class OfflineController extends ChangeNotifier {
     _status = OfflineUiStatus.syncing;
     notifyListeners();
     try {
-      await OfflineSyncService.instance.syncPending(
+      // Sync manual: ignora backoff y repara cotizaciones locales sin fila de cola.
+      final completed = await OfflineSyncService.instance.syncPending(
         organizationId: orgId,
         uid: uid,
+        forceRetry: true,
       );
       lastError = OfflineSyncService.instance.lastItemError;
+      debugPrint(
+        'offline syncNow: completed=$completed '
+        'lastError=${lastError ?? "(none)"}',
+      );
     } catch (e) {
       lastError = e.toString().replaceFirst('Exception: ', '');
+      debugPrint('offline syncNow failed: $lastError');
     } finally {
       _syncing = false;
       await refresh();
