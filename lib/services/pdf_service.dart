@@ -123,10 +123,8 @@ class PdfService {
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(36),
           // Marca de agua detrás del contenido en cada página.
-          buildBackground: (context) => _watermarkBackground(
-            logoImage: logoImage,
-            branding: logoLayout,
-          ),
+          buildBackground: (context) =>
+              _watermarkBackground(logoImage: logoImage, branding: logoLayout),
         ),
         footer: cot.footerText == null || cot.footerText!.isEmpty
             ? null
@@ -448,11 +446,24 @@ class PdfService {
     // Márgenes internos para no pegar la marca a los bordes físicos.
     final pad = switch (branding.watermarkPosition) {
       WatermarkPosition.center => const pw.EdgeInsets.all(48),
-      WatermarkPosition.topCenter => const pw.EdgeInsets.fromLTRB(48, 72, 48, 48),
-      WatermarkPosition.bottomCenter =>
-        const pw.EdgeInsets.fromLTRB(48, 48, 48, 72),
-      WatermarkPosition.bottomRight =>
-        const pw.EdgeInsets.fromLTRB(48, 48, 56, 64),
+      WatermarkPosition.topCenter => const pw.EdgeInsets.fromLTRB(
+        48,
+        72,
+        48,
+        48,
+      ),
+      WatermarkPosition.bottomCenter => const pw.EdgeInsets.fromLTRB(
+        48,
+        48,
+        48,
+        72,
+      ),
+      WatermarkPosition.bottomRight => const pw.EdgeInsets.fromLTRB(
+        48,
+        48,
+        56,
+        64,
+      ),
     };
 
     return pw.FullPage(
