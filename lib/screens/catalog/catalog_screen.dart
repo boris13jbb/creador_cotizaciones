@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/utils/money_cents.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/domain/org_enums.dart';
 import '../../saas/models/catalog_item.dart';
 import '../../saas/providers/auth_controller.dart';
@@ -10,6 +11,13 @@ import '../../saas/services/catalog_repository.dart';
 import '../../ui/layout/responsive.dart';
 import '../../ui/tokens/app_icons.dart';
 import '../../ui/widgets/async_state_view.dart';
+import 'catalog_import_flow.dart';
+
+const _kNoOrganization = _NoOrganizationMarker();
+
+class _NoOrganizationMarker {
+  const _NoOrganizationMarker();
+}
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -36,7 +44,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     if (orgId == null || orgId.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Sin organización';
+        _error = _kNoOrganization;
       });
       return;
     }
@@ -69,7 +77,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(auth.error ?? 'No se pudo crear la organización'),
+          content: Text(auth.error ?? context.l10n.createOrganizationFailed),
         ),
       );
     }
@@ -94,63 +102,70 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Nuevo ítem' : 'Editar ítem'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Nombre *'),
-              ),
-              TextField(
-                controller: codeCtrl,
-                decoration: const InputDecoration(labelText: 'Código'),
-              ),
-              TextField(
-                controller: descCtrl,
-                decoration: const InputDecoration(labelText: 'Descripción'),
-              ),
-              TextField(
-                controller: categoryCtrl,
-                decoration: const InputDecoration(labelText: 'Categoría'),
-              ),
-              TextField(
-                controller: unitCtrl,
-                decoration: const InputDecoration(labelText: 'Unidad'),
-              ),
-              TextField(
-                controller: priceCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Precio unitario',
-                  prefixText: r'$ ',
-                ),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-              TextField(
-                controller: taxCtrl,
-                decoration: const InputDecoration(labelText: 'Impuesto %'),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
-            ],
+      builder: (ctx) {
+        final l10n = ctx.l10n;
+        return AlertDialog(
+          title: Text(
+            existing == null ? l10n.newCatalogItem : l10n.editCatalogItem,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldClientNameRequired,
+                  ),
+                ),
+                TextField(
+                  controller: codeCtrl,
+                  decoration: InputDecoration(labelText: l10n.fieldCode),
+                ),
+                TextField(
+                  controller: descCtrl,
+                  decoration: InputDecoration(labelText: l10n.description),
+                ),
+                TextField(
+                  controller: categoryCtrl,
+                  decoration: InputDecoration(labelText: l10n.fieldCategory),
+                ),
+                TextField(
+                  controller: unitCtrl,
+                  decoration: InputDecoration(labelText: l10n.fieldUnit),
+                ),
+                TextField(
+                  controller: priceCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldUnitPrice,
+                    prefixText: r'$ ',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                ),
+                TextField(
+                  controller: taxCtrl,
+                  decoration: InputDecoration(labelText: l10n.fieldTaxPercent),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                ),
+              ],
+            ),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.save),
+            ),
+          ],
+        );
+      },
     );
 
     if (ok != true || !mounted) return;
@@ -182,31 +197,49 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final noOrg = _error == _kNoOrganization;
+    final viewError = noOrg ? l10n.noOrganization : _error;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Catálogo')),
+      appBar: AppBar(
+        title: Text(l10n.catalog),
+        actions: [
+          IconButton(
+            tooltip: l10n.catalogImportTitle,
+            icon: const Icon(Icons.upload_file_outlined),
+            onPressed: _orgId == null || _orgId!.isEmpty
+                ? null
+                : () async {
+                    final orgId = _orgId;
+                    if (orgId == null) return;
+                    final changed = await showCatalogImportFlow(
+                      context: context,
+                      organizationId: orgId,
+                      existingItems: _items,
+                    );
+                    if (changed && mounted) await _load();
+                  },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: null,
         onPressed: () => _edit(),
         icon: const Icon(AppIcons.agregarCatalogo),
-        label: const Text('Ítem'),
+        label: Text(l10n.catalogFab),
       ),
       body: ContentConstraint(
         child: AsyncStateView(
           loading: _loading,
-          error: _error,
+          error: viewError,
           isEmpty: !_loading && _items.isEmpty,
-          emptyTitle: 'Catálogo vacío',
-          emptySubtitle: 'Agrega productos o servicios reutilizables.',
+          emptyTitle: l10n.emptyCatalog,
+          emptySubtitle: l10n.emptyAddCatalogItems,
           emptyIcon: Icons.inventory_2_outlined,
-          onRetry: _error?.toString() == 'Sin organización'
-              ? _createOrganization
-              : _load,
-          retryLabel: _error?.toString() == 'Sin organización'
-              ? 'Crear organización'
-              : null,
-          retryIcon: _error?.toString() == 'Sin organización'
-              ? Icons.apartment_rounded
-              : null,
+          onRetry: noOrg ? _createOrganization : _load,
+          retryLabel: noOrg ? l10n.createOrganization : null,
+          retryIcon: noOrg ? Icons.apartment_rounded : null,
           child: ListView.separated(
             padding: AppSpacing.page,
             itemCount: _items.length,
@@ -226,20 +259,23 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     if (orgId == null) return;
                     final confirm = await showDialog<bool>(
                       context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Eliminar'),
-                        content: Text('¿Eliminar ${item.name}?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancelar'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Eliminar'),
-                          ),
-                        ],
-                      ),
+                      builder: (ctx) {
+                        final dlg = ctx.l10n;
+                        return AlertDialog(
+                          title: Text(dlg.delete),
+                          content: Text(dlg.deleteConfirmItem(item.name)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(dlg.cancel),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text(dlg.delete),
+                            ),
+                          ],
+                        );
+                      },
                     );
                     if (confirm == true) {
                       await CatalogRepository.instance.delete(orgId, item.id);
