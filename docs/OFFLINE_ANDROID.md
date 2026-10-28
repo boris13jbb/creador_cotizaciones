@@ -53,6 +53,8 @@ Si al sincronizar el remoto tiene `updatedAt`/`version` distintos, la cotizació
 
 `PdfService` obtiene el logo vía caché local (`BrandingLocalCache` / ruta de archivo) antes de HTTP/Storage. No requiere Firestore durante la generación si los bytes ya están en el dispositivo.
 
+Tipografía: el PDF embebe **Noto Sans** (`assets/fonts/NotoSans-*.ttf`) para acentos y ñ en español, sin depender de Helvetica ni de red.
+
 ## Compilar APK de prueba
 
 ```bash

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/l10n_ext.dart';
 import '../models/cotizacion.dart';
 import '../saas/providers/auth_controller.dart';
+import '../saas/services/quote_share_ui.dart';
 import '../services/db_service.dart';
+import '../services/pdf_share_service.dart';
 import '../ui/layout/responsive.dart';
 import '../ui/tokens/app_icons.dart';
 import '../ui/widgets/app_action_tile.dart';
@@ -32,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Cotizacion>> _cotizacionesFuture;
   final Set<String> _cotizacionesOcultas = {};
   Object? _error;
+  String? _sharingQuoteId;
 
   @override
   void initState() {
@@ -63,6 +67,26 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).maybePop();
   }
 
+  Future<void> _shareQuote(Cotizacion cot) async {
+    if (_sharingQuoteId != null || PdfShareService.instance.isBusy) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.sharePdfBusy)));
+      return;
+    }
+    setState(() => _sharingQuoteId = cot.id);
+    try {
+      await QuoteShareUi.shareCotizacionWithFeedback(context, cot);
+    } finally {
+      if (mounted) {
+        setState(() => _sharingQuoteId = null);
+      } else {
+        _sharingQuoteId = null;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final access = context.watch<AuthController>().access;
@@ -92,14 +116,14 @@ class _HomeScreenState extends State<HomeScreen> {
             AppActionGrid(
               children: [
                 AppActionTile(
-                  title: 'Nueva cotización',
-                  subtitle: 'Crear desde cero',
+                  title: context.l10n.newQuoteFab,
+                  subtitle: context.l10n.noQuotesHomeHint,
                   icon: AppIcons.nuevaCotizacion,
                   onTap: _openNueva,
                 ),
                 AppActionTile(
-                  title: 'Historial',
-                  subtitle: 'Ver y gestionar',
+                  title: context.l10n.navHistory,
+                  subtitle: context.l10n.noQuotesYetHint,
                   icon: Icons.history_outlined,
                   onTap: _openHistorial,
                 ),
@@ -156,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
         heroTag: null,
         onPressed: _openNueva,
         icon: const Icon(AppIcons.nuevaCotizacionFab),
-        label: const Text('Nueva'),
+        label: Text(context.l10n.newQuote),
       ),
     );
   }
@@ -179,14 +203,15 @@ class _HomeScreenState extends State<HomeScreen> {
           error: err,
           isEmpty: cotizaciones.isEmpty,
           emptyIcon: AppIcons.nuevaCotizacion,
-          emptyTitle: 'Aún no hay cotizaciones',
-          emptySubtitle: 'Crea la primera para verla aquí.',
+          emptyTitle: context.l10n.noQuotesHome,
+          emptySubtitle: context.l10n.noQuotesHomeHint,
           onRetry: _refreshLista,
           child: Column(
             children: [
               for (final cot in cotizaciones.take(5))
                 CotizacionCard(
                   cotizacion: cot,
+                  actionsEnabled: _sharingQuoteId == null,
                   onTap: () async {
                     await Navigator.push(
                       context,
@@ -205,24 +230,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                     if (mounted) _refreshLista();
                   },
+                  onShare: () => _shareQuote(cot),
                   onHide: () =>
                       setState(() => _cotizacionesOcultas.add(cot.id)),
                   onDelete: () async {
                     final confirm = await showDialog<bool>(
                       context: context,
                       builder: (ctx) => AlertDialog(
-                        title: const Text('Eliminar'),
-                        content: Text('¿Eliminar la cotización ${cot.numero}?'),
+                        title: Text(context.l10n.deleteQuoteTitle),
+                        content: Text(
+                          context.l10n.deleteQuoteBodyShort(cot.numero),
+                        ),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancelar'),
+                            child: Text(context.l10n.cancel),
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text(
-                              'Eliminar',
-                              style: TextStyle(color: Colors.red),
+                            child: Text(
+                              context.l10n.delete,
+                              style: const TextStyle(color: Colors.red),
                             ),
                           ),
                         ],

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:universal_io/io.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
@@ -12,7 +13,12 @@ import '../models/servicio.dart';
 import '../saas/domain/quote_totals.dart';
 import '../saas/models/org_branding.dart';
 import '../saas/models/quote.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/app_localizations_en.dart';
+import '../l10n/app_localizations_es.dart';
+import '../saas/offline/offline_local_store.dart';
 import '../saas/services/branding_storage_service.dart';
+import '../saas/services/quote_logo_resolver.dart';
 import '../saas/services/quote_mapper.dart';
 
 class _PdfColors {
@@ -52,43 +58,115 @@ void _setupColors(Cotizacion cot) {
   _PdfColors.initialize(coloresJson);
 }
 
+/// Densidad tipográfica del bloque «Información del proyecto».
+///
+/// Reducciones orientativas vs. diseño previo: fuentes ~10–15 %, paddings
+/// verticales ~30–35 %. Visible solo en ese bloque; el resto del PDF no cambia.
+class ProjectInfoPdfDensity {
+  const ProjectInfoPdfDensity._();
+
+  static const double defaultSectionTitleSize = 11;
+  static const double sectionTitleSize = 9.5;
+  static const double labelSize = 6;
+  static const double valueSize = 8;
+  static const double descriptionSize = 8;
+  static const double cellPaddingH = 5;
+  static const double cellPaddingV = 4;
+  static const double labelValueGap = 1;
+  static const double gapBeforeBlock = 14;
+  static const double gapAfterSectionTitle = 4;
+  static const double gapBeforeDescription = 8;
+  static const double gapAfterDescriptionTitle = 3;
+  static const double gapAfterBlock = 12;
+}
+
 class PdfService {
   /// Genera PDF desde dominio [Quote] (columnas qty/precio/dto/imp/neto).
-  static Future<Uint8List> generarPDFFromQuote(Quote quote) async {
+  ///
+  /// [languageCode] traduce solo etiquetas de plantilla CotiApp (no datos del usuario).
+  static Future<Uint8List> generarPDFFromQuote(
+    Quote quote, {
+    String languageCode = 'es',
+  }) async {
     final cot = QuoteMapper.toCotizacion(quote);
-    return _build(cot: cot, quote: quote);
+    return _build(cot: cot, quote: quote, languageCode: languageCode);
   }
 
-  static Future<Uint8List> generarPDF(Cotizacion cot, {Quote? quote}) async {
-    return _build(cot: cot, quote: quote);
+  static Future<Uint8List> generarPDF(
+    Cotizacion cot, {
+    Quote? quote,
+    String languageCode = 'es',
+  }) async {
+    return _build(cot: cot, quote: quote, languageCode: languageCode);
+  }
+
+  static AppLocalizations _l10nFor(String languageCode) {
+    return languageCode == 'en' ? AppLocalizationsEn() : AppLocalizationsEs();
+  }
+
+  /// Fuentes embebidas con soporte Latin (áéíóúñ) para PDF offline/online.
+  static Future<pw.ThemeData> _pdfTheme() async {
+    final regularData = await rootBundle.load(
+      'assets/fonts/NotoSans-Regular.ttf',
+    );
+    final boldData = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
+    return pw.ThemeData.withFont(
+      base: pw.Font.ttf(regularData),
+      bold: pw.Font.ttf(boldData),
+    );
   }
 
   static Future<Uint8List> _build({
     required Cotizacion cot,
     Quote? quote,
+    String languageCode = 'es',
   }) async {
     _setupColors(cot);
-    final pdf = pw.Document();
+    final l10n = _l10nFor(languageCode);
+    final theme = await _pdfTheme();
+    final pdf = pw.Document(theme: theme);
     final currencyFormat = NumberFormat.currency(
+      locale: languageCode == 'en' ? 'en_US' : 'es_ES',
       symbol: '\$',
       decimalDigits: 2,
     );
 
     pw.ImageProvider? logoImage;
+    final rawLogoPath = cot.logoPath ?? quote?.logoPath;
+    OrgBranding? orgBranding;
+    final orgId = quote?.organizationId;
+    final uid = quote?.createdByUid;
+    if (orgId != null && orgId.isNotEmpty && uid != null && uid.isNotEmpty) {
+      try {
+        final local = await OfflineLocalStore.instance.getBranding(
+          organizationId: orgId,
+          uid: uid,
+        );
+        if (local != null) orgBranding = local.branding;
+      } catch (_) {}
+    }
+    final resolvedLogo = QuoteLogoResolver.resolveLogoPath(
+      quoteLogoPath: rawLogoPath,
+      orgBranding: orgBranding,
+    );
     final logoBytes = await BrandingStorageService.instance.loadLogoBytes(
-      cot.logoPath ?? quote?.logoPath,
-      organizationId: quote?.organizationId,
-      uid: quote?.createdByUid,
+      resolvedLogo,
+      organizationId: orgId,
+      uid: uid,
+      cacheRemoteAsOrgLogo: !QuoteLogoResolver.hasCustomLogo(
+        rawLogoPath,
+        orgBranding: orgBranding,
+      ),
     );
     if (logoBytes != null) {
       logoImage = pw.MemoryImage(logoBytes);
-    } else if (cot.logoPath != null &&
-        cot.logoPath!.isNotEmpty &&
-        !cot.logoPath!.startsWith('data:') &&
-        !cot.logoPath!.startsWith('http') &&
+    } else if (resolvedLogo != null &&
+        resolvedLogo.isNotEmpty &&
+        !resolvedLogo.startsWith('data:') &&
+        !resolvedLogo.startsWith('http') &&
         !kIsWeb) {
       try {
-        final file = File(cot.logoPath!);
+        final file = File(resolvedLogo);
         if (await file.exists()) {
           logoImage = pw.MemoryImage(await file.readAsBytes());
         }
@@ -97,10 +175,10 @@ class PdfService {
 
     final subtitulo = cot.subtitulo ?? cot.tipoServicio;
     final validez = cot.validezDias != null
-        ? 'Validez: ${cot.validezDias} dias'
+        ? l10n.pdfValidity(cot.validezDias!)
         : '';
-    final firmaTecnico = cot.firmaTecnicoLabel ?? 'Firma del Tecnico';
-    final firmaCliente = cot.firmaClienteLabel ?? 'Firma del Cliente';
+    final firmaTecnico = cot.firmaTecnicoLabel ?? l10n.pdfTechnicianSignature;
+    final firmaCliente = cot.firmaClienteLabel ?? l10n.pdfClientSignature;
     final statusLabel = quote?.status.id;
     const calc = QuoteTotalsCalculator();
     final totals = quote == null
@@ -119,9 +197,11 @@ class PdfService {
 
     pdf.addPage(
       pw.MultiPage(
+        // theme solo dentro de pageTheme: MultiPage no admite ambos a la vez.
         pageTheme: pw.PageTheme(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(36),
+          theme: theme,
           // Marca de agua detrás del contenido en cada página.
           buildBackground: (context) =>
               _watermarkBackground(logoImage: logoImage, branding: logoLayout),
@@ -144,33 +224,20 @@ class PdfService {
             statusLabel: statusLabel,
           ),
 
-          pw.SizedBox(height: 20),
-          _tituloSeccion('INFORMACION DEL PROYECTO'),
-          pw.SizedBox(height: 8),
-          _tablaInformacionProyecto(cot),
+          pw.SizedBox(height: ProjectInfoPdfDensity.gapBeforeBlock),
+          ..._bloqueInformacionProyecto(cot, l10n),
 
-          if (cot.descripcion.isNotEmpty) ...[
-            pw.SizedBox(height: 15),
-            _tituloSeccion('DESCRIPCION GENERAL'),
-            pw.SizedBox(height: 5),
-            pw.Text(
-              cot.descripcion,
-              style: pw.TextStyle(color: _PdfColors.textGray, fontSize: 9),
-              textAlign: pw.TextAlign.justify,
-            ),
-          ],
-
-          pw.SizedBox(height: 15),
-          _tituloSeccion('DETALLE DE SERVICIOS'),
+          pw.SizedBox(height: ProjectInfoPdfDensity.gapAfterBlock),
+          _tituloSeccion(l10n.pdfServicesDetail),
           pw.SizedBox(height: 8),
           if (quote != null && quote.items.isNotEmpty)
-            _tablaLineasQuote(quote.items, currencyFormat, calc)
+            _tablaLineasQuote(quote.items, currencyFormat, calc, l10n)
           else
-            _tablaServicios(cot.servicios, currencyFormat),
+            _tablaServicios(cot.servicios, currencyFormat, l10n),
 
           if (totals != null) ...[
             pw.SizedBox(height: 8),
-            _resumenTotales(totals, currencyFormat),
+            _resumenTotales(totals, currencyFormat, l10n),
           ],
 
           pw.Container(
@@ -180,7 +247,7 @@ class PdfService {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  'TOTAL DEL PROYECTO',
+                  l10n.pdfProjectTotal,
                   style: pw.TextStyle(
                     fontWeight: pw.FontWeight.bold,
                     fontSize: 11,
@@ -198,7 +265,7 @@ class PdfService {
           ),
 
           pw.SizedBox(height: 15),
-          _tituloSeccion('FORMA DE PAGO'),
+          _tituloSeccion(l10n.pdfPaymentMethod),
           pw.SizedBox(height: 8),
           _bloquesFormaPago(cot, currencyFormat),
 
@@ -206,15 +273,15 @@ class PdfService {
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Expanded(child: _bloqueLista('INCLUYE', cot.incluye)),
+              pw.Expanded(child: _bloqueLista(l10n.pdfIncludes, cot.incluye)),
               pw.SizedBox(width: 12),
-              pw.Expanded(child: _bloqueLista('NO INCLUYE', cot.noIncluye)),
+              pw.Expanded(child: _bloqueLista(l10n.pdfExcludes, cot.noIncluye)),
             ],
           ),
 
           if (cot.notas.isNotEmpty) ...[
             pw.SizedBox(height: 15),
-            _tituloSeccion('NOTAS IMPORTANTES'),
+            _tituloSeccion(l10n.pdfNotes),
             ...cot.notas.map(
               (n) => pw.Padding(
                 padding: const pw.EdgeInsets.only(top: 2),
@@ -231,7 +298,7 @@ class PdfService {
 
           if (cot.camposExtraList.isNotEmpty) ...[
             pw.SizedBox(height: 12),
-            _tituloSeccion('CAMPOS ADICIONALES'),
+            _tituloSeccion(l10n.pdfAdditionalFields),
             ...cot.camposExtraList.map(
               (e) => pw.Padding(
                 padding: const pw.EdgeInsets.only(top: 2),
@@ -272,22 +339,29 @@ class PdfService {
     return pdf.save();
   }
 
-  static pw.Widget _resumenTotales(QuoteTotals t, NumberFormat fmt) {
+  static pw.Widget _resumenTotales(
+    QuoteTotals t,
+    NumberFormat fmt,
+    AppLocalizations l10n,
+  ) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.end,
       children: [
-        _totLine('Subtotal', fmt.format(t.linesGross.asDecimal)),
+        _totLine(l10n.subtotal, fmt.format(t.linesGross.asDecimal)),
         if (t.linesDiscount.cents > 0)
-          _totLine('Descuentos', '-${fmt.format(t.linesDiscount.asDecimal)}'),
+          _totLine(
+            l10n.discountsLabel,
+            '-${fmt.format(t.linesDiscount.asDecimal)}',
+          ),
         if (t.linesTax.cents > 0)
-          _totLine('Impuestos', fmt.format(t.linesTax.asDecimal)),
+          _totLine(l10n.taxes, fmt.format(t.linesTax.asDecimal)),
         if (t.globalDiscount.cents > 0)
           _totLine(
-            'Descuento global',
+            l10n.globalDiscountLabel,
             '-${fmt.format(t.globalDiscount.asDecimal)}',
           ),
         if (t.charges.cents > 0)
-          _totLine('Cargos', fmt.format(t.charges.asDecimal)),
+          _totLine(l10n.chargesLabel, fmt.format(t.charges.asDecimal)),
       ],
     );
   }
@@ -312,6 +386,7 @@ class PdfService {
     List<QuoteLineItem> items,
     NumberFormat fmt,
     QuoteTotalsCalculator calc,
+    AppLocalizations l10n,
   ) {
     return pw.Table(
       border: pw.TableBorder.all(color: _PdfColors.border, width: 0.5),
@@ -328,12 +403,12 @@ class PdfService {
           decoration: pw.BoxDecoration(color: _PdfColors.primary),
           children: [
             for (final h in [
-              'SERVICIO',
-              'CANT',
-              'P.UNIT',
-              'DTO%',
-              'IMP%',
-              'NETO',
+              l10n.pdfService,
+              l10n.pdfQty,
+              l10n.pdfUnitPrice,
+              l10n.pdfDiscountPct,
+              l10n.pdfTaxPct,
+              l10n.pdfNet,
             ])
               pw.Padding(
                 padding: const pw.EdgeInsets.all(5),
@@ -417,15 +492,43 @@ class PdfService {
     );
   }
 
-  static pw.Widget _tituloSeccion(String titulo) {
+  static pw.Widget _tituloSeccion(String titulo, {bool compact = false}) {
     return pw.Text(
       titulo,
       style: pw.TextStyle(
-        fontSize: 11,
+        fontSize: compact
+            ? ProjectInfoPdfDensity.sectionTitleSize
+            : ProjectInfoPdfDensity.defaultSectionTitleSize,
         fontWeight: pw.FontWeight.bold,
         color: _PdfColors.textDark,
       ),
     );
+  }
+
+  /// Bloque compartido (todas las variantes de branding): info del proyecto +
+  /// descripción general, con tipografía y espaciado más compactos.
+  static List<pw.Widget> _bloqueInformacionProyecto(
+    Cotizacion cot,
+    AppLocalizations l10n,
+  ) {
+    return [
+      _tituloSeccion(l10n.pdfProjectInfo, compact: true),
+      pw.SizedBox(height: ProjectInfoPdfDensity.gapAfterSectionTitle),
+      _tablaInformacionProyecto(cot),
+      if (cot.descripcion.isNotEmpty) ...[
+        pw.SizedBox(height: ProjectInfoPdfDensity.gapBeforeDescription),
+        _tituloSeccion(l10n.pdfGeneralDescription, compact: true),
+        pw.SizedBox(height: ProjectInfoPdfDensity.gapAfterDescriptionTitle),
+        pw.Text(
+          cot.descripcion,
+          style: pw.TextStyle(
+            color: _PdfColors.textGray,
+            fontSize: ProjectInfoPdfDensity.descriptionSize,
+          ),
+          textAlign: pw.TextAlign.justify,
+        ),
+      ],
+    ];
   }
 
   /// Capa de fondo: logo tenue. Vacío si está desactivada o no hay imagen.
@@ -622,6 +725,8 @@ class PdfService {
   static pw.Widget _tablaInformacionProyecto(Cotizacion cot) {
     return pw.Table(
       border: pw.TableBorder.all(color: _PdfColors.border, width: 0.5),
+      columnWidths: const {0: pw.FlexColumnWidth(1), 1: pw.FlexColumnWidth(1)},
+      defaultVerticalAlignment: pw.TableCellVerticalAlignment.top,
       children: [
         pw.TableRow(
           children: [
@@ -641,7 +746,10 @@ class PdfService {
 
   static pw.Widget _celdaInfo(String label, String value) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.all(6),
+      padding: const pw.EdgeInsets.symmetric(
+        horizontal: ProjectInfoPdfDensity.cellPaddingH,
+        vertical: ProjectInfoPdfDensity.cellPaddingV,
+      ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         mainAxisSize: pw.MainAxisSize.min,
@@ -649,18 +757,28 @@ class PdfService {
           pw.Text(
             label,
             style: pw.TextStyle(
-              fontSize: 7,
+              fontSize: ProjectInfoPdfDensity.labelSize,
               fontWeight: pw.FontWeight.bold,
               color: _PdfColors.textGray,
             ),
           ),
-          pw.Text(value, style: const pw.TextStyle(fontSize: 9)),
+          pw.SizedBox(height: ProjectInfoPdfDensity.labelValueGap),
+          pw.Text(
+            value,
+            style: const pw.TextStyle(
+              fontSize: ProjectInfoPdfDensity.valueSize,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  static pw.Widget _tablaServicios(List<Servicio> servicios, NumberFormat fmt) {
+  static pw.Widget _tablaServicios(
+    List<Servicio> servicios,
+    NumberFormat fmt,
+    AppLocalizations l10n,
+  ) {
     return pw.Table(
       border: pw.TableBorder.all(color: _PdfColors.border, width: 0.5),
       columnWidths: {
@@ -675,7 +793,7 @@ class PdfService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
               child: pw.Text(
-                'SERVICIO',
+                l10n.pdfService,
                 style: pw.TextStyle(
                   color: PdfColors.white,
                   fontWeight: pw.FontWeight.bold,
@@ -686,7 +804,7 @@ class PdfService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
               child: pw.Text(
-                'DESCRIPCION',
+                l10n.pdfDescription,
                 style: pw.TextStyle(
                   color: PdfColors.white,
                   fontWeight: pw.FontWeight.bold,
@@ -697,7 +815,7 @@ class PdfService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(6),
               child: pw.Text(
-                'PRECIO',
+                l10n.pdfPrice,
                 style: pw.TextStyle(
                   color: PdfColors.white,
                   fontWeight: pw.FontWeight.bold,
