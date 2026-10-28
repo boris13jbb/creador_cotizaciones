@@ -1665,4 +1665,115 @@ class AppLocalizationsEn extends AppLocalizations {
   String catalogImportRowLabel(int row) {
     return 'Row $row';
   }
+
+  @override
+  String get quoteEditorDraftResumed => 'Local draft resumed';
+
+  @override
+  String get quoteEditorDraftSavedLocal => 'Draft saved on this device';
+
+  @override
+  String get quoteEditorUnsavedCloud => 'Unsaved changes (not in the cloud)';
+
+  @override
+  String get quoteEditorSavedLocalPending =>
+      'Saved on this device (pending sync)';
+
+  @override
+  String get quoteEditorSavedOk => 'Saved successfully';
+
+  @override
+  String get quoteEditorValidationClient => 'Enter the client';
+
+  @override
+  String get quoteEditorValidationItems => 'Add at least one item';
+
+  @override
+  String get paymentLabelSingle => 'SINGLE PAYMENT';
+
+  @override
+  String get paymentLabelDeposit => 'DEPOSIT';
+
+  @override
+  String get paymentLabelDelivery => 'MILESTONE';
+
+  @override
+  String get paymentLabelBalance => 'BALANCE';
+
+  @override
+  String get newLineItem => 'New item';
+
+  @override
+  String get editLineItem => 'Edit item';
+
+  @override
+  String get saveLineItem => 'Save item';
+
+  @override
+  String get fieldQuantity => 'Quantity';
+
+  @override
+  String get fieldDiscountPercent => 'Discount %';
+
+  @override
+  String get fieldCodeOptional => 'Code (optional)';
+
+  @override
+  String get invalidQuantity => 'Invalid';
+
+  @override
+  String get invalidPrice => 'Invalid';
+
+  @override
+  String get quoteLogoCustom => 'Custom logo';
+
+  @override
+  String get quoteLogoCompany => 'Company logo';
+
+  @override
+  String get quoteLogoEmptyHint =>
+      'No company or custom logo yet.\nSet it in My account or upload from the gallery.';
+
+  @override
+  String get quoteLogoPreviewCustomFailed =>
+      'Could not load the custom logo preview. Upload it again from the gallery.';
+
+  @override
+  String get quoteLogoPreviewCompanyFailed =>
+      'There is a company logo, but the image could not be loaded. Check Visual identity or your connection.';
+
+  @override
+  String get quoteLogoRemoveCustomization => 'Remove customization';
+
+  @override
+  String get quoteLogoRemoveTitle => 'Remove customization';
+
+  @override
+  String get quoteLogoRemoveBody =>
+      'This quote will use the company global logo again. Visual identity is not changed.';
+
+  @override
+  String get quoteLogoConfigureCompany => 'Configure company';
+
+  @override
+  String get quoteLogoUseCompany => 'Use company logo';
+
+  @override
+  String get quoteLogoSavedLocal =>
+      'Quote logo saved on this device. The company logo is unchanged.';
+
+  @override
+  String get quoteLogoAppliedQuoteOnly =>
+      'Logo applied to this quote only. Use Visual identity to change the company logo.';
+
+  @override
+  String get quoteLogoOrgIdentityApplied =>
+      'Company identity applied. This quote now uses the current global logo.';
+
+  @override
+  String get quoteLogoLocalSaveFailed =>
+      'Could not save the logo on this device. Check storage space and try again.';
+
+  @override
+  String get removeAction => 'Remove';
 }

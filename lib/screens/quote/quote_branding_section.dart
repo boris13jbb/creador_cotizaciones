@@ -207,10 +207,12 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
       // Sin red o fallo de Storage: ruta local + cola (uploadQuoteLogo en sync).
       if (logoRef == null || logoRef.isEmpty) {
         if (localPath == null || localPath.isEmpty) {
-          throw Exception(
-            'No se pudo guardar el logo en este dispositivo. '
-            'Revisa el espacio de almacenamiento e inténtalo de nuevo.',
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.quoteLogoLocalSaveFailed)),
+            );
+          }
+          return;
         }
         logoRef = localPath;
         savedOffline = true;
@@ -240,10 +242,8 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
           SnackBar(
             content: Text(
               savedOffline
-                  ? 'Logo de esta cotización guardado en el dispositivo. '
-                        'El de la empresa no se modifica.'
-                  : 'Logo aplicado solo a esta cotización. '
-                        'Usa Identidad visual si quieres cambiar el de la empresa.',
+                  ? context.l10n.quoteLogoSavedLocal
+                  : context.l10n.quoteLogoAppliedQuoteOnly,
             ),
           ),
         );
@@ -275,23 +275,23 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     }
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Quitar personalización'),
-        content: const Text(
-          'Esta cotización volverá a usar el logo global de la empresa. '
-          'Identidad visual no se modifica.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Quitar'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final d = ctx.l10n;
+        return AlertDialog(
+          title: Text(d.quoteLogoRemoveTitle),
+          content: Text(d.quoteLogoRemoveBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(d.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(d.removeAction),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true) return;
     widget.controller.setLogoPath(null);
@@ -310,12 +310,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     await _loadPreview();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Identidad de la empresa aplicada. '
-            'Esta cotización vuelve a usar el logo global vigente.',
-          ),
-        ),
+        SnackBar(content: Text(context.l10n.quoteLogoOrgIdentityApplied)),
       );
     }
   }
@@ -408,7 +403,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               size: 16,
             ),
             label: Text(
-              hasCustomLogo ? 'Logo personalizado' : 'Logo de la empresa',
+              hasCustomLogo ? l10n.quoteLogoCustom : l10n.quoteLogoCompany,
             ),
           ),
         ],
@@ -434,8 +429,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               : !hasEffectiveLogo
               ? Center(
                   child: Text(
-                    'No hay logo de empresa ni personalizado.\n'
-                    'Configúralo en Mi cuenta o cárgalo desde la galería.',
+                    l10n.quoteLogoEmptyHint,
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -444,10 +438,8 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               ? Center(
                   child: Text(
                     hasCustomLogo
-                        ? 'No se pudo cargar la vista previa del logo '
-                              'personalizado. Vuelve a subirlo desde la galería.'
-                        : 'Hay logo de empresa, pero no se pudo cargar la '
-                              'imagen. Revisa Identidad visual o tu conexión.',
+                        ? l10n.quoteLogoPreviewCustomFailed
+                        : l10n.quoteLogoPreviewCompanyFailed,
                     style: Theme.of(context).textTheme.bodySmall,
                     textAlign: TextAlign.center,
                   ),
@@ -488,7 +480,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
             if (hasCustomLogo)
               TextButton(
                 onPressed: _uploading ? null : _clearLogo,
-                child: const Text('Quitar personalización'),
+                child: Text(l10n.quoteLogoRemoveCustomization),
               ),
             TextButton(
               onPressed: locked
@@ -503,12 +495,12 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
                       // Tras cambiar Identidad visual, refrescar herencia.
                       if (mounted) await _loadPreview();
                     },
-              child: const Text('Configurar empresa'),
+              child: Text(l10n.quoteLogoConfigureCompany),
             ),
             if (hasCustomLogo)
               TextButton(
                 onPressed: locked ? null : _applyOrgIdentity,
-                child: const Text('Usar logo de empresa'),
+                child: Text(l10n.quoteLogoUseCompany),
               ),
           ],
         ),

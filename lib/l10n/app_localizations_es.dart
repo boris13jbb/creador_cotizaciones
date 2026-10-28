@@ -1682,4 +1682,116 @@ class AppLocalizationsEs extends AppLocalizations {
   String catalogImportRowLabel(int row) {
     return 'Fila $row';
   }
+
+  @override
+  String get quoteEditorDraftResumed => 'Borrador local reanudado';
+
+  @override
+  String get quoteEditorDraftSavedLocal =>
+      'Borrador guardado en este dispositivo';
+
+  @override
+  String get quoteEditorUnsavedCloud => 'Cambios sin guardar en la nube';
+
+  @override
+  String get quoteEditorSavedLocalPending =>
+      'Guardada en este dispositivo (pendiente de sincronizar)';
+
+  @override
+  String get quoteEditorSavedOk => 'Guardada correctamente';
+
+  @override
+  String get quoteEditorValidationClient => 'Indica el cliente';
+
+  @override
+  String get quoteEditorValidationItems => 'Agrega al menos un ítem';
+
+  @override
+  String get paymentLabelSingle => 'UN SOLO PAGO';
+
+  @override
+  String get paymentLabelDeposit => 'ANTICIPO';
+
+  @override
+  String get paymentLabelDelivery => 'ENTREGA';
+
+  @override
+  String get paymentLabelBalance => 'SALDO';
+
+  @override
+  String get newLineItem => 'Nuevo ítem';
+
+  @override
+  String get editLineItem => 'Editar ítem';
+
+  @override
+  String get saveLineItem => 'Guardar ítem';
+
+  @override
+  String get fieldQuantity => 'Cantidad';
+
+  @override
+  String get fieldDiscountPercent => 'Descuento %';
+
+  @override
+  String get fieldCodeOptional => 'Código (opcional)';
+
+  @override
+  String get invalidQuantity => 'Inválida';
+
+  @override
+  String get invalidPrice => 'Inválido';
+
+  @override
+  String get quoteLogoCustom => 'Logo personalizado';
+
+  @override
+  String get quoteLogoCompany => 'Logo de la empresa';
+
+  @override
+  String get quoteLogoEmptyHint =>
+      'No hay logo de empresa ni personalizado.\nConfigúralo en Mi cuenta o cárgalo desde la galería.';
+
+  @override
+  String get quoteLogoPreviewCustomFailed =>
+      'No se pudo cargar la vista previa del logo personalizado. Vuelve a subirlo desde la galería.';
+
+  @override
+  String get quoteLogoPreviewCompanyFailed =>
+      'Hay logo de empresa, pero no se pudo cargar la imagen. Revisa Identidad visual o tu conexión.';
+
+  @override
+  String get quoteLogoRemoveCustomization => 'Quitar personalización';
+
+  @override
+  String get quoteLogoRemoveTitle => 'Quitar personalización';
+
+  @override
+  String get quoteLogoRemoveBody =>
+      'Esta cotización volverá a usar el logo global de la empresa. Identidad visual no se modifica.';
+
+  @override
+  String get quoteLogoConfigureCompany => 'Configurar empresa';
+
+  @override
+  String get quoteLogoUseCompany => 'Usar logo de empresa';
+
+  @override
+  String get quoteLogoSavedLocal =>
+      'Logo de esta cotización guardado en el dispositivo. El de la empresa no se modifica.';
+
+  @override
+  String get quoteLogoAppliedQuoteOnly =>
+      'Logo aplicado solo a esta cotización. Usa Identidad visual si quieres cambiar el de la empresa.';
+
+  @override
+  String get quoteLogoOrgIdentityApplied =>
+      'Identidad de la empresa aplicada. Esta cotización vuelve a usar el logo global vigente.';
+
+  @override
+  String get quoteLogoLocalSaveFailed =>
+      'No se pudo guardar el logo en este dispositivo. Revisa el espacio de almacenamiento e inténtalo de nuevo.';
+
+  @override
+  String get removeAction => 'Quitar';
 }

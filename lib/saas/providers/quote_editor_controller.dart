@@ -19,6 +19,20 @@ import '../services/organization_service.dart';
 import '../services/quote_draft_store.dart';
 import '../services/quote_mapper.dart';
 
+/// Códigos estables de mensajes UI del editor (resolver con AppLocalizations).
+///
+/// Los labels de [payments] (ANTICIPO, SALDO, …) se conservan en español
+/// canónico para PDF/legacy; la UI localiza solo la presentación.
+abstract final class QuoteEditorMsg {
+  static const draftResumed = 'qe.draftResumed';
+  static const draftSavedLocal = 'qe.draftSavedLocal';
+  static const unsavedCloud = 'qe.unsavedCloud';
+  static const savedLocalPending = 'qe.savedLocalPending';
+  static const savedOk = 'qe.savedOk';
+  static const validationClient = 'qe.validationClient';
+  static const validationItems = 'qe.validationItems';
+}
+
 /// Estado del editor por pasos de cotización.
 class QuoteEditorController extends ChangeNotifier {
   QuoteEditorController({
@@ -123,7 +137,7 @@ class QuoteEditorController extends ChangeNotifier {
             draft.status == QuoteStatus.draft) {
           quote = draft.withRecalculatedTotal();
           isNew = quote.sequence <= 0;
-          draftHint = 'Borrador local reanudado';
+          draftHint = QuoteEditorMsg.draftResumed;
           dirty = true;
           return;
         }
@@ -232,7 +246,7 @@ class QuoteEditorController extends ChangeNotifier {
     next = _reconcilePayments(next);
     quote = next;
     dirty = true;
-    draftHint = 'Cambios sin guardar en la nube';
+    draftHint = QuoteEditorMsg.unsavedCloud;
     error = null;
     notifyListeners();
     _scheduleDraftSave();
@@ -388,7 +402,7 @@ class QuoteEditorController extends ChangeNotifier {
     _draftTimer = Timer(const Duration(milliseconds: 600), () async {
       try {
         await QuoteDraftStore.instance.save(uid, quote);
-        draftHint = 'Borrador guardado en este dispositivo';
+        draftHint = QuoteEditorMsg.draftSavedLocal;
         notifyListeners();
       } catch (e) {
         debugPrint('draft save: $e');
@@ -550,11 +564,11 @@ class QuoteEditorController extends ChangeNotifier {
     switch (index) {
       case 0:
         if (quote.clientName.trim().isEmpty) {
-          return 'Indica el cliente';
+          return QuoteEditorMsg.validationClient;
         }
         return null;
       case 1:
-        if (quote.items.isEmpty) return 'Agrega al menos un ítem';
+        if (quote.items.isEmpty) return QuoteEditorMsg.validationItems;
         return null;
       default:
         return null;
@@ -613,8 +627,8 @@ class QuoteEditorController extends ChangeNotifier {
         isNew = false;
       }
       draftHint = pendingLocal
-          ? 'Guardada en este dispositivo (pendiente de sincronizar)'
-          : 'Guardada correctamente';
+          ? QuoteEditorMsg.savedLocalPending
+          : QuoteEditorMsg.savedOk;
       await QuoteDraftStore.instance.clear(uid);
       saving = false;
       notifyListeners();

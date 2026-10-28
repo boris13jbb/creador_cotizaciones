@@ -13,6 +13,9 @@ import '../../saas/providers/quote_editor_controller.dart';
 import '../../saas/services/catalog_repository.dart';
 import '../../saas/services/client_repository.dart';
 import '../../saas/services/quote_mapper.dart';
+import '../../l10n/enum_l10n.dart';
+import '../../l10n/l10n_ext.dart';
+import '../../saas/historial/historial_query.dart';
 import '../../theme/app_theme.dart';
 import '../../ui/layout/responsive.dart';
 import '../../ui/tokens/app_icons.dart';
@@ -21,6 +24,33 @@ import '../clients/clients_screen.dart';
 import '../preview_screen.dart';
 import 'quote_branding_section.dart';
 import 'quote_line_item_sheet.dart';
+
+/// Resuelve códigos [QuoteEditorMsg] o deja pasar errores técnicos crudos.
+String resolveQuoteEditorMessage(AppLocalizations l10n, String? codeOrRaw) {
+  if (codeOrRaw == null || codeOrRaw.isEmpty) return '';
+  return switch (codeOrRaw) {
+    QuoteEditorMsg.draftResumed => l10n.quoteEditorDraftResumed,
+    QuoteEditorMsg.draftSavedLocal => l10n.quoteEditorDraftSavedLocal,
+    QuoteEditorMsg.unsavedCloud => l10n.quoteEditorUnsavedCloud,
+    QuoteEditorMsg.savedLocalPending => l10n.quoteEditorSavedLocalPending,
+    QuoteEditorMsg.savedOk => l10n.quoteEditorSavedOk,
+    QuoteEditorMsg.validationClient => l10n.quoteEditorValidationClient,
+    QuoteEditorMsg.validationItems => l10n.quoteEditorValidationItems,
+    _ => codeOrRaw,
+  };
+}
+
+/// Localiza etiquetas canónicas de pago sin alterar el valor persistido.
+String localizePaymentLabel(AppLocalizations l10n, String raw) {
+  final key = raw.trim().toUpperCase();
+  return switch (key) {
+    'UN SOLO PAGO' => l10n.paymentLabelSingle,
+    'ANTICIPO' => l10n.paymentLabelDeposit,
+    'ENTREGA' => l10n.paymentLabelDelivery,
+    'SALDO' => l10n.paymentLabelBalance,
+    _ => raw,
+  };
+}
 
 /// Editor profesional por pasos (cliente → ítems → condiciones → revisar).
 class QuoteEditorScreen extends StatefulWidget {
@@ -69,14 +99,14 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     final auth = context.watch<AuthController>();
     final orgId = auth.organizationId;
     if (orgId == null || orgId.isEmpty) {
+      final l10n = context.l10n;
       return Scaffold(
-        appBar: AppBar(title: const Text('Cotización')),
-        body: const Center(
+        appBar: AppBar(title: Text(l10n.newQuoteFab)),
+        body: Center(
           child: Padding(
             padding: AppSpacing.page,
             child: Text(
-              'Aún no hay organización activa. Cierra sesión e inicia de nuevo '
-              'para crear tu empresa automática.',
+              l10n.noActiveOrganization,
               textAlign: TextAlign.center,
             ),
           ),
@@ -93,10 +123,11 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       listenable: controller,
       builder: (context, _) {
         final wide = Responsive.useNavigationRail(context);
+        final l10n = context.l10n;
         return Scaffold(
           appBar: AppBar(
             title: Text(
-              controller.isNew ? 'Nueva cotización' : controller.quote.number,
+              controller.isNew ? l10n.newQuoteFab : controller.quote.number,
             ),
             actions: [
               if (controller.draftHint != null)
@@ -160,11 +191,13 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
               ),
               if (controller.error != null)
                 MaterialBanner(
-                  content: Text(controller.error!),
+                  content: Text(
+                    resolveQuoteEditorMessage(l10n, controller.error),
+                  ),
                   actions: [
                     TextButton(
                       onPressed: controller.clearError,
-                      child: const Text('Cerrar'),
+                      child: Text(l10n.close),
                     ),
                   ],
                 ),
@@ -199,10 +232,15 @@ class _StepChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  static const labels = ['Cliente', 'Ítems', 'Condiciones', 'Revisar'];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final labels = [
+      l10n.stepClient,
+      l10n.stepItems,
+      l10n.stepConditions,
+      l10n.stepReview,
+    ];
     return ChoiceChip(
       label: Text('${index + 1}. ${labels[index]}'),
       selected: selected,
@@ -228,6 +266,7 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final totals = controller.totals;
     final busy = controller.saving || controller.initializing;
     return Material(
@@ -242,7 +281,7 @@ class _BottomBar extends StatelessWidget {
                 OutlinedButton(
                   style: _outlinedInRow,
                   onPressed: busy ? null : controller.back,
-                  child: const Text('Atrás'),
+                  child: Text(l10n.back),
                 ),
               const Spacer(),
               Flexible(
@@ -269,7 +308,7 @@ class _BottomBar extends StatelessWidget {
                           }
                           controller.next();
                         },
-                  child: const Text('Siguiente'),
+                  child: Text(l10n.next),
                 )
               else
                 FilledButton(
@@ -283,7 +322,7 @@ class _BottomBar extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Guardada ${controller.quote.number}',
+                                  l10n.quoteSaved(controller.quote.number),
                                 ),
                               ),
                             );
@@ -296,7 +335,7 @@ class _BottomBar extends StatelessWidget {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Guardar'),
+                      : Text(l10n.save),
                 ),
             ],
           ),
@@ -369,11 +408,9 @@ class _ClientStepState extends State<_ClientStep> {
       showDragHandle: true,
       builder: (ctx) {
         if (clients.isEmpty) {
-          return const Padding(
+          return Padding(
             padding: AppSpacing.page,
-            child: Text(
-              'No hay clientes. Crea uno desde Mi cuenta → Clientes.',
-            ),
+            child: Text(ctx.l10n.noClientsHint),
           );
         }
         return ListView.builder(
@@ -405,6 +442,7 @@ class _ClientStepState extends State<_ClientStep> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ListView(
       children: [
         Wrap(
@@ -413,13 +451,13 @@ class _ClientStepState extends State<_ClientStep> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
-              'Cliente y datos',
+              l10n.clientAndData,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             TextButton.icon(
               onPressed: _pickClient,
               icon: const Icon(Icons.person_search),
-              label: const Text('Elegir'),
+              label: Text(l10n.choose),
             ),
             TextButton(
               onPressed: () {
@@ -428,40 +466,40 @@ class _ClientStepState extends State<_ClientStep> {
                   MaterialPageRoute(builder: (_) => const ClientsScreen()),
                 );
               },
-              child: const Text('Gestionar'),
+              child: Text(l10n.manage),
             ),
           ],
         ),
         TextField(
           controller: _name,
-          decoration: const InputDecoration(labelText: 'Cliente *'),
+          decoration: InputDecoration(labelText: '${l10n.stepClient} *'),
           onChanged: widget.controller.setClientName,
         ),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _ubicacion,
-          decoration: const InputDecoration(labelText: 'Ubicación'),
+          decoration: InputDecoration(labelText: l10n.fieldLocation),
           onChanged: (v) => widget.controller.setLegacyField('ubicacion', v),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _tipo,
-          decoration: const InputDecoration(labelText: 'Tipo de servicio'),
+          decoration: InputDecoration(labelText: l10n.fieldServiceType),
           onChanged: (v) => widget.controller.setLegacyField('tipoServicio', v),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _desc,
-          decoration: const InputDecoration(labelText: 'Descripción'),
+          decoration: InputDecoration(labelText: l10n.description),
           maxLines: 3,
           onChanged: (v) => widget.controller.setLegacyField('descripcion', v),
         ),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _validez,
-          decoration: const InputDecoration(
-            labelText: 'Validez (días)',
-            hintText: 'Ej. 15',
+          decoration: InputDecoration(
+            labelText: l10n.fieldValidityDays,
+            hintText: l10n.hintDaysExample,
           ),
           keyboardType: TextInputType.number,
           onChanged: (v) {
@@ -482,6 +520,7 @@ class _ItemsStep extends StatelessWidget {
   Widget build(BuildContext context) {
     const calc = QuoteTotalsCalculator();
     final items = controller.quote.items;
+    final l10n = context.l10n;
 
     return Column(
       children: [
@@ -490,7 +529,7 @@ class _ItemsStep extends StatelessWidget {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text('Ítems', style: Theme.of(context).textTheme.titleMedium),
+            Text(l10n.stepItems, style: Theme.of(context).textTheme.titleMedium),
             TextButton(
               onPressed: () async {
                 final orgId = controller.organizationId;
@@ -501,11 +540,9 @@ class _ItemsStep extends StatelessWidget {
                   showDragHandle: true,
                   builder: (ctx) {
                     if (catalog.isEmpty) {
-                      return const Padding(
+                      return Padding(
                         padding: AppSpacing.page,
-                        child: Text(
-                          'Catálogo vacío. Agrégalo en Mi cuenta → Catálogo.',
-                        ),
+                        child: Text(ctx.l10n.emptyCatalogHint),
                       );
                     }
                     return ListView.builder(
@@ -523,7 +560,7 @@ class _ItemsStep extends StatelessWidget {
                 );
                 if (selected != null) controller.addFromCatalog(selected);
               },
-              child: const Text('Catálogo'),
+              child: Text(l10n.catalog),
             ),
             FilledButton.tonalIcon(
               onPressed: () async {
@@ -531,14 +568,14 @@ class _ItemsStep extends StatelessWidget {
                 if (item != null) controller.upsertItem(item);
               },
               icon: const Icon(AppIcons.agregarLinea),
-              label: const Text('Ítem'),
+              label: Text(l10n.catalogFab),
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: items.isEmpty
-              ? const Center(child: Text('Sin ítems todavía'))
+              ? Center(child: Text(l10n.emptyNoItemsYet))
               : ListView.separated(
                   itemCount: items.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
@@ -560,7 +597,7 @@ class _ItemsStep extends StatelessWidget {
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           IconButton(
-                            tooltip: 'Editar',
+                            tooltip: l10n.edit,
                             icon: const Icon(Icons.edit_outlined),
                             onPressed: () async {
                               final edited = await showQuoteLineItemSheet(
@@ -573,7 +610,7 @@ class _ItemsStep extends StatelessWidget {
                             },
                           ),
                           IconButton(
-                            tooltip: 'Eliminar',
+                            tooltip: l10n.delete,
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () => controller.removeItem(item.id),
                           ),
@@ -592,7 +629,7 @@ class _ItemsStep extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const CatalogScreen()),
               );
             },
-            child: const Text('Gestionar catálogo'),
+            child: Text(l10n.manageCatalog),
           ),
         ),
       ],
@@ -713,6 +750,8 @@ class _ConditionsStepState extends State<_ConditionsStep> {
   }
 
   Widget _paymentBlock(Map<String, dynamic> p) {
+    final l10n = context.l10n;
+    final rawLabel = '${p['label'] ?? ''}';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -723,7 +762,7 @@ class _ConditionsStepState extends State<_ConditionsStep> {
       child: Column(
         children: [
           Text(
-            '${p['label'] ?? ''}',
+            localizePaymentLabel(l10n, rawLabel),
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
@@ -819,7 +858,7 @@ class _ConditionsStepState extends State<_ConditionsStep> {
             Expanded(
               child: TextField(
                 controller: input,
-                decoration: const InputDecoration(hintText: 'Agregar…'),
+                decoration: InputDecoration(hintText: context.l10n.hintAddChip),
                 onSubmitted: (v) {
                   final t = v.trim();
                   if (t.isEmpty) return;
@@ -846,26 +885,27 @@ class _ConditionsStepState extends State<_ConditionsStep> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final q = widget.controller.quote;
     final totals = widget.controller.totals;
     return ListView(
       children: [
         Text(
-          'Condiciones comerciales',
+          l10n.commercialConditions,
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text('Forma de pago', style: Theme.of(context).textTheme.titleSmall),
+        Text(l10n.paymentMethod, style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Total base: ${totals.total.format()}',
+          l10n.totalBase(totals.total.format()),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: AppSpacing.sm),
         SegmentedButton<PaymentMode>(
           segments: [
             for (final m in PaymentMode.values)
-              ButtonSegment(value: m, label: Text(m.label)),
+              ButtonSegment(value: m, label: Text(m.l10nLabel(l10n))),
           ],
           selected: {q.paymentMode},
           onSelectionChanged: (s) {
@@ -886,8 +926,8 @@ class _ConditionsStepState extends State<_ConditionsStep> {
               Expanded(
                 child: TextField(
                   controller: _anticipoPct,
-                  decoration: const InputDecoration(
-                    labelText: 'Anticipo / entrada %',
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldDepositPercent,
                     suffixText: '%',
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
@@ -900,8 +940,8 @@ class _ConditionsStepState extends State<_ConditionsStep> {
               Expanded(
                 child: TextField(
                   controller: _saldoPct,
-                  decoration: const InputDecoration(
-                    labelText: 'Saldo pendiente %',
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldBalancePercent,
                     suffixText: '%',
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
@@ -920,13 +960,12 @@ class _ConditionsStepState extends State<_ConditionsStep> {
                 _saldoPct.text = '50';
                 _applyPaymentPercents();
               },
-              child: const Text('Usar 50% anticipo / 50% saldo'),
+              child: Text(l10n.use5050Split),
             ),
           ),
         ] else
           Text(
-            'El total se asigna íntegramente a un solo pago. '
-            'Saldo pendiente: ${MoneyCents.zero.format()}',
+            l10n.singlePaymentHint,
             style: Theme.of(context).textTheme.bodySmall,
           ),
         const SizedBox(height: AppSpacing.sm),
@@ -934,9 +973,9 @@ class _ConditionsStepState extends State<_ConditionsStep> {
         const SizedBox(height: AppSpacing.md),
         TextField(
           controller: _plazo,
-          decoration: const InputDecoration(
-            labelText: 'Plazo de entrega',
-            hintText: 'Ej. 15 días hábiles',
+          decoration: InputDecoration(
+            labelText: l10n.fieldDeliveryTime,
+            hintText: l10n.hintDeliveryTime,
           ),
           onChanged: (v) =>
               widget.controller.setLegacyField('tiempoEstimado', v),
@@ -944,9 +983,9 @@ class _ConditionsStepState extends State<_ConditionsStep> {
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _validez,
-          decoration: const InputDecoration(
-            labelText: 'Vigencia de la cotización (días)',
-            hintText: 'Ej. 15',
+          decoration: InputDecoration(
+            labelText: l10n.fieldQuoteValidityDays,
+            hintText: l10n.hintDaysExample,
           ),
           keyboardType: TextInputType.number,
           onChanged: (v) {
@@ -957,9 +996,9 @@ class _ConditionsStepState extends State<_ConditionsStep> {
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _garantia,
-          decoration: const InputDecoration(
-            labelText: 'Garantía',
-            hintText: 'Ej. 90 días por defectos de fabricación',
+          decoration: InputDecoration(
+            labelText: l10n.fieldWarranty,
+            hintText: l10n.hintWarranty,
           ),
           maxLines: 2,
           onChanged: (v) => widget.controller.setLegacyField('garantia', v),
@@ -967,35 +1006,35 @@ class _ConditionsStepState extends State<_ConditionsStep> {
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _terms,
-          decoration: const InputDecoration(
-            labelText: 'Términos y condiciones comerciales',
-            hintText: 'Condiciones generales aplicables a esta cotización',
+          decoration: InputDecoration(
+            labelText: l10n.fieldCommercialTerms,
+            hintText: l10n.hintCommercialTerms,
           ),
           maxLines: 3,
           onChanged: widget.controller.setConditions,
         ),
         const SizedBox(height: AppSpacing.lg),
         _chipEditor(
-          title: 'Incluye',
+          title: l10n.includesSection,
           values: q.includes,
           input: _include,
           onChanged: widget.controller.setIncludes,
         ),
         _chipEditor(
-          title: 'No incluye',
+          title: l10n.excludesSection,
           values: q.excludes,
           input: _exclude,
           onChanged: widget.controller.setExcludes,
         ),
         _chipEditor(
-          title: 'Observaciones adicionales',
+          title: l10n.notesSection,
           values: q.notes,
           input: _note,
           onChanged: widget.controller.setNotes,
         ),
         TextField(
           controller: _globalDisc,
-          decoration: const InputDecoration(labelText: 'Descuento global %'),
+          decoration: InputDecoration(labelText: l10n.fieldGlobalDiscount),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           onChanged: (v) {
             final pct = num.tryParse(v.replaceAll(',', '.')) ?? 0;
@@ -1007,8 +1046,8 @@ class _ConditionsStepState extends State<_ConditionsStep> {
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: _charges,
-          decoration: const InputDecoration(
-            labelText: 'Cargos adicionales',
+          decoration: InputDecoration(
+            labelText: l10n.fieldExtraCharges,
             prefixText: r'$ ',
           ),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -1023,10 +1062,13 @@ class _ConditionsStepState extends State<_ConditionsStep> {
           key: ValueKey('status-${q.status.id}'),
           initialValue: q.status,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Estado'),
+          decoration: InputDecoration(labelText: l10n.fieldStatus),
           items: [
             for (final s in QuoteStatus.values)
-              DropdownMenuItem(value: s, child: Text(s.id)),
+              DropdownMenuItem(
+                value: s,
+                child: Text(HistorialQuery.statusLabel(s, l10n)),
+              ),
           ],
           onChanged: (s) {
             if (s != null) widget.controller.setStatus(s);
@@ -1045,27 +1087,29 @@ class _ReviewStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final q = controller.quote;
     final t = controller.totals;
     return ListView(
       children: [
-        Text('Resumen', style: Theme.of(context).textTheme.titleMedium),
+        Text(l10n.reviewSummary, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(q.clientName),
           subtitle: Text(q.number),
         ),
-        Text('Ítems: ${q.items.length}'),
-        Text('Subtotal: ${t.linesGross.format()}'),
-        Text('Descuentos: -${t.linesDiscount.format()}'),
-        Text('Impuestos: ${t.linesTax.format()}'),
+        Text('${l10n.stepItems}: ${q.items.length}'),
+        Text('${l10n.subtotal}: ${t.linesGross.format()}'),
+        Text('${context.l10n.discountsLabel}: -${t.linesDiscount.format()}'),
+        Text('${l10n.taxes}: ${t.linesTax.format()}'),
         if (t.globalDiscount.cents > 0)
-          Text('Descuento global: -${t.globalDiscount.format()}'),
-        if (t.charges.cents > 0) Text('Cargos: ${t.charges.format()}'),
+          Text('${context.l10n.globalDiscountLabel}: -${t.globalDiscount.format()}'),
+        if (t.charges.cents > 0)
+          Text('${l10n.fieldExtraCharges}: ${t.charges.format()}'),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Total: ${t.total.format()}',
+          '${l10n.total}: ${t.total.format()}',
           style: Theme.of(
             context,
           ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -1073,7 +1117,7 @@ class _ReviewStep extends StatelessWidget {
         if (controller.draftHint != null) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(
-            controller.draftHint!,
+            resolveQuoteEditorMessage(l10n, controller.draftHint),
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -1094,7 +1138,7 @@ class _ReviewStep extends StatelessWidget {
                   );
                 },
           icon: const Icon(Icons.picture_as_pdf_outlined),
-          label: const Text('Guardar y previsualizar PDF'),
+          label: Text(l10n.saveAndPreviewPdf),
         ),
       ],
     );

@@ -3079,6 +3079,210 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Fila {row}'**
   String catalogImportRowLabel(int row);
+
+  /// No description provided for @quoteEditorDraftResumed.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrador local reanudado'**
+  String get quoteEditorDraftResumed;
+
+  /// No description provided for @quoteEditorDraftSavedLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Borrador guardado en este dispositivo'**
+  String get quoteEditorDraftSavedLocal;
+
+  /// No description provided for @quoteEditorUnsavedCloud.
+  ///
+  /// In es, this message translates to:
+  /// **'Cambios sin guardar en la nube'**
+  String get quoteEditorUnsavedCloud;
+
+  /// No description provided for @quoteEditorSavedLocalPending.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardada en este dispositivo (pendiente de sincronizar)'**
+  String get quoteEditorSavedLocalPending;
+
+  /// No description provided for @quoteEditorSavedOk.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardada correctamente'**
+  String get quoteEditorSavedOk;
+
+  /// No description provided for @quoteEditorValidationClient.
+  ///
+  /// In es, this message translates to:
+  /// **'Indica el cliente'**
+  String get quoteEditorValidationClient;
+
+  /// No description provided for @quoteEditorValidationItems.
+  ///
+  /// In es, this message translates to:
+  /// **'Agrega al menos un ítem'**
+  String get quoteEditorValidationItems;
+
+  /// No description provided for @paymentLabelSingle.
+  ///
+  /// In es, this message translates to:
+  /// **'UN SOLO PAGO'**
+  String get paymentLabelSingle;
+
+  /// No description provided for @paymentLabelDeposit.
+  ///
+  /// In es, this message translates to:
+  /// **'ANTICIPO'**
+  String get paymentLabelDeposit;
+
+  /// No description provided for @paymentLabelDelivery.
+  ///
+  /// In es, this message translates to:
+  /// **'ENTREGA'**
+  String get paymentLabelDelivery;
+
+  /// No description provided for @paymentLabelBalance.
+  ///
+  /// In es, this message translates to:
+  /// **'SALDO'**
+  String get paymentLabelBalance;
+
+  /// No description provided for @newLineItem.
+  ///
+  /// In es, this message translates to:
+  /// **'Nuevo ítem'**
+  String get newLineItem;
+
+  /// No description provided for @editLineItem.
+  ///
+  /// In es, this message translates to:
+  /// **'Editar ítem'**
+  String get editLineItem;
+
+  /// No description provided for @saveLineItem.
+  ///
+  /// In es, this message translates to:
+  /// **'Guardar ítem'**
+  String get saveLineItem;
+
+  /// No description provided for @fieldQuantity.
+  ///
+  /// In es, this message translates to:
+  /// **'Cantidad'**
+  String get fieldQuantity;
+
+  /// No description provided for @fieldDiscountPercent.
+  ///
+  /// In es, this message translates to:
+  /// **'Descuento %'**
+  String get fieldDiscountPercent;
+
+  /// No description provided for @fieldCodeOptional.
+  ///
+  /// In es, this message translates to:
+  /// **'Código (opcional)'**
+  String get fieldCodeOptional;
+
+  /// No description provided for @invalidQuantity.
+  ///
+  /// In es, this message translates to:
+  /// **'Inválida'**
+  String get invalidQuantity;
+
+  /// No description provided for @invalidPrice.
+  ///
+  /// In es, this message translates to:
+  /// **'Inválido'**
+  String get invalidPrice;
+
+  /// No description provided for @quoteLogoCustom.
+  ///
+  /// In es, this message translates to:
+  /// **'Logo personalizado'**
+  String get quoteLogoCustom;
+
+  /// No description provided for @quoteLogoCompany.
+  ///
+  /// In es, this message translates to:
+  /// **'Logo de la empresa'**
+  String get quoteLogoCompany;
+
+  /// No description provided for @quoteLogoEmptyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'No hay logo de empresa ni personalizado.\nConfigúralo en Mi cuenta o cárgalo desde la galería.'**
+  String get quoteLogoEmptyHint;
+
+  /// No description provided for @quoteLogoPreviewCustomFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo cargar la vista previa del logo personalizado. Vuelve a subirlo desde la galería.'**
+  String get quoteLogoPreviewCustomFailed;
+
+  /// No description provided for @quoteLogoPreviewCompanyFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'Hay logo de empresa, pero no se pudo cargar la imagen. Revisa Identidad visual o tu conexión.'**
+  String get quoteLogoPreviewCompanyFailed;
+
+  /// No description provided for @quoteLogoRemoveCustomization.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar personalización'**
+  String get quoteLogoRemoveCustomization;
+
+  /// No description provided for @quoteLogoRemoveTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar personalización'**
+  String get quoteLogoRemoveTitle;
+
+  /// No description provided for @quoteLogoRemoveBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Esta cotización volverá a usar el logo global de la empresa. Identidad visual no se modifica.'**
+  String get quoteLogoRemoveBody;
+
+  /// No description provided for @quoteLogoConfigureCompany.
+  ///
+  /// In es, this message translates to:
+  /// **'Configurar empresa'**
+  String get quoteLogoConfigureCompany;
+
+  /// No description provided for @quoteLogoUseCompany.
+  ///
+  /// In es, this message translates to:
+  /// **'Usar logo de empresa'**
+  String get quoteLogoUseCompany;
+
+  /// No description provided for @quoteLogoSavedLocal.
+  ///
+  /// In es, this message translates to:
+  /// **'Logo de esta cotización guardado en el dispositivo. El de la empresa no se modifica.'**
+  String get quoteLogoSavedLocal;
+
+  /// No description provided for @quoteLogoAppliedQuoteOnly.
+  ///
+  /// In es, this message translates to:
+  /// **'Logo aplicado solo a esta cotización. Usa Identidad visual si quieres cambiar el de la empresa.'**
+  String get quoteLogoAppliedQuoteOnly;
+
+  /// No description provided for @quoteLogoOrgIdentityApplied.
+  ///
+  /// In es, this message translates to:
+  /// **'Identidad de la empresa aplicada. Esta cotización vuelve a usar el logo global vigente.'**
+  String get quoteLogoOrgIdentityApplied;
+
+  /// No description provided for @quoteLogoLocalSaveFailed.
+  ///
+  /// In es, this message translates to:
+  /// **'No se pudo guardar el logo en este dispositivo. Revisa el espacio de almacenamiento e inténtalo de nuevo.'**
+  String get quoteLogoLocalSaveFailed;
+
+  /// No description provided for @removeAction.
+  ///
+  /// In es, this message translates to:
+  /// **'Quitar'**
+  String get removeAction;
 }
 
 class _AppLocalizationsDelegate
