@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/auth_error_l10n.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/config/saas_config.dart';
 import '../../saas/providers/auth_controller.dart';
 import 'auth_scaffold.dart';
@@ -41,19 +43,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (ok) {
       Navigator.of(context).popUntil((route) => route.isFirst);
     } else {
+      final l10n = context.l10n;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.error ?? 'No se pudo crear la cuenta')),
+        SnackBar(
+          content: Text(
+            auth.error != null
+                ? localizeAuthError(l10n, auth.error)
+                : l10n.registerFailed,
+          ),
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final loading = context.watch<AuthController>().loading;
 
     return AuthScaffold(
-      title: 'Crear cuenta',
-      subtitle: 'Incluye ${SaasConfig.trialDays} días de prueba Pro',
+      title: l10n.registerTitle,
+      subtitle: l10n.registerTrialSubtitle(SaasConfig.trialDays),
       child: Form(
         key: _formKey,
         child: Column(
@@ -62,24 +72,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
             TextFormField(
               controller: _nameCtrl,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Nombre',
-                prefixIcon: Icon(Icons.person_outline),
+              decoration: InputDecoration(
+                labelText: l10n.name,
+                prefixIcon: const Icon(Icons.person_outline),
               ),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Ingresa tu nombre' : null,
+                  (v == null || v.trim().isEmpty) ? l10n.enterName : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Correo electrónico',
-                prefixIcon: Icon(Icons.mail_outline),
+              decoration: InputDecoration(
+                labelText: l10n.emailLabel,
+                prefixIcon: const Icon(Icons.mail_outline),
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Ingresa tu correo';
-                if (!v.contains('@')) return 'Correo inválido';
+                if (v == null || v.trim().isEmpty) return l10n.enterEmail;
+                if (!v.contains('@')) return l10n.invalidEmail;
                 return null;
               },
             ),
@@ -88,7 +98,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _passwordCtrl,
               obscureText: _obscure,
               decoration: InputDecoration(
-                labelText: 'Contraseña',
+                labelText: l10n.password,
                 prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
                   icon: Icon(
@@ -100,7 +110,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               validator: (v) {
-                if (v == null || v.length < 6) return 'Mínimo 6 caracteres';
+                if (v == null || v.length < 6) return l10n.passwordMinLength;
                 return null;
               },
             ),
@@ -110,7 +120,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               obscureText: _obscureConfirm,
               onFieldSubmitted: (_) => _submit(),
               decoration: InputDecoration(
-                labelText: 'Confirmar contraseña',
+                labelText: l10n.confirmPassword,
                 prefixIcon: const Icon(Icons.lock_person_outlined),
                 suffixIcon: IconButton(
                   icon: Icon(
@@ -123,9 +133,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Confirma tu contraseña';
+                if (v == null || v.isEmpty) return l10n.confirmYourPassword;
                 if (v != _passwordCtrl.text) {
-                  return 'Las contraseñas no coinciden';
+                  return l10n.passwordsDoNotMatch;
                 }
                 return null;
               },
@@ -139,11 +149,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Registrarme'),
+                  : Text(l10n.registerAction),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Ya tengo cuenta'),
+              child: Text(l10n.alreadyHaveAccount),
             ),
           ],
         ),

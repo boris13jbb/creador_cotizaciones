@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/enum_l10n.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/models/org_branding.dart';
 import '../../saas/offline/branding_local_cache.dart';
 import '../../saas/offline/connectivity_monitor.dart';
@@ -126,11 +128,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
   Future<void> _ensurePro() async {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Branding personalizado disponible en Pro o durante la prueba.',
-        ),
-      ),
+      SnackBar(content: Text(context.l10n.brandingProRequired)),
     );
     await Navigator.push(
       context,
@@ -149,9 +147,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     final uid = auth.sessionUid;
     if (orgId == null || uid == null || uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debes iniciar sesión para subir el logo.'),
-        ),
+        SnackBar(content: Text(context.l10n.mustSignIn)),
       );
       return;
     }
@@ -166,12 +162,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No se pudo abrir la galería: '
-            '${'$e'.replaceFirst('Exception: ', '')}',
-          ),
-        ),
+        SnackBar(content: Text(context.l10n.imagePickerFailed)),
       );
       return;
     }
@@ -261,7 +252,9 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(BrandingStorageService.describeUploadError(e)),
+            content: Text(
+              BrandingStorageService.describeUploadError(e, context.l10n),
+            ),
           ),
         );
       }
@@ -354,6 +347,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final auth = context.watch<AuthController>();
     final q = widget.controller.quote;
     final colors = _colorsOf(q.colorsJson);
@@ -387,13 +381,13 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         Row(
           children: [
             Text(
-              'Identidad visual',
+              l10n.visualIdentity,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             if (locked) ...[
               const SizedBox(width: 8),
               Chip(
-                label: const Text('Pro'),
+                label: Text(l10n.proBadge),
                 visualDensity: VisualDensity.compact,
                 labelStyle: Theme.of(context).textTheme.labelSmall,
               ),
@@ -402,9 +396,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          locked
-              ? 'Disponible con plan Pro o prueba activa.'
-              : 'Logo y colores del PDF. Configura el predeterminado en Mi cuenta.',
+          locked ? l10n.visualIdentityPro : l10n.visualIdentityOk,
           style: Theme.of(context).textTheme.bodySmall,
         ),
         if (hasEffectiveLogo) ...[
@@ -490,7 +482,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
                     )
                   : const Icon(Icons.image_outlined),
               label: Text(
-                hasCustomLogo ? 'Cambiar logotipo' : 'Subir logotipo',
+                hasCustomLogo ? l10n.changeLogo : l10n.uploadLogo,
               ),
             ),
             if (hasCustomLogo)
@@ -521,7 +513,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text('Tamaño en PDF', style: Theme.of(context).textTheme.labelLarge),
+        Text(l10n.pdfSizeLabel, style: Theme.of(context).textTheme.labelLarge),
         Slider(
           value: layout.logoSizePt,
           min: OrgBranding.minLogoSizePt,
@@ -535,7 +527,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         SegmentedButton<LogoAlignment>(
           segments: [
             for (final a in LogoAlignment.values)
-              ButtonSegment(value: a, label: Text(a.label)),
+              ButtonSegment(value: a, label: Text(a.l10nLabel(l10n))),
           ],
           selected: {layout.logoAlignment},
           onSelectionChanged: locked
@@ -544,14 +536,14 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Marca de agua (esta cotización)',
+          l10n.watermarkThisQuote,
           style: Theme.of(context).textTheme.titleSmall,
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           dense: true,
           title: Text(
-            layout.watermarkEnabled ? 'Activada' : 'Desactivada',
+            layout.watermarkEnabled ? l10n.watermarkOn : l10n.watermarkOff,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           value: layout.watermarkEnabled,
@@ -560,11 +552,8 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
               : (v) {
                   if (v && !hasEffectiveLogo) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Configura el logo de la empresa en Identidad visual '
-                          'o sube uno para esta cotización.',
-                        ),
+                      SnackBar(
+                        content: Text(l10n.watermarkNeedCompanyOrQuoteLogo),
                       ),
                     );
                     return;
@@ -573,7 +562,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
                 },
         ),
         Text(
-          'Opacidad ${layout.watermarkOpacityPct}%',
+          l10n.watermarkOpacity(layout.watermarkOpacityPct),
           style: Theme.of(context).textTheme.labelLarge,
         ),
         Slider(
@@ -593,7 +582,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         SegmentedButton<WatermarkSize>(
           segments: [
             for (final s in WatermarkSize.values)
-              ButtonSegment(value: s, label: Text(s.label)),
+              ButtonSegment(value: s, label: Text(s.l10nLabel(l10n))),
           ],
           selected: {layout.watermarkSize},
           onSelectionChanged: locked || !layout.watermarkEnabled
@@ -605,13 +594,16 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
           key: ValueKey('wm-${layout.watermarkPosition.id}'),
           initialValue: layout.watermarkPosition,
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Posición marca de agua',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.watermarkPositionLabel,
+            border: const OutlineInputBorder(),
           ),
           items: [
             for (final p in WatermarkPosition.values)
-              DropdownMenuItem(value: p, child: Text(p.label)),
+              DropdownMenuItem(
+                value: p,
+                child: Text(p.l10nLabel(l10n)),
+              ),
           ],
           onChanged: locked || !layout.watermarkEnabled
               ? null

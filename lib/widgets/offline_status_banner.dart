@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/l10n_ext.dart';
 import '../saas/offline/offline_controller.dart';
 import '../saas/offline/offline_sync_status.dart';
 
@@ -13,6 +14,7 @@ class OfflineStatusBanner extends StatelessWidget {
       listenable: OfflineController.instance,
       builder: (context, _) {
         final c = OfflineController.instance;
+        final l10n = context.l10n;
         final color = switch (c.status) {
           OfflineUiStatus.online => Colors.green.shade700,
           OfflineUiStatus.offline => Colors.orange.shade800,
@@ -32,15 +34,17 @@ class OfflineStatusBanner extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        final parts = <String>[c.statusLabel()];
+        final statusText = switch (c.status) {
+          OfflineUiStatus.offline => l10n.offlineBannerOffline,
+          OfflineUiStatus.syncing => l10n.offlineBannerSyncing,
+          OfflineUiStatus.pendingChanges => l10n.offlineBannerPending,
+          OfflineUiStatus.syncError => l10n.offlineBannerError,
+          OfflineUiStatus.online => l10n.pendingSync,
+        };
+
+        final parts = <String>[statusText];
         if (c.pendingQuotes > 0) {
-          parts.add('${c.pendingQuotes} cotiz.');
-        }
-        if (c.pendingFiles > 0) {
-          parts.add('${c.pendingFiles} archivo(s)');
-        }
-        if (c.pendingOps > 0 && c.pendingQuotes == 0) {
-          parts.add('${c.pendingOps} op.');
+          parts.add(l10n.pendingChangesQuotes(c.pendingQuotes));
         }
 
         return Material(
@@ -67,7 +71,7 @@ class OfflineStatusBanner extends StatelessWidget {
                   ),
                   if (c.status != OfflineUiStatus.syncing)
                     Text(
-                      'Sincronizar',
+                      l10n.syncNow,
                       style: TextStyle(
                         color: color,
                         fontSize: 12,

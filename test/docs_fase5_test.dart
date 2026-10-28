@@ -9,6 +9,8 @@ import 'package:creador_cotizaciones/services/pdf_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('PDF FromQuote genera documento válido con Quote completo', () async {
     final quote = Quote(
       id: 'q-pdf-1',

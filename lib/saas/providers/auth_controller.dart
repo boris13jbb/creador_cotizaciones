@@ -25,6 +25,12 @@ import '../services/user_profile_service.dart';
 
 /// Estado de autenticación, perfil editable y entitlements SaaS.
 class AuthController extends ChangeNotifier {
+  /// Códigos estables para mensajes localizables en UI ([localizeAuthError]).
+  static const errMustSignIn = 'auth.must_sign_in';
+  static const errNoActiveOrg = 'auth.no_active_org';
+  static const errBrandingProRequired = 'auth.branding_pro_required';
+  static const errAccountDeleteRestPartial = 'auth.account_delete_rest_partial';
+
   AuthController() {
     if (!saasUseRestBackend) {
       _sub = AuthService.instance.authStateChanges.listen(_onAuthChanged);
@@ -301,7 +307,7 @@ class AuthController extends ChangeNotifier {
   Future<bool> createOrRecoverOrganization({String? organizationName}) async {
     final uid = _user?.uid ?? _restSession?.uid;
     if (uid == null) {
-      _error = 'Debes iniciar sesión.';
+      _error = errMustSignIn;
       notifyListeners();
       return false;
     }
@@ -453,12 +459,12 @@ class AuthController extends ChangeNotifier {
     final orgId = organizationId;
     final uid = sessionUid;
     if (orgId == null || orgId.isEmpty) {
-      _error = 'No hay organización activa.';
+      _error = errNoActiveOrg;
       notifyListeners();
       return false;
     }
     if (!canCustomBranding) {
-      _error = 'Branding personalizado disponible en Pro o durante la prueba.';
+      _error = errBrandingProRequired;
       notifyListeners();
       return false;
     }
@@ -682,10 +688,7 @@ class AuthController extends ChangeNotifier {
           debugPrint('delete entitlements REST: $e');
         }
         await signOut();
-        _error =
-            'Datos de cotizaciones y perfil eliminados. '
-            'Para borrar también la cuenta Auth en escritorio, despliega la '
-            'Cloud Function deleteAccount (ver docs/BACKEND_STRIPE.md).';
+        _error = errAccountDeleteRestPartial;
         notifyListeners();
         return true;
       }

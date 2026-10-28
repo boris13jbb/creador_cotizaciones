@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/providers/auth_controller.dart';
 import 'auth_scaffold.dart';
 
@@ -28,25 +29,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final ok = await auth.resetPassword(_emailCtrl.text);
     if (!mounted) return;
     setState(() => _sending = false);
+    final l10n = context.l10n;
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Te enviamos un enlace para restablecer la contraseña'),
-        ),
+        SnackBar(content: Text(l10n.forgotPasswordSent)),
       );
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.error ?? 'No se pudo enviar el correo')),
+        SnackBar(content: Text(auth.error ?? l10n.forgotPasswordFailed)),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AuthScaffold(
-      title: 'Recuperar acceso',
-      subtitle: 'Te enviaremos un correo para restablecer tu contraseña',
+      title: l10n.forgotPasswordTitle,
+      subtitle: l10n.forgotPasswordSubtitle,
       child: Form(
         key: _formKey,
         child: Column(
@@ -55,13 +56,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             TextFormField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Correo electrónico',
-                prefixIcon: Icon(Icons.mail_outline),
+              decoration: InputDecoration(
+                labelText: l10n.emailLabel,
+                prefixIcon: const Icon(Icons.mail_outline),
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Ingresa tu correo';
-                if (!v.contains('@')) return 'Correo inválido';
+                if (v == null || v.trim().isEmpty) return l10n.enterEmail;
+                if (!v.contains('@')) return l10n.invalidEmail;
                 return null;
               },
             ),
@@ -74,11 +75,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Enviar enlace'),
+                  : Text(l10n.sendResetLink),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Volver'),
+              child: Text(l10n.back),
             ),
           ],
         ),

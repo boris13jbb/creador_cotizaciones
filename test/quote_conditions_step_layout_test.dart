@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:creador_cotizaciones/core/utils/money_cents.dart';
+import 'package:creador_cotizaciones/l10n/app_localizations.dart';
 import 'package:creador_cotizaciones/saas/domain/org_enums.dart';
 import 'package:creador_cotizaciones/saas/domain/quote_totals.dart';
 import 'package:creador_cotizaciones/saas/models/quote.dart';
@@ -54,6 +55,9 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
+          locale: const Locale('es'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ChangeNotifierProvider<AuthController>.value(
             value: AuthController.forTest(authenticated: true),
             child: Scaffold(

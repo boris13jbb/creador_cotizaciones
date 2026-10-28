@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n_ext.dart';
 import '../../saas/config/saas_config.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../screens/account/account_screen.dart';
@@ -40,18 +41,22 @@ class _AppShellState extends State<AppShell> {
     setState(() => _destination = destination);
   }
 
-  String get _title => switch (_destination) {
-    AppDestination.home => SaasConfig.productName,
-    AppDestination.historial => 'Historial',
-    AppDestination.reports => 'Reportes',
-    AppDestination.pricing => 'Planes',
-    AppDestination.account => 'Mi cuenta',
-  };
+  String _title(BuildContext context) {
+    final l10n = context.l10n;
+    return switch (_destination) {
+      AppDestination.home => SaasConfig.productName,
+      AppDestination.historial => l10n.navHistory,
+      AppDestination.reports => l10n.navReports,
+      AppDestination.pricing => l10n.navPlans,
+      AppDestination.account => l10n.myAccount,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final access = context.watch<AuthController>().access;
     final useRail = Responsive.useNavigationRail(context);
+    final l10n = context.l10n;
 
     final body = switch (_destination) {
       AppDestination.home => HomeScreen(
@@ -94,31 +99,31 @@ class _AppShellState extends State<AppShell> {
                     ],
                   ),
                 ),
-                destinations: const [
+                destinations: [
                   NavigationRailDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home),
-                    label: Text('Inicio'),
+                    icon: const Icon(Icons.home_outlined),
+                    selectedIcon: const Icon(Icons.home),
+                    label: Text(l10n.navHome),
                   ),
                   NavigationRailDestination(
-                    icon: Icon(Icons.history_outlined),
-                    selectedIcon: Icon(Icons.history),
-                    label: Text('Historial'),
+                    icon: const Icon(Icons.history_outlined),
+                    selectedIcon: const Icon(Icons.history),
+                    label: Text(l10n.navHistory),
                   ),
                   NavigationRailDestination(
-                    icon: Icon(Icons.insights_outlined),
-                    selectedIcon: Icon(Icons.insights),
-                    label: Text('Reportes'),
+                    icon: const Icon(Icons.insights_outlined),
+                    selectedIcon: const Icon(Icons.insights),
+                    label: Text(l10n.navReports),
                   ),
                   NavigationRailDestination(
-                    icon: Icon(Icons.workspace_premium_outlined),
-                    selectedIcon: Icon(Icons.workspace_premium),
-                    label: Text('Planes'),
+                    icon: const Icon(Icons.workspace_premium_outlined),
+                    selectedIcon: const Icon(Icons.workspace_premium),
+                    label: Text(l10n.navPlans),
                   ),
                   NavigationRailDestination(
-                    icon: Icon(Icons.person_outline),
-                    selectedIcon: Icon(Icons.person),
-                    label: Text('Cuenta'),
+                    icon: const Icon(Icons.person_outline),
+                    selectedIcon: const Icon(Icons.person),
+                    label: Text(l10n.navAccount),
                   ),
                 ],
               ),
@@ -135,7 +140,7 @@ class _AppShellState extends State<AppShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title),
+        title: Text(_title(context)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -153,49 +158,47 @@ class _AppShellState extends State<AppShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _destination.index,
         onDestinationSelected: (i) => _select(AppDestination.values[i]),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Inicio',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: l10n.navHome,
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined),
-            selectedIcon: Icon(Icons.history),
-            label: 'Historial',
+            icon: const Icon(Icons.history_outlined),
+            selectedIcon: const Icon(Icons.history),
+            label: l10n.navHistory,
           ),
           NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights),
-            label: 'Reportes',
+            icon: const Icon(Icons.insights_outlined),
+            selectedIcon: const Icon(Icons.insights),
+            label: l10n.navReports,
           ),
           NavigationDestination(
-            icon: Icon(Icons.workspace_premium_outlined),
-            selectedIcon: Icon(Icons.workspace_premium),
-            label: 'Planes',
+            icon: const Icon(Icons.workspace_premium_outlined),
+            selectedIcon: const Icon(Icons.workspace_premium),
+            label: l10n.navPlans,
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Cuenta',
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
+            label: l10n.navAccount,
           ),
         ],
       ),
     );
   }
 
-  /// Un solo FAB en el shell (sin Hero) para evitar hit-test roto al navegar.
   Widget _nuevaCotizacionFab(BuildContext context) {
     return FloatingActionButton.extended(
-      heroTag: null,
-      onPressed: () async {
-        await Navigator.push(
+      onPressed: () {
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const NuevaCotizacionScreen()),
         );
       },
-      icon: const Icon(AppIcons.nuevaCotizacionFab),
-      label: const Text('Nueva'),
+      icon: const Icon(Icons.add),
+      label: Text(context.l10n.newQuote),
     );
   }
 }

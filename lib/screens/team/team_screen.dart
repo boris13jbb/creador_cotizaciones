@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n_ext.dart';
 import '../../saas/domain/org_enums.dart';
 import '../../saas/models/org_activity.dart';
 import '../../saas/models/organization.dart';
@@ -39,13 +41,18 @@ class _TeamScreenState extends State<TeamScreen> {
     super.dispose();
   }
 
+  String _formatInviteExpiry(BuildContext context, DateTime date) {
+    final locale = Localizations.localeOf(context).toString();
+    return DateFormat.yMMMd(locale).add_Hm().format(date.toLocal());
+  }
+
   Future<void> _load() async {
     final auth = context.read<AuthController>();
     final orgId = auth.organizationId;
     if (orgId == null) {
       setState(() {
         _loading = false;
-        _error = 'Sin organización';
+        _error = context.l10n.noOrganization;
       });
       return;
     }
@@ -80,6 +87,7 @@ class _TeamScreenState extends State<TeamScreen> {
 
   Future<void> _invite() async {
     final auth = context.read<AuthController>();
+    final l10n = context.l10n;
     if (!auth.access.canManageTeam) {
       await Navigator.push(
         context,
@@ -95,7 +103,7 @@ class _TeamScreenState extends State<TeamScreen> {
     if (!mounted) return;
     if (membership == null || !membership.role.canManageOrg) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Solo owner/admin pueden invitar.')),
+        SnackBar(content: Text(l10n.inviteOwnersOnly)),
       );
       return;
     }
@@ -114,10 +122,9 @@ class _TeamScreenState extends State<TeamScreen> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Invitación creada'),
+          title: Text(l10n.inviteCreatedTitle),
           content: SelectableText(
-            'Comparte este token con ${invite.email} (válido 7 días):\n\n'
-            '${invite.token}',
+            l10n.inviteShareToken(invite.email, invite.token),
           ),
           actions: [
             TextButton(
@@ -125,7 +132,7 @@ class _TeamScreenState extends State<TeamScreen> {
                 Clipboard.setData(ClipboardData(text: invite.token));
                 Navigator.pop(ctx);
               },
-              child: const Text('Copiar token'),
+              child: Text(l10n.copyToken),
             ),
           ],
         ),
@@ -152,23 +159,24 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   Future<void> _acceptDialog() async {
+    final l10n = context.l10n;
     final tokenCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Aceptar invitación'),
+        title: Text(l10n.acceptInvite),
         content: TextField(
           controller: tokenCtrl,
-          decoration: const InputDecoration(labelText: 'Token de invitación'),
+          decoration: InputDecoration(labelText: l10n.fieldInviteToken),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Aceptar'),
+            child: Text(l10n.ok),
           ),
         ],
       ),
@@ -177,9 +185,9 @@ class _TeamScreenState extends State<TeamScreen> {
     try {
       await OrgTeamService.instance.acceptInvite(token: tokenCtrl.text.trim());
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invitación aceptada')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.inviteAccepted)),
+      );
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -194,15 +202,16 @@ class _TeamScreenState extends State<TeamScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
+    final l10n = context.l10n;
     final locked = !auth.access.canManageTeam;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Equipo'),
+        title: Text(l10n.teamTitle),
         actions: [
           TextButton(
             onPressed: _acceptDialog,
-            child: const Text('Aceptar invite'),
+            child: Text(l10n.acceptInvite),
           ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
@@ -220,10 +229,9 @@ class _TeamScreenState extends State<TeamScreen> {
                   Card(
                     child: ListTile(
                       leading: const Icon(Icons.lock_outline),
-                      title: const Text('Gestión de equipo en Pro/Business'),
+                      title: Text(l10n.teamProUpsellTitle),
                       subtitle: Text(
-                        'Hasta ${auth.access.maxSeats} asientos en tu plan actual '
-                        'cuando esté activo.',
+                        l10n.teamProUpsellBody(auth.access.maxSeats),
                       ),
                       trailing: TextButton(
                         onPressed: () => Navigator.push(
@@ -232,12 +240,12 @@ class _TeamScreenState extends State<TeamScreen> {
                             builder: (_) => const PricingScreen(),
                           ),
                         ),
-                        child: const Text('Planes'),
+                        child: Text(l10n.navPlans),
                       ),
                     ),
                   ),
                 Text(
-                  'Miembros (${_members.length}/${auth.access.maxSeats})',
+                  l10n.membersCount(_members.length, auth.access.maxSeats),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -251,7 +259,7 @@ class _TeamScreenState extends State<TeamScreen> {
                     ),
                     subtitle: Text('${m.role.id} · ${m.status.id}'),
                     trailing: m.role == OrgRole.owner
-                        ? const Chip(label: Text('owner'))
+                        ? Chip(label: Text(m.role.id))
                         : locked
                         ? null
                         : PopupMenuButton<String>(
@@ -290,41 +298,44 @@ class _TeamScreenState extends State<TeamScreen> {
                               }
                             },
                             itemBuilder: (_) => [
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'admin',
-                                child: Text('Rol: admin'),
+                                child: Text(l10n.roleLabel('admin')),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'sales',
-                                child: Text('Rol: sales'),
+                                child: Text(l10n.roleLabel('sales')),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'readonly',
-                                child: Text('Rol: readonly'),
+                                child: Text(l10n.roleLabel('readonly')),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'disable',
-                                child: Text('Desactivar'),
+                                child: Text(l10n.deactivateMember),
                               ),
                             ],
                           ),
                   ),
                 const SizedBox(height: AppSpacing.lg),
-                Text('Invitar', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  l10n.inviteSection,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                   controller: _emailCtrl,
                   enabled: !locked,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Correo',
-                    hintText: 'coleaga@empresa.com',
+                  decoration: InputDecoration(
+                    labelText: l10n.email,
+                    hintText: l10n.hintColleagueEmail,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<OrgRole>(
                   initialValue: _inviteRole,
-                  decoration: const InputDecoration(labelText: 'Rol'),
+                  decoration: InputDecoration(labelText: l10n.fieldRole),
                   items: [
                     for (final r in [
                       OrgRole.admin,
@@ -343,12 +354,12 @@ class _TeamScreenState extends State<TeamScreen> {
                 FilledButton.icon(
                   onPressed: locked ? null : _invite,
                   icon: const Icon(Icons.person_add_alt_1),
-                  label: const Text('Crear invitación'),
+                  label: Text(l10n.createInvitation),
                 ),
                 if (_invites.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    'Pendientes',
+                    l10n.pendingInvites,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   for (final i in _invites)
@@ -356,7 +367,10 @@ class _TeamScreenState extends State<TeamScreen> {
                       contentPadding: EdgeInsets.zero,
                       title: Text(i.email),
                       subtitle: Text(
-                        '${i.role} · expira ${i.expiresAt.toLocal()}',
+                        l10n.inviteExpires(
+                          i.role,
+                          _formatInviteExpiry(context, i.expiresAt),
+                        ),
                       ),
                     ),
                 ],

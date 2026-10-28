@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:creador_cotizaciones/saas/providers/auth_controller.dart';
 import 'package:creador_cotizaciones/saas/services/cloud_cotizacion_repository.dart';
 import 'package:creador_cotizaciones/theme/app_theme.dart';
+import 'package:creador_cotizaciones/l10n/app_localizations.dart';
 import 'package:creador_cotizaciones/ui/layout/app_shell.dart';
+import 'package:creador_cotizaciones/ui/providers/locale_controller.dart';
 import 'package:creador_cotizaciones/ui/providers/theme_controller.dart';
 import 'package:creador_cotizaciones/ui/widgets/async_state_view.dart';
 import 'package:creador_cotizaciones/screens/auth/auth_scaffold.dart';
@@ -39,10 +41,14 @@ void main() {
         providers: [
           ChangeNotifierProvider.value(value: auth),
           ChangeNotifierProvider(create: (_) => ThemeController()),
+          ChangeNotifierProvider(create: (_) => LocaleController()),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
+          locale: const Locale('es'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           home: child,
         ),
       ),

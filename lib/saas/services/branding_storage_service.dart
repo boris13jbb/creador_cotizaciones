@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:universal_io/io.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../config/saas_platform.dart';
 import '../models/org_branding.dart';
 import '../offline/branding_local_cache.dart';
@@ -120,57 +121,70 @@ class BrandingStorageService {
   }
 
   /// Mensaje usable en UI a partir de errores de Storage/red/formato.
-  static String describeUploadError(Object error) {
+  ///
+  /// Si [l10n] es null, usa español (compatibilidad con capas sin BuildContext).
+  static String describeUploadError(Object error, [AppLocalizations? l10n]) {
     if (error is FirebaseException) {
       switch (error.code) {
         case 'unauthorized':
         case 'storage/unauthorized':
-          return 'No tienes permiso para subir el logotipo de esta organización. '
-              'Comprueba que seas propietario o administrador y que las reglas '
-              'de Storage estén desplegadas.';
+          return l10n?.storageUnauthorized ??
+              'No tienes permiso para subir el logotipo de esta organización. '
+                  'Comprueba que seas propietario o administrador y que las reglas '
+                  'de Storage estén desplegadas.';
         case 'unauthenticated':
         case 'storage/unauthenticated':
-          return 'Tu sesión expiró. Vuelve a iniciar sesión e inténtalo de nuevo.';
+          return l10n?.storageUnauthenticated ??
+              'Tu sesión expiró. Vuelve a iniciar sesión e inténtalo de nuevo.';
         case 'canceled':
         case 'storage/canceled':
-          return 'La carga del logotipo se canceló.';
+          return l10n?.storageCanceled ?? 'La carga del logotipo se canceló.';
         case 'retry-limit-exceeded':
         case 'storage/retry-limit-exceeded':
-          return 'No se pudo conectar con el almacenamiento. Revisa tu conexión.';
+          return l10n?.storageRetryLimit ??
+              'No se pudo conectar con el almacenamiento. Revisa tu conexión.';
         case 'object-not-found':
         case 'storage/object-not-found':
-          return 'No se encontró el archivo en el almacenamiento. '
-              'Si acabas de activar Storage, reinicia la app e inténtalo de nuevo.';
+          return l10n?.storageObjectNotFound ??
+              'No se encontró el archivo en el almacenamiento. '
+                  'Si acabas de activar Storage, reinicia la app e inténtalo de nuevo.';
         case 'bucket-not-found':
         case 'storage/bucket-not-found':
-          return 'Firebase Storage no está disponible en este proyecto. '
-              'Hay que crear el bucket predeterminado y desplegar las reglas.';
+          return l10n?.storageBucketNotFound ??
+              'Firebase Storage no está disponible en este proyecto. '
+                  'Hay que crear el bucket predeterminado y desplegar las reglas.';
         case 'quota-exceeded':
         case 'storage/quota-exceeded':
-          return 'Se alcanzó la cuota de almacenamiento del proyecto.';
+          return l10n?.storageQuotaExceeded ??
+              'Se alcanzó la cuota de almacenamiento del proyecto.';
         default:
-          return 'Error de almacenamiento (${error.code}). '
-              'Inténtalo de nuevo o usa una imagen más pequeña.';
+          return l10n?.storageGenericError(error.code) ??
+              'Error de almacenamiento (${error.code}). '
+                  'Inténtalo de nuevo o usa una imagen más pequeña.';
       }
     }
     if (error is TimeoutException) {
-      return 'La carga tardó demasiado. Puede ser un problema de red o de '
-          'configuración de Storage en el navegador. Inténtalo de nuevo.';
+      return l10n?.storageUploadTimeout ??
+          'La carga tardó demasiado. Puede ser un problema de red o de '
+              'configuración de Storage en el navegador. Inténtalo de nuevo.';
     }
     final text = error.toString().replaceFirst('Exception: ', '');
     final lower = text.toLowerCase();
     if (lower.contains('bucket') && lower.contains('not exist')) {
-      return 'El bucket de Firebase Storage no existe o no está vinculado. '
-          'Activa Storage en la consola y vuelve a intentar.';
+      return l10n?.storageBucketMissing ??
+          'El bucket de Firebase Storage no existe o no está vinculado. '
+              'Activa Storage en la consola y vuelve a intentar.';
     }
     if (lower.contains('cors') || lower.contains('xmlhttprequest')) {
-      return 'El navegador bloqueó la subida (CORS). Ejecuta la app con '
-          'flutter run -d chrome --web-port=62313 o actualiza storage-cors.json.';
+      return l10n?.storageCorsBlocked ??
+          'El navegador bloqueó la subida (CORS). Ejecuta la app con '
+              'flutter run -d chrome --web-port=62313 o actualiza storage-cors.json.';
     }
     if (lower.contains('socket') ||
         lower.contains('network') ||
         lower.contains('failed host lookup')) {
-      return 'No hay conexión con el almacenamiento. Revisa tu red.';
+      return l10n?.storageNetworkError ??
+          'No hay conexión con el almacenamiento. Revisa tu red.';
     }
     return text;
   }

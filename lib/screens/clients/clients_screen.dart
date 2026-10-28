@@ -3,12 +3,19 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../l10n/l10n_ext.dart';
 import '../../saas/models/org_client.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/services/client_csv_import_service.dart';
 import '../../saas/services/client_repository.dart';
 import '../../ui/layout/responsive.dart';
 import '../../ui/widgets/async_state_view.dart';
+
+const _kNoOrganization = _NoOrganizationMarker();
+
+class _NoOrganizationMarker {
+  const _NoOrganizationMarker();
+}
 
 class ClientsScreen extends StatefulWidget {
   const ClientsScreen({super.key});
@@ -35,7 +42,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (orgId == null || orgId.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Sin organización';
+        _error = _kNoOrganization;
       });
       return;
     }
@@ -68,7 +75,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(auth.error ?? 'No se pudo crear la organización'),
+          content: Text(auth.error ?? context.l10n.createOrganizationFailed),
         ),
       );
     }
@@ -85,46 +92,53 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Nuevo cliente' : 'Editar cliente'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Nombre *'),
-              ),
-              TextField(
-                controller: idCtrl,
-                decoration: const InputDecoration(labelText: 'Identificación'),
-              ),
-              TextField(
-                controller: emailCtrl,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-              TextField(
-                controller: phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Teléfono'),
-              ),
-              TextField(
-                controller: addressCtrl,
-                decoration: const InputDecoration(labelText: 'Dirección'),
-              ),
-            ],
+      builder: (ctx) {
+        final l10n = ctx.l10n;
+        return AlertDialog(
+          title: Text(existing == null ? l10n.newClient : l10n.editClient),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldClientNameRequired,
+                  ),
+                ),
+                TextField(
+                  controller: idCtrl,
+                  decoration: InputDecoration(
+                    labelText: l10n.fieldIdentification,
+                  ),
+                ),
+                TextField(
+                  controller: emailCtrl,
+                  decoration: InputDecoration(labelText: l10n.email),
+                ),
+                TextField(
+                  controller: phoneCtrl,
+                  decoration: InputDecoration(labelText: l10n.fieldPhone),
+                ),
+                TextField(
+                  controller: addressCtrl,
+                  decoration: InputDecoration(labelText: l10n.fieldAddress),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.save),
+            ),
+          ],
+        );
+      },
     );
 
     if (ok != true || !mounted) return;
@@ -156,54 +170,56 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final csvCtrl = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Importar clientes CSV'),
-        content: SizedBox(
-          width: 480,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Pega el CSV. Primera fila = cabecera.\n'
-                'Plantilla: ${ClientCsvImportService.templateHeader}',
-                style: Theme.of(ctx).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  Clipboard.setData(
-                    const ClipboardData(
-                      text:
-                          '${ClientCsvImportService.templateHeader}\n'
-                          'Acme SA,info@acme.com,+593999,1790012345001,Quito,,EC,',
-                    ),
-                  );
-                },
-                child: const Text('Copiar plantilla'),
-              ),
-              TextField(
-                controller: csvCtrl,
-                maxLines: 10,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'name,email,phone,...',
+      builder: (ctx) {
+        final l10n = ctx.l10n;
+        return AlertDialog(
+          title: Text(l10n.importClientsCsvTitle),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  l10n.importCsvHelp(ClientCsvImportService.templateHeader),
+                  style: Theme.of(ctx).textTheme.bodySmall,
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () {
+                    Clipboard.setData(
+                      const ClipboardData(
+                        text:
+                            '${ClientCsvImportService.templateHeader}\n'
+                            'Acme SA,info@acme.com,+593999,1790012345001,Quito,,EC,',
+                      ),
+                    );
+                  },
+                  child: Text(l10n.copyTemplate),
+                ),
+                TextField(
+                  controller: csvCtrl,
+                  maxLines: 10,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'name,email,phone,...',
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Importar'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.importAction),
+            ),
+          ],
+        );
+      },
     );
     if (ok != true || !mounted) return;
 
@@ -218,7 +234,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         SnackBar(
           content: Text(
             parsed.errors.isEmpty
-                ? 'No hay filas válidas'
+                ? context.l10n.importNoValidRows
                 : parsed.errors.first,
           ),
         ),
@@ -234,22 +250,27 @@ class _ClientsScreenState extends State<ClientsScreen> {
     if (!mounted) return;
     await _load();
     if (!mounted) return;
+    final l10n = context.l10n;
     final extra = parsed.errors.isEmpty
         ? ''
-        : ' · ${parsed.errors.length} fila(s) con error';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Importados: $saved$extra')));
+        : l10n.importRowsWithErrors(parsed.errors.length);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${l10n.importResult(saved)}$extra')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final noOrg = _error == _kNoOrganization;
+    final viewError = noOrg ? l10n.noOrganization : _error;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Clientes'),
+        title: Text(l10n.clients),
         actions: [
           IconButton(
-            tooltip: 'Importar CSV',
+            tooltip: l10n.importClientsCsvTitle,
             icon: const Icon(Icons.upload_file_outlined),
             onPressed: _importCsv,
           ),
@@ -259,25 +280,19 @@ class _ClientsScreenState extends State<ClientsScreen> {
         heroTag: null,
         onPressed: () => _edit(),
         icon: const Icon(Icons.person_add_alt),
-        label: const Text('Cliente'),
+        label: Text(l10n.client),
       ),
       body: ContentConstraint(
         child: AsyncStateView(
           loading: _loading,
-          error: _error,
+          error: viewError,
           isEmpty: !_loading && _items.isEmpty,
-          emptyTitle: 'Sin clientes',
-          emptySubtitle: 'Crea el primero para reutilizarlo en cotizaciones.',
+          emptyTitle: l10n.emptyNoClients,
+          emptySubtitle: l10n.emptyCreateFirstClient,
           emptyIcon: Icons.people_outline,
-          onRetry: _error?.toString() == 'Sin organización'
-              ? _createOrganization
-              : _load,
-          retryLabel: _error?.toString() == 'Sin organización'
-              ? 'Crear organización'
-              : null,
-          retryIcon: _error?.toString() == 'Sin organización'
-              ? Icons.apartment_rounded
-              : null,
+          onRetry: noOrg ? _createOrganization : _load,
+          retryLabel: noOrg ? l10n.createOrganization : null,
+          retryIcon: noOrg ? Icons.apartment_rounded : null,
           child: ListView.separated(
             padding: AppSpacing.page,
             itemCount: _items.length,
@@ -300,20 +315,23 @@ class _ClientsScreenState extends State<ClientsScreen> {
                     if (orgId == null) return;
                     final confirm = await showDialog<bool>(
                       context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Eliminar'),
-                        content: Text('¿Eliminar a ${c.name}?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancelar'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Eliminar'),
-                          ),
-                        ],
-                      ),
+                      builder: (ctx) {
+                        final dlg = ctx.l10n;
+                        return AlertDialog(
+                          title: Text(dlg.delete),
+                          content: Text(dlg.deleteConfirmNamed(c.name)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(dlg.cancel),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text(dlg.delete),
+                            ),
+                          ],
+                        );
+                      },
                     );
                     if (confirm == true) {
                       await ClientRepository.instance.delete(orgId, c.id);

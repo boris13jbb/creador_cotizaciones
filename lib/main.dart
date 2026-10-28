@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
+import 'l10n/app_localizations.dart';
 import 'theme/app_theme.dart';
 import 'saas/offline/offline_controller.dart';
 import 'saas/providers/auth_controller.dart';
@@ -12,6 +13,7 @@ import 'saas/services/app_logger.dart';
 import 'saas/services/cloud_cotizacion_repository.dart';
 import 'saas/services/error_report_service.dart';
 import 'screens/auth/auth_gate.dart';
+import 'ui/providers/locale_controller.dart';
 import 'ui/providers/theme_controller.dart';
 
 void main() async {
@@ -51,8 +53,17 @@ void main() async {
     }
   }
 
+  final localeController = LocaleController();
+  await localeController.load();
+
   try {
-    await initializeDateFormatting('es', null);
+    await initializeDateFormatting(localeController.languageCode, null);
+    if (localeController.languageCode != 'es') {
+      await initializeDateFormatting('es', null);
+    }
+    if (localeController.languageCode != 'en') {
+      await initializeDateFormatting('en', null);
+    }
   } catch (e) {
     debugPrint('Error inicializando fechas: $e');
   }
@@ -78,6 +89,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider.value(value: authController),
         ChangeNotifierProvider.value(value: themeController),
+        ChangeNotifierProvider.value(value: localeController),
         ChangeNotifierProvider.value(value: OfflineController.instance),
       ],
       child: const CotiApp(),
@@ -91,16 +103,18 @@ class CotiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeMode = context.watch<ThemeController>().mode;
+    final locale = context.watch<LocaleController>().locale;
 
     return MaterialApp(
-      title: 'CotiApp SaaS',
+      onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      locale: const Locale('es'),
-      supportedLocales: const [Locale('es')],
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
