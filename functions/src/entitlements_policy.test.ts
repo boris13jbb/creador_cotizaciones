@@ -146,4 +146,72 @@ describe("resolveMaxQuotes", () => {
       FREE_MAX_QUOTES,
     );
   });
+
+  it("admin_grant vigente → PAID; programado/vencido → FREE", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "pro",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantStartsAt: "2026-01-01T00:00:00.000Z",
+          grantExpiresAt: "2026-01-10T00:00:00.000Z",
+        },
+        now,
+      ),
+      PAID_MAX_QUOTES,
+    );
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "pro",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantModality: "temporary",
+          grantStartsAt: "2026-01-06T00:00:00.000Z",
+          grantExpiresAt: "2026-01-12T00:00:00.000Z",
+        },
+        now,
+      ),
+      FREE_MAX_QUOTES,
+    );
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "business",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantExpiresAt: "2026-01-01T00:00:00.000Z",
+        },
+        now,
+      ),
+      FREE_MAX_QUOTES,
+    );
+  });
+
+  it("admin_grant legado sin fechas → PAID", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {plan: "pro", subscriptionStatus: "active", source: "admin_grant"},
+        now,
+      ),
+      PAID_MAX_QUOTES,
+    );
+  });
+
+  it("admin_grant temporal inválido → FREE", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "pro",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantModality: "temporary",
+          grantExpiresAt: "no-fecha",
+        },
+        now,
+      ),
+      FREE_MAX_QUOTES,
+    );
+  });
 });

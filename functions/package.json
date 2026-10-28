@@ -11,7 +11,7 @@
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth",
     "deploy": "firebase deploy --only functions",
     "lint": "eslint --ext .ts src",
-    "test": "npm run build && node --test lib/quote_limit.test.js lib/entitlements_policy.test.js lib/firebase_admin_init.test.js",
+    "test": "npm run build && node --test lib/quote_limit.test.js lib/entitlements_policy.test.js lib/firebase_admin_init.test.js lib/grant_access_policy.test.js lib/admin_grant_dual_write.test.js",
     "test:emulator": "npm run build && node --test lib/create_org_quote.emulator.test.js"
   },
   "dependencies": {
