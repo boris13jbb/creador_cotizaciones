@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import '../l10n/l10n_ext.dart';
 import 'package:provider/provider.dart';
 
 import '../models/cotizacion.dart';
 import '../saas/domain/org_enums.dart';
+import '../saas/historial/historial_query.dart';
 import '../saas/providers/auth_controller.dart';
 import '../saas/services/quote_mapper.dart';
 import '../saas/services/quote_reminder_service.dart';
+import '../saas/services/quote_share_ui.dart';
 import '../services/db_service.dart';
+import '../services/pdf_share_service.dart';
 import '../ui/layout/responsive.dart';
 import '../ui/widgets/async_state_view.dart';
 import '../widgets/cotizacion_card.dart';
@@ -34,8 +38,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
   bool _hasMore = false;
   bool _loading = true;
   bool _loadingMore = false;
+  bool _refreshing = false;
+  bool _remoteFailed = false;
   Object? _error;
   String? _statusFilter;
+  String? _busyQuoteId;
 
   @override
   void initState() {
@@ -52,7 +59,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 
   void _onScroll() {
-    if (!_hasMore || _loadingMore || _loading) return;
+    if (!_hasMore || _loadingMore || _loading || _refreshing) return;
     if (_queryController.text.trim().isNotEmpty) return;
     if (!_scrollController.hasClients) return;
     final pos = _scrollController.position;
@@ -61,14 +68,23 @@ class _HistorialScreenState extends State<HistorialScreen> {
     }
   }
 
-  Future<void> _loadInitial() async {
+  Future<void> _loadInitial({bool soft = false}) async {
+    if (_loading && soft) return;
+    if (_refreshing) return;
+
     setState(() {
-      _loading = true;
+      if (soft && _items.isNotEmpty) {
+        _refreshing = true;
+      } else {
+        _loading = true;
+        _items.clear();
+        _nextCursor = null;
+        _hasMore = false;
+      }
       _error = null;
-      _items.clear();
-      _nextCursor = null;
-      _hasMore = false;
+      _remoteFailed = false;
     });
+
     try {
       final page = await DBService.instance.obtenerPagina(
         limit: _pageSize,
@@ -76,22 +92,44 @@ class _HistorialScreenState extends State<HistorialScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        if (!soft || _items.isEmpty) {
+          _items
+            ..clear()
+            ..addAll(page.items);
+        } else {
+          _items
+            ..clear()
+            ..addAll(page.items);
+        }
         _nextCursor = page.nextCursor;
         _hasMore = page.hasMore;
+        _remoteFailed = page.remoteFailed;
         _loading = false;
+        _refreshing = false;
+        if (page.remoteFailed && page.items.isEmpty) {
+          _error = Exception(context.l10n.historyLoadFailed);
+        }
       });
+      if (page.remoteFailed && page.items.isNotEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.historyRemoteFailedSnack),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e;
         _loading = false;
+        _refreshing = false;
       });
     }
   }
 
   Future<void> _loadMore() async {
-    if (!_hasMore || _loadingMore) return;
+    if (!_hasMore || _loadingMore || _loading || _refreshing) return;
     setState(() => _loadingMore = true);
     try {
       final page = await DBService.instance.obtenerPagina(
@@ -101,48 +139,85 @@ class _HistorialScreenState extends State<HistorialScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        final existing = {for (final c in _items) c.id};
+        for (final c in page.items) {
+          if (!existing.contains(c.id)) {
+            _items.add(c);
+            existing.add(c.id);
+          }
+        }
         _nextCursor = page.nextCursor;
         _hasMore = page.hasMore;
+        if (page.remoteFailed) _remoteFailed = true;
         _loadingMore = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loadingMore = false;
-        _error = e;
+        // Conservar lista ya cargada; solo avisar.
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.historyLoadMoreFailed(
+                '$e'.replaceFirst('Exception: ', ''),
+              ),
+            ),
+          ),
+        );
+      }
     }
   }
 
-  List<Cotizacion> _filtrar(List<Cotizacion> cotizaciones, String q) {
-    final query = q.trim().toLowerCase();
-    if (query.isEmpty) return cotizaciones;
-
-    bool match(Cotizacion c) {
-      return c.numero.toLowerCase().contains(query) ||
-          c.cliente.toLowerCase().contains(query) ||
-          c.ubicacion.toLowerCase().contains(query) ||
-          c.tipoServicio.toLowerCase().contains(query);
+  Future<void> _runAction(
+    String quoteId,
+    Future<void> Function() action,
+  ) async {
+    if (_busyQuoteId != null) return;
+    setState(() => _busyQuoteId = quoteId);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _busyQuoteId = null);
     }
+  }
 
-    return cotizaciones.where(match).toList();
+  Future<bool> _resolveConflictIfNeeded(Cotizacion cot) async {
+    if (cot.offlineSyncStatus != 'conflict') return true;
+    final resolved = await showQuoteConflictDialog(
+      context,
+      quoteId: cot.id,
+      quoteNumber: cot.numero,
+    );
+    if (resolved != null) await _loadInitial(soft: true);
+    return resolved == true;
   }
 
   @override
   Widget build(BuildContext context) {
     final useRail = Responsive.useNavigationRail(context);
     final showAppBar = !widget.embeddedInShell || useRail;
+    final query = _queryController.text;
 
     return Scaffold(
       appBar: showAppBar
           ? AppBar(
-              title: const Text('Historial'),
+              title: Text(context.l10n.navHistory),
               actions: [
                 IconButton(
-                  tooltip: 'Actualizar',
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _loadInitial,
+                  tooltip: context.l10n.refresh,
+                  icon: _refreshing
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                  onPressed: (_loading || _refreshing)
+                      ? null
+                      : () => _loadInitial(soft: true),
                 ),
               ],
             )
@@ -161,12 +236,23 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 child: TextField(
                   controller: _queryController,
                   textInputAction: TextInputAction.search,
-                  decoration: const InputDecoration(
-                    labelText: 'Buscar',
-                    hintText: 'Número, cliente, ubicación o servicio',
-                    prefixIcon: Icon(Icons.search),
-                    helperText:
-                        'La búsqueda aplica a las cotizaciones ya cargadas',
+                  decoration: InputDecoration(
+                    labelText: context.l10n.search,
+                    hintText: context.l10n.searchHintQuotes,
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: query.trim().isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: context.l10n.clear,
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _queryController.clear();
+                              setState(() {});
+                            },
+                          ),
+                    helperText: _hasMore
+                        ? context.l10n.searchHelperLoadMore
+                        : context.l10n.searchHelperLoaded,
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -180,7 +266,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   ),
                   children: [
                     FilterChip(
-                      label: const Text('Todas'),
+                      label: Text(context.l10n.all),
                       selected: _statusFilter == null,
                       onSelected: (_) {
                         setState(() => _statusFilter = null);
@@ -188,16 +274,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
                       },
                     ),
                     const SizedBox(width: 8),
-                    for (final s in const [
-                      QuoteStatus.draft,
-                      QuoteStatus.sent,
-                      QuoteStatus.viewed,
-                      QuoteStatus.accepted,
-                      QuoteStatus.rejected,
-                      QuoteStatus.archived,
-                    ]) ...[
+                    for (final s in HistorialQuery.filterableStatuses) ...[
                       FilterChip(
-                        label: Text(s.id),
+                        label: Text(
+                          HistorialQuery.statusLabel(s, context.l10n),
+                        ),
                         selected: _statusFilter == s.id,
                         onSelected: (_) {
                           setState(() => _statusFilter = s.id);
@@ -209,6 +290,24 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   ],
                 ),
               ),
+              if (_remoteFailed && _items.isNotEmpty)
+                Material(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.errorContainer.withValues(alpha: 0.55),
+                  child: ListTile(
+                    dense: true,
+                    leading: const Icon(Icons.cloud_off_outlined),
+                    title: Text(context.l10n.historyRemoteFailedBanner),
+                    subtitle: Text(context.l10n.historyRemoteFailedSubtitle),
+                    trailing: TextButton(
+                      onPressed: (_loading || _refreshing)
+                          ? null
+                          : () => _loadInitial(soft: true),
+                      child: Text(context.l10n.retry),
+                    ),
+                  ),
+                ),
               Builder(
                 builder: (context) {
                   final now = DateTime.now().toUtc();
@@ -238,15 +337,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         leading: const Icon(
                           Icons.notifications_active_outlined,
                         ),
-                        title: Text(
-                          '$stale cotización(es) enviada(s) sin respuesta (>7 días)',
-                        ),
+                        title: Text(context.l10n.staleSentBanner(stale)),
                         trailing: TextButton(
                           onPressed: () {
                             setState(() => _statusFilter = QuoteStatus.sent.id);
                             _loadInitial();
                           },
-                          child: const Text('Ver enviadas'),
+                          child: Text(context.l10n.viewSent),
                         ),
                       ),
                     ),
@@ -257,11 +354,20 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: IconButton(
-                    tooltip: 'Actualizar',
-                    onPressed: _loadInitial,
-                    icon: const Icon(Icons.refresh),
+                    tooltip: context.l10n.refresh,
+                    onPressed: (_loading || _refreshing)
+                        ? null
+                        : () => _loadInitial(soft: true),
+                    icon: _refreshing
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh),
                   ),
                 ),
+              if (_refreshing) const LinearProgressIndicator(minHeight: 2),
               Expanded(child: _buildBody()),
             ],
           ),
@@ -271,23 +377,48 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 
   Widget _buildBody() {
-    final filtered = _filtrar(_items, _queryController.text);
+    final filtered = HistorialQuery.applySearch(_items, _queryController.text);
+    final hasQuery = _queryController.text.trim().isNotEmpty;
+    final hasFilter = _statusFilter != null;
+
+    final l10n = context.l10n;
+    String emptyTitle;
+    String emptySubtitle;
+    IconData emptyIcon;
+    if (hasQuery) {
+      emptyTitle = l10n.noSearchResults;
+      emptySubtitle = _hasMore
+          ? l10n.noSearchResultsLoadMore
+          : l10n.noSearchResultsHint(_queryController.text.trim());
+      emptyIcon = Icons.search_off;
+    } else if (hasFilter) {
+      emptyTitle = l10n.noQuotesForStatus;
+      emptySubtitle = l10n.noQuotesForStatusHint(
+        HistorialQuery.statusLabelForId(_statusFilter, l10n),
+      );
+      emptyIcon = Icons.filter_alt_off_outlined;
+    } else {
+      emptyTitle = l10n.noQuotesYet;
+      emptySubtitle = l10n.noQuotesYetHint;
+      emptyIcon = Icons.history;
+    }
 
     return AsyncStateView(
       loading: _loading,
       error: _error != null && _items.isEmpty ? _error : null,
-      isEmpty: !_loading && _items.isEmpty,
-      emptyIcon: Icons.history,
-      emptyTitle: 'Aún no hay cotizaciones guardadas',
-      emptySubtitle: 'Cuando guardes una, aparecerá aquí.',
-      onRetry: _loadInitial,
+      isEmpty: !_loading && _items.isEmpty && !hasQuery,
+      emptyIcon: emptyIcon,
+      emptyTitle: emptyTitle,
+      emptySubtitle: emptySubtitle,
+      onRetry: () => _loadInitial(),
       child: filtered.isEmpty
           ? AsyncStateView(
               isEmpty: true,
-              emptyIcon: Icons.search_off,
-              emptyTitle: 'Sin resultados',
-              emptySubtitle:
-                  'Prueba con otro término o carga más cotizaciones.',
+              emptyIcon: emptyIcon,
+              emptyTitle: emptyTitle,
+              emptySubtitle: emptySubtitle,
+              onRetry: _hasMore ? _loadMore : null,
+              retryLabel: _hasMore ? l10n.loadMore : null,
               child: const SizedBox.shrink(),
             )
           : ListView.builder(
@@ -305,7 +436,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                           ? const CircularProgressIndicator()
                           : TextButton(
                               onPressed: _loadMore,
-                              child: const Text('Cargar más'),
+                              child: Text(context.l10n.loadMore),
                             ),
                     ),
                   );
@@ -314,18 +445,12 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 final cot = filtered[index];
                 final hasOrg =
                     context.read<AuthController>().organizationId != null;
+                final busy = _busyQuoteId != null;
                 return CotizacionCard(
                   cotizacion: cot,
-                  onTap: () async {
-                    if (cot.offlineSyncStatus == 'conflict') {
-                      final resolved = await showQuoteConflictDialog(
-                        context,
-                        quoteId: cot.id,
-                        quoteNumber: cot.numero,
-                      );
-                      if (resolved != null) await _loadInitial();
-                      if (resolved == null) return;
-                    }
+                  actionsEnabled: !busy,
+                  onTap: () => _runAction(cot.id, () async {
+                    if (!await _resolveConflictIfNeeded(cot)) return;
                     if (!context.mounted) return;
                     final result = await Navigator.push(
                       context,
@@ -333,18 +458,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         builder: (_) => PreviewScreen(cotizacion: cot),
                       ),
                     );
-                    if (result == true) await _loadInitial();
-                  },
-                  onEdit: () async {
-                    if (cot.offlineSyncStatus == 'conflict') {
-                      final resolved = await showQuoteConflictDialog(
-                        context,
-                        quoteId: cot.id,
-                        quoteNumber: cot.numero,
-                      );
-                      if (resolved != null) await _loadInitial();
-                      if (resolved != true) return;
-                    }
+                    if (result == true) await _loadInitial(soft: true);
+                  }),
+                  onEdit: () => _runAction(cot.id, () async {
+                    if (!await _resolveConflictIfNeeded(cot)) return;
                     if (!context.mounted) return;
                     final result = await Navigator.push(
                       context,
@@ -352,20 +469,35 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         builder: (_) => NuevaCotizacionScreen(cotizacion: cot),
                       ),
                     );
-                    if (result == true) await _loadInitial();
-                  },
+                    if (result == true) await _loadInitial(soft: true);
+                  }),
+                  onShare: () => _runAction(cot.id, () async {
+                    if (PdfShareService.instance.isBusy) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(context.l10n.sharePdfBusy)),
+                      );
+                      return;
+                    }
+                    await QuoteShareUi.shareCotizacionWithFeedback(
+                      context,
+                      cot,
+                    );
+                  }),
                   onDuplicate: hasOrg
-                      ? () async {
+                      ? () => _runAction(cot.id, () async {
                           try {
                             final copy = await DBService.instance
                                 .duplicateQuote(cot.id);
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Duplicada como ${copy.number}'),
+                                content: Text(
+                                  context.l10n.duplicatedAs(copy.number),
+                                ),
                               ),
                             );
-                            await _loadInitial();
+                            await _loadInitial(soft: true);
                           } catch (e) {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -376,16 +508,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
                               ),
                             );
                           }
-                        }
+                        })
                       : null,
                   onArchive: hasOrg
-                      ? () async {
+                      ? () => _runAction(cot.id, () async {
                           try {
                             await DBService.instance.setQuoteStatus(
                               cot.id,
                               QuoteStatus.archived,
                             );
-                            await _loadInitial();
+                            await _loadInitial(soft: true);
                           } catch (e) {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -396,17 +528,45 @@ class _HistorialScreenState extends State<HistorialScreen> {
                               ),
                             );
                           }
-                        }
+                        })
+                      : null,
+                  onRestore: hasOrg
+                      ? () => _runAction(cot.id, () async {
+                          try {
+                            await DBService.instance.setQuoteStatus(
+                              cot.id,
+                              QuoteStatus.draft,
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(context.l10n.restoredToDraft),
+                              ),
+                            );
+                            await _loadInitial(soft: true);
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '$e'.replaceFirst('Exception: ', ''),
+                                ),
+                              ),
+                            );
+                          }
+                        })
                       : null,
                   onNewVersion: hasOrg
-                      ? () async {
+                      ? () => _runAction(cot.id, () async {
                           try {
                             final next = await DBService.instance
                                 .createQuoteVersion(cot.id);
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Versión ${next.version} creada'),
+                                content: Text(
+                                  context.l10n.versionCreated(next.version),
+                                ),
                               ),
                             );
                             await Navigator.push(
@@ -417,7 +577,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                                 ),
                               ),
                             );
-                            await _loadInitial();
+                            await _loadInitial(soft: true);
                           } catch (e) {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -428,34 +588,37 @@ class _HistorialScreenState extends State<HistorialScreen> {
                               ),
                             );
                           }
-                        }
+                        })
                       : null,
-                  onDelete: () async {
+                  onDelete: () => _runAction(cot.id, () async {
                     final confirm = await showDialog<bool>(
                       context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Eliminar'),
-                        content: Text('¿Eliminar la cotización ${cot.numero}?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancelar'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text(
-                              'Eliminar',
-                              style: TextStyle(color: Colors.red),
+                      builder: (ctx) {
+                        final d = ctx.l10n;
+                        return AlertDialog(
+                          title: Text(d.deleteQuoteTitle),
+                          content: Text(d.deleteQuoteBody(cot.numero)),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(d.cancel),
                             ),
-                          ),
-                        ],
-                      ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text(
+                                d.delete,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     );
                     if (confirm == true) {
                       await DBService.instance.eliminarCotizacion(cot.id);
-                      await _loadInitial();
+                      await _loadInitial(soft: true);
                     }
-                  },
+                  }),
                 );
               },
             ),

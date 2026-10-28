@@ -33,10 +33,14 @@ class CotizacionPage {
   final String? nextCursor;
   final bool hasMore;
 
+  /// La lectura remota falló; [items] puede venir del fallback local.
+  final bool remoteFailed;
+
   const CotizacionPage({
     required this.items,
     this.nextCursor,
     required this.hasMore,
+    this.remoteFailed = false,
   });
 }
 
@@ -262,6 +266,7 @@ class CloudCotizacionRepository {
     List<Cotizacion> remote = [];
     String? nextCursor;
     var hasMore = false;
+    var remoteFailed = false;
 
     if (orgId != null && orgId.isNotEmpty) {
       try {
@@ -287,6 +292,7 @@ class CloudCotizacionRepository {
           debugPrint('obtenerPagina mirror: $e');
         }
       } catch (e, st) {
+        remoteFailed = true;
         debugPrint('obtenerPagina org: $e\n$st');
       }
     }
@@ -328,6 +334,7 @@ class CloudCotizacionRepository {
             items: merged.take(limit).toList(),
             nextCursor: nextCursor,
             hasMore: hasMore || merged.length > limit,
+            remoteFailed: remoteFailed,
           );
         }
       } catch (e) {
@@ -338,6 +345,7 @@ class CloudCotizacionRepository {
         items: remote,
         nextCursor: nextCursor,
         hasMore: hasMore,
+        remoteFailed: remoteFailed,
       );
     }
 
@@ -347,12 +355,22 @@ class CloudCotizacionRepository {
           items: remote,
           nextCursor: nextCursor,
           hasMore: hasMore,
+          remoteFailed: remoteFailed,
         );
       }
-      return const CotizacionPage(items: [], hasMore: false);
+      return CotizacionPage(
+        items: const [],
+        hasMore: false,
+        remoteFailed: remoteFailed,
+      );
     }
     final legacy = await _obtenerLegacy();
-    return CotizacionPage(items: legacy, nextCursor: null, hasMore: false);
+    return CotizacionPage(
+      items: legacy,
+      nextCursor: null,
+      hasMore: false,
+      remoteFailed: remoteFailed,
+    );
   }
 
   /// Resuelve conflicto offline: conserva local (fuerza push) o adopta remoto.
@@ -421,6 +439,15 @@ class CloudCotizacionRepository {
         );
       } catch (e, st) {
         debugPrint('eliminar org quote: $e\n$st');
+      }
+      try {
+        await OfflineLocalStore.instance.deleteQuote(
+          organizationId: orgId,
+          uid: _uid,
+          quoteId: id,
+        );
+      } catch (e) {
+        debugPrint('eliminar local quote: $e');
       }
     }
 

@@ -555,4 +555,58 @@ void main() {
       expect(loaded.syncStatus, OfflineSyncStatus.synced);
     },
   );
+
+  test('deleteQuote elimina espejo local y filas de cola', () async {
+    final now = DateTime.now().toUtc();
+    final quote = Quote(
+      id: 'q-del-1',
+      organizationId: 'org-a',
+      number: 'COT-DEL',
+      sequence: 1,
+      status: QuoteStatus.draft,
+      clientName: 'X',
+      issueDate: now,
+      total: const MoneyCents(100),
+      createdByUid: 'user-1',
+      createdAt: now,
+      updatedAt: now,
+    );
+    await OfflineLocalStore.instance.upsertQuote(
+      uid: 'user-1',
+      quote: quote,
+      status: OfflineSyncStatus.pending,
+    );
+    await OfflineLocalStore.instance.enqueue(
+      organizationId: 'org-a',
+      uid: 'user-1',
+      entityType: OfflineEntityType.quote,
+      entityId: 'q-del-1',
+      operation: OfflineOperation.upsert,
+      payload: {'id': 'q-del-1'},
+      idempotencyKey: 'del-test-1',
+    );
+
+    await OfflineLocalStore.instance.deleteQuote(
+      organizationId: 'org-a',
+      uid: 'user-1',
+      quoteId: 'q-del-1',
+    );
+
+    expect(
+      await OfflineLocalStore.instance.getQuote(
+        organizationId: 'org-a',
+        uid: 'user-1',
+        quoteId: 'q-del-1',
+      ),
+      isNull,
+    );
+    expect(
+      await OfflineLocalStore.instance.pendingQueue(
+        organizationId: 'org-a',
+        uid: 'user-1',
+        forceIgnoreBackoff: true,
+      ),
+      isEmpty,
+    );
+  });
 }

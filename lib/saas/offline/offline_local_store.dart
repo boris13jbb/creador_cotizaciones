@@ -192,6 +192,31 @@ class OfflineLocalStore {
     return _quoteFromRow(rows.first);
   }
 
+  /// Elimina espejo local y filas de cola asociadas (no toca remoto).
+  Future<void> deleteQuote({
+    required String organizationId,
+    required String uid,
+    required String quoteId,
+  }) async {
+    final db = await OfflineDatabase.instance.database;
+    await db.delete(
+      'local_quotes',
+      where: 'organization_id = ? AND uid = ? AND id = ?',
+      whereArgs: [organizationId, uid, quoteId],
+    );
+    await db.delete(
+      'sync_queue',
+      where:
+          'organization_id = ? AND uid = ? AND entity_id = ? AND entity_type = ?',
+      whereArgs: [
+        organizationId,
+        uid,
+        quoteId,
+        OfflineEntityType.quote.id,
+      ],
+    );
+  }
+
   LocalQuoteRecord _quoteFromRow(Map<String, dynamic> row) {
     final quote = Quote.fromMap(
       Map<String, dynamic>.from(
