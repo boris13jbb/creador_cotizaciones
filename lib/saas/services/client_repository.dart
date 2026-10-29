@@ -62,6 +62,11 @@ class ClientRepository {
         await ConnectivityMonitor.instance.probeFirebase();
 
     if (!online) {
+      if (!OfflineLocalStore.isSupported) {
+        throw Exception(
+          'Sin conexión. En Web no hay cola offline; reintenta cuando haya red.',
+        );
+      }
       if (uid != null) {
         await OfflineLocalStore.instance.enqueue(
           organizationId: organizationId,
@@ -109,7 +114,9 @@ class ClientRepository {
       }
       return result;
     } catch (e) {
-      if (uid != null && !skipOfflineMirror) {
+      if (uid != null &&
+          !skipOfflineMirror &&
+          OfflineLocalStore.isSupported) {
         await OfflineLocalStore.instance.enqueue(
           organizationId: organizationId,
           uid: uid,

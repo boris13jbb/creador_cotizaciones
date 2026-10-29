@@ -36,7 +36,8 @@ class PricingScreen extends StatelessWidget {
     final access = auth.access;
     final isPro = access.isPro;
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !embeddedInShell || useRail;
+    final showAppBar = !embeddedInShell ||
+        (useRail && !Responsive.isWebAdaptive);
     final freeFeatures = <String>[
       l10n.featureFreeQuotes(SaasConfig.freeMaxCotizaciones),
       l10n.featurePdfExport,

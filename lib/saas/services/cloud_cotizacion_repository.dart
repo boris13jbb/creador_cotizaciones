@@ -619,7 +619,7 @@ class CloudCotizacionRepository {
         )
         .withRecalculatedTotal();
 
-    // Persistencia local inmediata (no depende de Firebase).
+    // Persistencia local inmediata (Android/Windows). En Web es no-op.
     try {
       await OfflineLocalStore.instance.upsertQuote(
         uid: _uid,
@@ -632,6 +632,11 @@ class CloudCotizacionRepository {
     }
 
     if (!online) {
+      if (!OfflineLocalStore.isSupported) {
+        throw Exception(
+          'Sin conexión. En Web no hay cola offline; reintenta cuando haya red.',
+        );
+      }
       await _enqueueQuoteSync(toSave, isNew: isNew);
       await OfflineController.instance.refresh();
       return toSave;
@@ -692,6 +697,10 @@ class CloudCotizacionRepository {
           }),
         );
         await OfflineController.instance.refresh();
+        rethrow;
+      }
+      if (!OfflineLocalStore.isSupported) {
+        // Web: no fingir guardado en cola SQLite inexistente.
         rethrow;
       }
       debugPrint('saveQuote remote failed, queued: $e');
@@ -999,10 +1008,16 @@ class CloudCotizacionRepository {
         );
         localSync = OfflineSyncStatus.synced;
       } catch (e) {
+        if (!OfflineLocalStore.isSupported) rethrow;
         debugPrint('setQuoteStatus remote failed, queue: $e');
         await _enqueueQuoteSync(updated, isNew: false);
       }
     } else {
+      if (!OfflineLocalStore.isSupported) {
+        throw Exception(
+          'Sin conexión. En Web no hay cola offline; reintenta cuando haya red.',
+        );
+      }
       await _enqueueQuoteSync(updated, isNew: false);
     }
 

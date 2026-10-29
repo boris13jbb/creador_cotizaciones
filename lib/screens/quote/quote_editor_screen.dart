@@ -269,78 +269,69 @@ class _BottomBar extends StatelessWidget {
     final l10n = context.l10n;
     final totals = controller.totals;
     final busy = controller.saving || controller.initializing;
-    return Material(
-      elevation: 6,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          child: Row(
-            children: [
-              if (controller.step > 0)
-                OutlinedButton(
-                  style: _outlinedInRow,
-                  onPressed: busy ? null : controller.back,
-                  child: Text(l10n.back),
-                ),
-              const Spacer(),
-              Flexible(
-                child: Text(
-                  totals.total.format(),
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (controller.step < QuoteEditorController.stepCount - 1)
-                FilledButton(
-                  style: _filledInRow,
-                  onPressed: busy
-                      ? null
-                      : () {
-                          final err = controller.validateStep(controller.step);
-                          if (err != null) {
-                            controller.reportStepError(err);
-                            return;
-                          }
-                          controller.next();
-                        },
-                  child: Text(l10n.next),
-                )
-              else
-                FilledButton(
-                  style: _filledInRow,
-                  onPressed: busy
-                      ? null
-                      : () async {
-                          final ok = await controller.saveToCloud();
-                          if (!context.mounted) return;
-                          if (ok) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  l10n.quoteSaved(controller.quote.number),
-                                ),
-                              ),
-                            );
-                            Navigator.pop(context, true);
-                          }
-                        },
-                  child: busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(l10n.save),
-                ),
-            ],
-          ),
-        ),
+
+    final totalLabel = Text(
+      totals.total.format(),
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.end,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
       ),
+    );
+
+    final primary = controller.step < QuoteEditorController.stepCount - 1
+        ? FilledButton(
+            style: _filledInRow,
+            onPressed: busy
+                ? null
+                : () {
+                    final err = controller.validateStep(controller.step);
+                    if (err != null) {
+                      controller.reportStepError(err);
+                      return;
+                    }
+                    controller.next();
+                  },
+            child: Text(l10n.next),
+          )
+        : FilledButton(
+            style: _filledInRow,
+            onPressed: busy
+                ? null
+                : () async {
+                    final ok = await controller.saveToCloud();
+                    if (!context.mounted) return;
+                    if (ok) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            l10n.quoteSaved(controller.quote.number),
+                          ),
+                        ),
+                      );
+                      Navigator.pop(context, true);
+                    }
+                  },
+            child: busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(l10n.save),
+          );
+
+    return AdaptiveActionBar(
+      leading: [
+        if (controller.step > 0)
+          OutlinedButton(
+            style: _outlinedInRow,
+            onPressed: busy ? null : controller.back,
+            child: Text(l10n.back),
+          ),
+      ],
+      center: totalLabel,
+      trailing: [primary],
     );
   }
 }
@@ -902,21 +893,33 @@ class _ConditionsStepState extends State<_ConditionsStep> {
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: AppSpacing.sm),
-        SegmentedButton<PaymentMode>(
-          segments: [
-            for (final m in PaymentMode.values)
-              ButtonSegment(value: m, label: Text(m.l10nLabel(l10n))),
-          ],
-          selected: {q.paymentMode},
-          onSelectionChanged: (s) {
-            final mode = s.first;
-            widget.controller.setPaymentMode(mode);
-            if (mode == PaymentMode.split) {
-              final split = _paymentSplit(widget.controller.quote);
-              _anticipoPct.text = split.$1;
-              _saldoPct.text = split.$2;
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final button = SegmentedButton<PaymentMode>(
+              segments: [
+                for (final m in PaymentMode.values)
+                  ButtonSegment(value: m, label: Text(m.l10nLabel(l10n))),
+              ],
+              selected: {q.paymentMode},
+              onSelectionChanged: (s) {
+                final mode = s.first;
+                widget.controller.setPaymentMode(mode);
+                if (mode == PaymentMode.split) {
+                  final split = _paymentSplit(widget.controller.quote);
+                  _anticipoPct.text = split.$1;
+                  _saldoPct.text = split.$2;
+                }
+                setState(() {});
+              },
+            );
+            if (constraints.maxWidth < 360) {
+              return FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: SizedBox(width: 360, child: button),
+              );
             }
-            setState(() {});
+            return button;
           },
         ),
         const SizedBox(height: AppSpacing.sm),

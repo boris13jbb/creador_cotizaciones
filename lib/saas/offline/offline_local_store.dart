@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:sqflite/sqflite.dart' show ConflictAlgorithm;
+import 'package:sqflite/sqflite.dart' show ConflictAlgorithm, Database;
 
 import '../models/org_branding.dart';
 import '../models/org_client.dart';
@@ -73,16 +73,33 @@ class LocalQuoteRecord {
 }
 
 /// Persistencia local multiempresa (SQLite) + cola de operaciones.
+///
+/// En Web no hay SQLite: los métodos de espejo/conteo no-op o devuelven vacío.
+/// [enqueue] lanza [OfflineStoreUnsupportedException] porque encolar sin
+/// persistencia fingiría un guardado local.
 class OfflineLocalStore {
   OfflineLocalStore._();
   static final OfflineLocalStore instance = OfflineLocalStore._();
+
+  /// Offline SQLite disponible (Android/iOS/desktop). Web: false.
+  static bool get isSupported => supportedOverrideForTests ?? !kIsWeb;
+
+  /// Solo pruebas: forzar Web (false) o nativo (true) en VM.
+  @visibleForTesting
+  static bool? supportedOverrideForTests;
+
+  Future<Database?> _dbIfSupported() async {
+    if (!isSupported) return null;
+    return OfflineDatabase.instance.database;
+  }
 
   Future<void> upsertClient({
     required String uid,
     required OrgClient client,
     OfflineSyncStatus status = OfflineSyncStatus.pending,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     final now = DateTime.now().toUtc().toIso8601String();
     await db.insert('local_clients', {
       'id': client.id,
@@ -103,7 +120,8 @@ class OfflineLocalStore {
     required String organizationId,
     required String uid,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return [];
     final rows = await db.query(
       'local_clients',
       where: 'organization_id = ? AND uid = ?',
@@ -126,7 +144,8 @@ class OfflineLocalStore {
     required String uid,
     required String clientId,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return null;
     final rows = await db.query(
       'local_clients',
       where: 'organization_id = ? AND uid = ? AND id = ?',
@@ -147,7 +166,8 @@ class OfflineLocalStore {
     OfflineSyncStatus status = OfflineSyncStatus.pending,
     String? conflictPayloadJson,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     await db.insert('local_quotes', {
       'id': quote.id,
       'organization_id': quote.organizationId,
@@ -166,7 +186,8 @@ class OfflineLocalStore {
     required String organizationId,
     required String uid,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return [];
     final rows = await db.query(
       'local_quotes',
       where: 'organization_id = ? AND uid = ?',
@@ -181,7 +202,8 @@ class OfflineLocalStore {
     required String uid,
     required String quoteId,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return null;
     final rows = await db.query(
       'local_quotes',
       where: 'organization_id = ? AND uid = ? AND id = ?',
@@ -198,7 +220,8 @@ class OfflineLocalStore {
     required String uid,
     required String quoteId,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     await db.delete(
       'local_quotes',
       where: 'organization_id = ? AND uid = ? AND id = ?',
@@ -237,7 +260,8 @@ class OfflineLocalStore {
     required OfflineSyncStatus status,
     String? conflictPayloadJson,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     await db.update(
       'local_quotes',
       {
@@ -257,7 +281,8 @@ class OfflineLocalStore {
     required String clientId,
     required OfflineSyncStatus status,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     await db.update(
       'local_clients',
       {'sync_status': status.id},
@@ -274,7 +299,8 @@ class OfflineLocalStore {
     bool logoPendingUpload = false,
     OfflineSyncStatus status = OfflineSyncStatus.synced,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     await db.insert('local_branding', {
       'organization_id': organizationId,
       'uid': uid,
@@ -288,7 +314,8 @@ class OfflineLocalStore {
 
   Future<({OrgBranding branding, String? logoLocalPath, bool logoPending})?>
   getBranding({required String organizationId, required String uid}) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return null;
     final rows = await db.query(
       'local_branding',
       where: 'organization_id = ? AND uid = ?',
@@ -309,6 +336,8 @@ class OfflineLocalStore {
   }
 
   /// Encola operación idempotente. Si la clave ya existe pendiente, no duplica.
+  ///
+  /// En Web lanza [OfflineStoreUnsupportedException] (no hay cola local).
   Future<void> enqueue({
     required String organizationId,
     required String uid,
@@ -318,7 +347,10 @@ class OfflineLocalStore {
     required Map<String, dynamic> payload,
     required String idempotencyKey,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) {
+      throw const OfflineStoreUnsupportedException();
+    }
     final now = DateTime.now().toUtc();
     try {
       await db.insert('sync_queue', {
@@ -363,7 +395,8 @@ class OfflineLocalStore {
     int limit = 50,
     bool forceIgnoreBackoff = false,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return [];
     if (forceIgnoreBackoff) {
       final rows = await db.query(
         'sync_queue',
@@ -391,7 +424,8 @@ class OfflineLocalStore {
     required String organizationId,
     required String uid,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return 0;
     final r = await db.rawQuery(
       'SELECT COUNT(*) AS c FROM sync_queue '
       'WHERE organization_id = ? AND uid = ? AND completed_at IS NULL',
@@ -405,7 +439,16 @@ class OfflineLocalStore {
     required String organizationId,
     required String uid,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) {
+      return const OfflineQueueDiagnostics(
+        incompleteQueue: 0,
+        eligibleNow: 0,
+        blockedByBackoff: 0,
+        pendingLocalQuotes: 0,
+        incompleteQuoteQueue: 0,
+      );
+    }
     final now = DateTime.now().toUtc().toIso8601String();
     final incomplete = await countPending(
       organizationId: organizationId,
@@ -488,7 +531,8 @@ class OfflineLocalStore {
     required OfflineEntityType entityType,
     required String entityId,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return false;
     final rows = await db.query(
       'sync_queue',
       columns: ['id'],
@@ -505,7 +549,8 @@ class OfflineLocalStore {
     required String organizationId,
     required String uid,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return 0;
     final r = await db.rawQuery(
       "SELECT COUNT(*) AS c FROM local_quotes "
       "WHERE organization_id = ? AND uid = ? AND sync_status != 'synced'",
@@ -518,7 +563,8 @@ class OfflineLocalStore {
     required String organizationId,
     required String uid,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return 0;
     final r = await db.rawQuery(
       'SELECT COUNT(*) AS c FROM local_branding '
       'WHERE organization_id = ? AND uid = ? AND logo_pending_upload = 1',
@@ -528,7 +574,8 @@ class OfflineLocalStore {
   }
 
   Future<void> markQueueCompleted(int id) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     await db.update(
       'sync_queue',
       {'completed_at': DateTime.now().toUtc().toIso8601String()},
@@ -542,7 +589,8 @@ class OfflineLocalStore {
     String error, {
     Duration? backoff,
   }) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     final rows = await db.query(
       'sync_queue',
       columns: ['attempts'],
@@ -575,12 +623,26 @@ class OfflineLocalStore {
   /// No borra datos pendientes: solo deja de exponerlos a otra cuenta.
   /// Los registros siguen filtrados por uid + organization_id.
   Future<void> noteSessionEnded({required String uid}) async {
-    final db = await OfflineDatabase.instance.database;
+    final db = await _dbIfSupported();
+    if (db == null) return;
     await db.insert('offline_meta', {
       'key': 'last_uid',
       'value': uid,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
+}
+
+/// Cola/espejo SQLite no disponible (p. ej. Web).
+class OfflineStoreUnsupportedException implements Exception {
+  const OfflineStoreUnsupportedException([
+    this.message =
+        'El almacenamiento offline SQLite no está disponible en Web.',
+  ]);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 /// Conteos de cola vs UI (sin PII).

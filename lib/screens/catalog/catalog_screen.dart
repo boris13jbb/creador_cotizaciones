@@ -230,6 +230,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
         label: Text(l10n.catalogFab),
       ),
       body: ContentConstraint(
+        padding: Responsive.isCompact(context) ? null : Responsive.pagePadding(context),
         child: AsyncStateView(
           loading: _loading,
           error: viewError,

@@ -110,7 +110,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final l10n = context.l10n;
     final locale = Localizations.localeOf(context).toString();
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !widget.embeddedInShell || useRail;
+    final showAppBar = !widget.embeddedInShell ||
+        (useRail && !Responsive.isWebAdaptive);
     final money = NumberFormat.currency(
       locale: locale,
       symbol: r'$',
@@ -142,7 +143,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           : null,
       body: SafeArea(
         child: ContentConstraint(
-          padding: AppSpacing.pageWide,
+          padding: Responsive.pagePadding(context),
           child: AsyncStateView(
             loading: _loading,
             error: errorMessage,
@@ -176,9 +177,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
+                      ResponsiveGrid(
+                        columns: Responsive.kpiColumns(context),
                         children: [
                           _KpiCard(
                             label: l10n.kpiQuotes,
@@ -269,28 +269,32 @@ class _KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 150,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: scheme.outlineVariant),
-          borderRadius: BorderRadius.circular(AppRadii.md),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
       ),
     );

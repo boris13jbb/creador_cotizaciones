@@ -101,14 +101,15 @@ class _AccountScreenState extends State<AccountScreen>
     final profile = auth.profile;
     final access = auth.access;
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !widget.embeddedInShell || useRail;
+    final showAppBar = !widget.embeddedInShell ||
+        (useRail && !Responsive.isWebAdaptive);
     final sessionEmail = auth.user?.email ?? profile?.email ?? '';
 
     return Scaffold(
       appBar: showAppBar ? AppBar(title: Text(l10n.myAccount)) : null,
       body: SafeArea(
-        child: ContentConstraint(
-          padding: AppSpacing.page,
+        child: ContentConstraint.form(
+          padding: Responsive.pagePadding(context),
           child: ListView(
             children: [
               ListTile(

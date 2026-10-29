@@ -92,22 +92,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final access = context.watch<AuthController>().access;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
+    final l10n = context.l10n;
     final body = RefreshIndicator(
       onRefresh: () async => _refreshLista(),
       child: ContentConstraint(
-        padding: AppSpacing.pageWide,
+        padding: Responsive.pagePadding(context),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             Text(
-              '¿Qué deseas crear hoy?',
+              l10n.homeHeadline,
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Cotizaciones profesionales sincronizadas en la nube',
+              l10n.homeSubtitle,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -116,20 +117,20 @@ class _HomeScreenState extends State<HomeScreen> {
             AppActionGrid(
               children: [
                 AppActionTile(
-                  title: context.l10n.newQuoteFab,
-                  subtitle: context.l10n.noQuotesHomeHint,
+                  title: l10n.newQuoteFab,
+                  subtitle: l10n.noQuotesHomeHint,
                   icon: AppIcons.nuevaCotizacion,
                   onTap: _openNueva,
                 ),
                 AppActionTile(
-                  title: context.l10n.navHistory,
-                  subtitle: context.l10n.noQuotesYetHint,
+                  title: l10n.navHistory,
+                  subtitle: l10n.noQuotesYetHint,
                   icon: Icons.history_outlined,
                   onTap: _openHistorial,
                 ),
                 AppActionTile(
-                  title: 'Reportes',
-                  subtitle: 'KPIs y exportación',
+                  title: l10n.navReports,
+                  subtitle: l10n.reportsTileSubtitle,
                   icon: Icons.insights_outlined,
                   onTap: () {
                     Navigator.push(
@@ -141,8 +142,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             AppSectionHeader(
-              title: 'Cotizaciones recientes',
-              actionLabel: 'Ver todas',
+              title: l10n.recentQuotes,
+              actionLabel: l10n.viewAll,
               onAction: _openHistorial,
             ),
             _buildRecientes(),

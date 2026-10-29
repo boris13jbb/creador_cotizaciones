@@ -204,9 +204,11 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
         }
       }
 
-      // Sin red o fallo de Storage: ruta local + cola (uploadQuoteLogo en sync).
+      // Sin red o fallo de Storage: ruta local + cola (solo plataformas con SQLite).
       if (logoRef == null || logoRef.isEmpty) {
-        if (localPath == null || localPath.isEmpty) {
+        if (!OfflineLocalStore.isSupported ||
+            localPath == null ||
+            localPath.isEmpty) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(context.l10n.quoteLogoLocalSaveFailed)),

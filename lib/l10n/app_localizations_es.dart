@@ -27,6 +27,28 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navAccount => 'Cuenta';
 
   @override
+  String get collapseMenu => 'Contraer menú';
+
+  @override
+  String get expandMenu => 'Expandir menú';
+
+  @override
+  String get homeHeadline => '¿Qué deseas crear hoy?';
+
+  @override
+  String get homeSubtitle =>
+      'Cotizaciones profesionales sincronizadas en la nube';
+
+  @override
+  String get recentQuotes => 'Cotizaciones recientes';
+
+  @override
+  String get viewAll => 'Ver todas';
+
+  @override
+  String get reportsTileSubtitle => 'KPIs y exportación';
+
+  @override
   String get myAccount => 'Mi cuenta';
 
   @override

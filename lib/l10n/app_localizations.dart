@@ -134,6 +134,48 @@ abstract class AppLocalizations {
   /// **'Cuenta'**
   String get navAccount;
 
+  /// No description provided for @collapseMenu.
+  ///
+  /// In es, this message translates to:
+  /// **'Contraer menú'**
+  String get collapseMenu;
+
+  /// No description provided for @expandMenu.
+  ///
+  /// In es, this message translates to:
+  /// **'Expandir menú'**
+  String get expandMenu;
+
+  /// No description provided for @homeHeadline.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Qué deseas crear hoy?'**
+  String get homeHeadline;
+
+  /// No description provided for @homeSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Cotizaciones profesionales sincronizadas en la nube'**
+  String get homeSubtitle;
+
+  /// No description provided for @recentQuotes.
+  ///
+  /// In es, this message translates to:
+  /// **'Cotizaciones recientes'**
+  String get recentQuotes;
+
+  /// No description provided for @viewAll.
+  ///
+  /// In es, this message translates to:
+  /// **'Ver todas'**
+  String get viewAll;
+
+  /// No description provided for @reportsTileSubtitle.
+  ///
+  /// In es, this message translates to:
+  /// **'KPIs y exportación'**
+  String get reportsTileSubtitle;
+
   /// No description provided for @myAccount.
   ///
   /// In es, this message translates to:

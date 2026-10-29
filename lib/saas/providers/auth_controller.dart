@@ -485,6 +485,12 @@ class AuthController extends ChangeNotifier {
 
     final online = await ConnectivityMonitor.instance.probeFirebase();
     if (!online) {
+      if (!OfflineLocalStore.isSupported) {
+        _error =
+            'Sin conexión. En Web no hay cola offline; reintenta cuando haya red.';
+        notifyListeners();
+        return false;
+      }
       if (uid != null) {
         await OfflineLocalStore.instance.enqueue(
           organizationId: orgId,
@@ -538,7 +544,7 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      if (uid != null) {
+      if (uid != null && OfflineLocalStore.isSupported) {
         await OfflineLocalStore.instance.enqueue(
           organizationId: orgId,
           uid: uid,

@@ -39,28 +39,37 @@ class AppActionTile extends StatelessWidget {
                 width: 1.5,
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(icon, size: 36, color: secondary),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: secondary,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: AppSpacing.minTouchTarget * 2,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(icon, size: 36, color: secondary),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: secondary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      subtitle,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -70,7 +79,7 @@ class AppActionTile extends StatelessWidget {
   }
 }
 
-/// Grid de acciones que pasa a 1 columna en pantallas muy estrechas.
+/// Grid de acciones adaptativo (1–4 columnas según ancho).
 class AppActionGrid extends StatelessWidget {
   final List<Widget> children;
 
@@ -78,24 +87,7 @@ class AppActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final narrow = Responsive.widthOf(context) < 360;
-    if (narrow) {
-      return Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(height: AppSpacing.sm),
-            children[i],
-          ],
-        ],
-      );
-    }
-    return Row(
-      children: [
-        for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) const SizedBox(width: AppSpacing.sm),
-          Expanded(child: children[i]),
-        ],
-      ],
-    );
+    final cols = Responsive.actionColumns(context).clamp(1, children.length);
+    return ResponsiveGrid(columns: cols, children: children);
   }
 }

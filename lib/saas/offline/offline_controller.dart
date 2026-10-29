@@ -38,7 +38,8 @@ class OfflineController extends ChangeNotifier {
       unawaited(refresh());
     });
     await refresh();
-    if (ConnectivityMonitor.instance.isEffectivelyOnline &&
+    if (OfflineLocalStore.isSupported &&
+        ConnectivityMonitor.instance.isEffectivelyOnline &&
         uid != null &&
         organizationId != null) {
       unawaited(syncNow());
@@ -59,25 +60,32 @@ class OfflineController extends ChangeNotifier {
       return;
     }
 
-    try {
-      pendingOps = await OfflineLocalStore.instance.countPending(
-        organizationId: orgId,
-        uid: uid,
-      );
-      pendingQuotes = await OfflineLocalStore.instance.countPendingQuotes(
-        organizationId: orgId,
-        uid: uid,
-      );
-      pendingFiles = await OfflineLocalStore.instance.countPendingFiles(
-        organizationId: orgId,
-        uid: uid,
-      );
-    } catch (e) {
-      // Web u otros entornos sin SQLite.
-      debugPrint('offline refresh: $e');
+    if (!OfflineLocalStore.isSupported) {
+      // Web: sin cola SQLite; el estado depende solo de conectividad real.
       pendingOps = 0;
       pendingQuotes = 0;
       pendingFiles = 0;
+      lastError = null;
+    } else {
+      try {
+        pendingOps = await OfflineLocalStore.instance.countPending(
+          organizationId: orgId,
+          uid: uid,
+        );
+        pendingQuotes = await OfflineLocalStore.instance.countPendingQuotes(
+          organizationId: orgId,
+          uid: uid,
+        );
+        pendingFiles = await OfflineLocalStore.instance.countPendingFiles(
+          organizationId: orgId,
+          uid: uid,
+        );
+      } catch (e) {
+        debugPrint('offline refresh: $e');
+        pendingOps = 0;
+        pendingQuotes = 0;
+        pendingFiles = 0;
+      }
     }
 
     if (_syncing) {
@@ -99,6 +107,11 @@ class OfflineController extends ChangeNotifier {
     final uid = _uid;
     final orgId = _organizationId;
     if (uid == null || orgId == null || orgId.isEmpty) return;
+    if (!OfflineLocalStore.isSupported) {
+      // En Web no hay cola nativa que drenar.
+      await refresh();
+      return;
+    }
     if (_syncing) return;
 
     _syncing = true;

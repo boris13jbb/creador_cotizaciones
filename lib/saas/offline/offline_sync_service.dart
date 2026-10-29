@@ -45,6 +45,12 @@ class OfflineSyncService {
       lastItemError = 'Sincronización ya en curso.';
       return 0;
     }
+    // Web no tiene cola SQLite; no abortar como «firebase_unreachable».
+    if (!OfflineLocalStore.isSupported) {
+      debugPrint('offline sync skip: no SQLite queue on this platform');
+      lastItemError = null;
+      return 0;
+    }
     final reachable = await canReachFirebase();
     if (!reachable) {
       debugPrint('offline sync abort: firebase_unreachable');

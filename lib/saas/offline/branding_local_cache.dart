@@ -100,6 +100,7 @@ class BrandingLocalCache {
     required OrgBranding branding,
     bool pending = false,
   }) async {
+    if (kIsWeb || !OfflineLocalStore.isSupported) return;
     final existing = await OfflineLocalStore.instance.getBranding(
       organizationId: organizationId,
       uid: uid,

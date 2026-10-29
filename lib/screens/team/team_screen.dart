@@ -217,8 +217,8 @@ class _TeamScreenState extends State<TeamScreen> {
         ],
       ),
       body: SafeArea(
-        child: ContentConstraint(
-          padding: AppSpacing.pageWide,
+        child: ContentConstraint.form(
+          padding: Responsive.pagePadding(context),
           child: AsyncStateView(
             loading: _loading,
             error: _error?.toString(),

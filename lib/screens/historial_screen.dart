@@ -198,7 +198,9 @@ class _HistorialScreenState extends State<HistorialScreen> {
   @override
   Widget build(BuildContext context) {
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !widget.embeddedInShell || useRail;
+    // En Web el AppShell ya muestra título en la cabecera; evitar AppBar duplicado.
+    final showAppBar = !widget.embeddedInShell ||
+        (useRail && !Responsive.isWebAdaptive);
     final query = _queryController.text;
 
     return Scaffold(
@@ -224,6 +226,9 @@ class _HistorialScreenState extends State<HistorialScreen> {
           : null,
       body: SafeArea(
         child: ContentConstraint(
+          padding: Responsive.isCompact(context)
+              ? EdgeInsets.zero
+              : Responsive.pagePadding(context).copyWith(top: 0, bottom: 0),
           child: Column(
             children: [
               Padding(
@@ -257,38 +262,21 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   onChanged: (_) => setState(() {}),
                 ),
               ),
-              SizedBox(
-                height: 44,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
-                  children: [
-                    FilterChip(
-                      label: Text(context.l10n.all),
-                      selected: _statusFilter == null,
-                      onSelected: (_) {
-                        setState(() => _statusFilter = null);
-                        _loadInitial();
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    for (final s in HistorialQuery.filterableStatuses) ...[
-                      FilterChip(
-                        label: Text(
-                          HistorialQuery.statusLabel(s, context.l10n),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: Responsive.isCompact(context)
+                    ? SizedBox(
+                        height: 44,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          children: _statusFilterChips(context),
                         ),
-                        selected: _statusFilter == s.id,
-                        onSelected: (_) {
-                          setState(() => _statusFilter = s.id);
-                          _loadInitial();
-                        },
+                      )
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: _statusFilterChips(context),
                       ),
-                      const SizedBox(width: 8),
-                    ],
-                  ],
-                ),
               ),
               if (_remoteFailed && _items.isNotEmpty)
                 Material(
@@ -376,6 +364,28 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
+  List<Widget> _statusFilterChips(BuildContext context) {
+    return [
+      FilterChip(
+        label: Text(context.l10n.all),
+        selected: _statusFilter == null,
+        onSelected: (_) {
+          setState(() => _statusFilter = null);
+          _loadInitial();
+        },
+      ),
+      for (final s in HistorialQuery.filterableStatuses)
+        FilterChip(
+          label: Text(HistorialQuery.statusLabel(s, context.l10n)),
+          selected: _statusFilter == s.id,
+          onSelected: (_) {
+            setState(() => _statusFilter = s.id);
+            _loadInitial();
+          },
+        ),
+    ];
+  }
+
   Widget _buildBody() {
     final filtered = HistorialQuery.applySearch(_items, _queryController.text);
     final hasQuery = _queryController.text.trim().isNotEmpty;
@@ -423,7 +433,12 @@ class _HistorialScreenState extends State<HistorialScreen> {
             )
           : ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                0,
+                AppSpacing.md,
+                AppSpacing.xl,
+              ),
               itemCount: filtered.length + ((_hasMore || _loadingMore) ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index >= filtered.length) {

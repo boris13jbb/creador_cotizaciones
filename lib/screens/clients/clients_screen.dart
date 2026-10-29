@@ -94,38 +94,36 @@ class _ClientsScreenState extends State<ClientsScreen> {
       context: context,
       builder: (ctx) {
         final l10n = ctx.l10n;
-        return AlertDialog(
+        return AdaptiveAlertDialog(
           title: Text(existing == null ? l10n.newClient : l10n.editClient),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(
-                    labelText: l10n.fieldClientNameRequired,
-                  ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: InputDecoration(
+                  labelText: l10n.fieldClientNameRequired,
                 ),
-                TextField(
-                  controller: idCtrl,
-                  decoration: InputDecoration(
-                    labelText: l10n.fieldIdentification,
-                  ),
+              ),
+              TextField(
+                controller: idCtrl,
+                decoration: InputDecoration(
+                  labelText: l10n.fieldIdentification,
                 ),
-                TextField(
-                  controller: emailCtrl,
-                  decoration: InputDecoration(labelText: l10n.email),
-                ),
-                TextField(
-                  controller: phoneCtrl,
-                  decoration: InputDecoration(labelText: l10n.fieldPhone),
-                ),
-                TextField(
-                  controller: addressCtrl,
-                  decoration: InputDecoration(labelText: l10n.fieldAddress),
-                ),
-              ],
-            ),
+              ),
+              TextField(
+                controller: emailCtrl,
+                decoration: InputDecoration(labelText: l10n.email),
+              ),
+              TextField(
+                controller: phoneCtrl,
+                decoration: InputDecoration(labelText: l10n.fieldPhone),
+              ),
+              TextField(
+                controller: addressCtrl,
+                decoration: InputDecoration(labelText: l10n.fieldAddress),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -172,41 +170,38 @@ class _ClientsScreenState extends State<ClientsScreen> {
       context: context,
       builder: (ctx) {
         final l10n = ctx.l10n;
-        return AlertDialog(
+        return AdaptiveAlertDialog(
           title: Text(l10n.importClientsCsvTitle),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.importCsvHelp(ClientCsvImportService.templateHeader),
-                  style: Theme.of(ctx).textTheme.bodySmall,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.importCsvHelp(ClientCsvImportService.templateHeader),
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Clipboard.setData(
+                    const ClipboardData(
+                      text:
+                          '${ClientCsvImportService.templateHeader}\n'
+                          'Acme SA,info@acme.com,+593999,1790012345001,Quito,,EC,',
+                    ),
+                  );
+                },
+                child: Text(l10n.copyTemplate),
+              ),
+              TextField(
+                controller: csvCtrl,
+                maxLines: 8,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: 'name,email,phone,...',
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () {
-                    Clipboard.setData(
-                      const ClipboardData(
-                        text:
-                            '${ClientCsvImportService.templateHeader}\n'
-                            'Acme SA,info@acme.com,+593999,1790012345001,Quito,,EC,',
-                      ),
-                    );
-                  },
-                  child: Text(l10n.copyTemplate),
-                ),
-                TextField(
-                  controller: csvCtrl,
-                  maxLines: 10,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'name,email,phone,...',
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           actions: [
             TextButton(

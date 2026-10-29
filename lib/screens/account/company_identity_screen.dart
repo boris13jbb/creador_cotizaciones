@@ -199,6 +199,11 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
             pendingUpload: false,
           );
         } else {
+          if (!OfflineLocalStore.isSupported) {
+            throw Exception(
+              'Sin conexión. En Web no hay cola offline; reintenta cuando haya red.',
+            );
+          }
           final localPath = await BrandingLocalCache.instance.saveLogoBytes(
             organizationId: orgId,
             uid: uid,
@@ -492,7 +497,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
           ],
         ),
         body: SafeArea(
-          child: ContentConstraint(
+          child: ContentConstraint.form(
             padding: AppSpacing.page,
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
