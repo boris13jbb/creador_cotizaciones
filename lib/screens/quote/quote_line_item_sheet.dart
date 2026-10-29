@@ -119,9 +119,8 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
                 controller: _name,
                 decoration: InputDecoration(labelText: l10n.name),
                 textInputAction: TextInputAction.next,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? l10n.requiredField
-                    : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
               ),
               const SizedBox(height: AppSpacing.sm),
               TextFormField(
@@ -204,15 +203,10 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
               const SizedBox(height: AppSpacing.sm),
               TextFormField(
                 controller: _code,
-                decoration: InputDecoration(
-                  labelText: l10n.fieldCodeOptional,
-                ),
+                decoration: InputDecoration(labelText: l10n.fieldCodeOptional),
               ),
               const SizedBox(height: AppSpacing.lg),
-              FilledButton(
-                onPressed: _submit,
-                child: Text(l10n.saveLineItem),
-              ),
+              FilledButton(onPressed: _submit, child: Text(l10n.saveLineItem)),
               const SizedBox(height: AppSpacing.sm),
             ],
           ),

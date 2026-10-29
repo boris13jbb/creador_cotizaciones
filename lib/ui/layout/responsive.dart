@@ -71,10 +71,7 @@ abstract final class Responsive {
   }
 
   /// Ancho máximo de contenido según el tipo de página.
-  static double contentMaxWidth({
-    bool form = false,
-    double? override,
-  }) {
+  static double contentMaxWidth({bool form = false, double? override}) {
     if (override != null) return override;
     return form ? AppBreakpoints.formMax : AppBreakpoints.contentMax;
   }
@@ -111,11 +108,8 @@ class ContentConstraint extends StatelessWidget {
   });
 
   /// Variante para formularios / ajustes (ancho útil más estrecho).
-  const ContentConstraint.form({
-    super.key,
-    required this.child,
-    this.padding,
-  }) : maxWidth = AppBreakpoints.formMax;
+  const ContentConstraint.form({super.key, required this.child, this.padding})
+    : maxWidth = AppBreakpoints.formMax;
 
   @override
   Widget build(BuildContext context) {
@@ -184,9 +178,7 @@ class AdaptiveAlertDialog extends StatelessWidget {
     final maxW = size.width < AppBreakpoints.medium
         ? size.width - 48
         : AppBreakpoints.dialogMax;
-    final body = scrollable
-        ? SingleChildScrollView(child: content)
-        : content;
+    final body = scrollable ? SingleChildScrollView(child: content) : content;
     return AlertDialog(
       title: title,
       content: SizedBox(width: maxW, child: body),
@@ -234,10 +226,7 @@ class AdaptiveActionBar extends StatelessWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.xs,
-                children: [
-                  ...leading,
-                  ...trailing,
-                ],
+                children: [...leading, ...trailing],
               ),
             ],
           )
@@ -326,10 +315,7 @@ class ResponsiveGrid extends StatelessWidget {
                 width: itemW > 0 ? itemW : maxW,
                 child: childAspectRatio == null
                     ? child
-                    : AspectRatio(
-                        aspectRatio: childAspectRatio!,
-                        child: child,
-                      ),
+                    : AspectRatio(aspectRatio: childAspectRatio!, child: child),
               ),
           ],
         );

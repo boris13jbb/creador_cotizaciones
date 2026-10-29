@@ -199,8 +199,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
   Widget build(BuildContext context) {
     final useRail = Responsive.useNavigationRail(context);
     // En Web el AppShell ya muestra título en la cabecera; evitar AppBar duplicado.
-    final showAppBar = !widget.embeddedInShell ||
-        (useRail && !Responsive.isWebAdaptive);
+    final showAppBar =
+        !widget.embeddedInShell || (useRail && !Responsive.isWebAdaptive);
     final query = _queryController.text;
 
     return Scaffold(

@@ -105,10 +105,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         body: Center(
           child: Padding(
             padding: AppSpacing.page,
-            child: Text(
-              l10n.noActiveOrganization,
-              textAlign: TextAlign.center,
-            ),
+            child: Text(l10n.noActiveOrganization, textAlign: TextAlign.center),
           ),
         ),
       );
@@ -274,9 +271,9 @@ class _BottomBar extends StatelessWidget {
       totals.total.format(),
       overflow: TextOverflow.ellipsis,
       textAlign: TextAlign.end,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w700,
-      ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
     );
 
     final primary = controller.step < QuoteEditorController.stepCount - 1
@@ -520,7 +517,10 @@ class _ItemsStep extends StatelessWidget {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(l10n.stepItems, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              l10n.stepItems,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             TextButton(
               onPressed: () async {
                 final orgId = controller.organizationId;
@@ -1095,7 +1095,10 @@ class _ReviewStep extends StatelessWidget {
     final t = controller.totals;
     return ListView(
       children: [
-        Text(l10n.reviewSummary, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          l10n.reviewSummary,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: AppSpacing.sm),
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -1107,7 +1110,9 @@ class _ReviewStep extends StatelessWidget {
         Text('${context.l10n.discountsLabel}: -${t.linesDiscount.format()}'),
         Text('${l10n.taxes}: ${t.linesTax.format()}'),
         if (t.globalDiscount.cents > 0)
-          Text('${context.l10n.globalDiscountLabel}: -${t.globalDiscount.format()}'),
+          Text(
+            '${context.l10n.globalDiscountLabel}: -${t.globalDiscount.format()}',
+          ),
         if (t.charges.cents > 0)
           Text('${l10n.fieldExtraCharges}: ${t.charges.format()}'),
         const SizedBox(height: AppSpacing.sm),

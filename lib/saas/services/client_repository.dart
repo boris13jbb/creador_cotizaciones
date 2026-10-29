@@ -114,9 +114,7 @@ class ClientRepository {
       }
       return result;
     } catch (e) {
-      if (uid != null &&
-          !skipOfflineMirror &&
-          OfflineLocalStore.isSupported) {
+      if (uid != null && !skipOfflineMirror && OfflineLocalStore.isSupported) {
         await OfflineLocalStore.instance.enqueue(
           organizationId: organizationId,
           uid: uid,

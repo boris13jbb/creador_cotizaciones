@@ -102,9 +102,9 @@ class _TeamScreenState extends State<TeamScreen> {
     final membership = await _myMembership(auth, orgId);
     if (!mounted) return;
     if (membership == null || !membership.role.canManageOrg) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.inviteOwnersOnly)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.inviteOwnersOnly)));
       return;
     }
 
@@ -185,9 +185,9 @@ class _TeamScreenState extends State<TeamScreen> {
     try {
       await OrgTeamService.instance.acceptInvite(token: tokenCtrl.text.trim());
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.inviteAccepted)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.inviteAccepted)));
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -209,10 +209,7 @@ class _TeamScreenState extends State<TeamScreen> {
       appBar: AppBar(
         title: Text(l10n.teamTitle),
         actions: [
-          TextButton(
-            onPressed: _acceptDialog,
-            child: Text(l10n.acceptInvite),
-          ),
+          TextButton(onPressed: _acceptDialog, child: Text(l10n.acceptInvite)),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),

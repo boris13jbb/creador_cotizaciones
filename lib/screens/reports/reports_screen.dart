@@ -110,8 +110,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final l10n = context.l10n;
     final locale = Localizations.localeOf(context).toString();
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !widget.embeddedInShell ||
-        (useRail && !Responsive.isWebAdaptive);
+    final showAppBar =
+        !widget.embeddedInShell || (useRail && !Responsive.isWebAdaptive);
     final money = NumberFormat.currency(
       locale: locale,
       symbol: r'$',

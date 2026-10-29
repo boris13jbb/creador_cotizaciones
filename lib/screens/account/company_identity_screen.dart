@@ -111,9 +111,9 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
     final auth = context.read<AuthController>();
     if (auth.canCustomBranding) return true;
     if (!mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.brandingProRequired)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.brandingProRequired)));
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const PricingScreen()),
@@ -385,9 +385,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
             : l10n.brandingSaveFailed;
       }
     });
-    _showMessage(
-      ok ? l10n.brandingSavedOk : (_error ?? l10n.saveErrorGeneric),
-    );
+    _showMessage(ok ? l10n.brandingSavedOk : (_error ?? l10n.saveErrorGeneric));
   }
 
   Future<bool> _confirmDiscard() async {

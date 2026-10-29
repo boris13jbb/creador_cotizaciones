@@ -127,9 +127,9 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
 
   Future<void> _ensurePro() async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.brandingProRequired)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.brandingProRequired)));
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const PricingScreen()),
@@ -146,9 +146,9 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
     final orgId = auth.organizationId;
     final uid = auth.sessionUid;
     if (orgId == null || uid == null || uid.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.mustSignIn)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.mustSignIn)));
       return;
     }
 
@@ -161,9 +161,9 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.imagePickerFailed)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.l10n.imagePickerFailed)));
       return;
     }
     if (picked == null) return;
@@ -475,9 +475,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.image_outlined),
-              label: Text(
-                hasCustomLogo ? l10n.changeLogo : l10n.uploadLogo,
-              ),
+              label: Text(hasCustomLogo ? l10n.changeLogo : l10n.uploadLogo),
             ),
             if (hasCustomLogo)
               TextButton(
@@ -594,10 +592,7 @@ class _QuoteBrandingSectionState extends State<QuoteBrandingSection> {
           ),
           items: [
             for (final p in WatermarkPosition.values)
-              DropdownMenuItem(
-                value: p,
-                child: Text(p.l10nLabel(l10n)),
-              ),
+              DropdownMenuItem(value: p, child: Text(p.l10nLabel(l10n))),
           ],
           onChanged: locked || !layout.watermarkEnabled
               ? null

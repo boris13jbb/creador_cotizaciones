@@ -231,12 +231,7 @@ class OfflineLocalStore {
       'sync_queue',
       where:
           'organization_id = ? AND uid = ? AND entity_id = ? AND entity_type = ?',
-      whereArgs: [
-        organizationId,
-        uid,
-        quoteId,
-        OfflineEntityType.quote.id,
-      ],
+      whereArgs: [organizationId, uid, quoteId, OfflineEntityType.quote.id],
     );
   }
 

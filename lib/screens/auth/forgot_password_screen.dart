@@ -31,9 +31,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => _sending = false);
     final l10n = context.l10n;
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.forgotPasswordSent)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.forgotPasswordSent)));
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

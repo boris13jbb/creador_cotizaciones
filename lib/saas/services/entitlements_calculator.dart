@@ -60,9 +60,9 @@ class EntitlementsService {
           reason: entitlements.grantWindowInvalid
               ? 'admin_grant_invalido'
               : (entitlements.grantStartsAt != null &&
-                      n.isBefore(entitlements.grantStartsAt!.toUtc())
-                  ? 'admin_grant_programado'
-                  : 'admin_grant_expirado'),
+                        n.isBefore(entitlements.grantStartsAt!.toUtc())
+                    ? 'admin_grant_programado'
+                    : 'admin_grant_expirado'),
         );
       }
     }

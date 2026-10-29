@@ -178,10 +178,12 @@ class Entitlements {
     final start = _prefer(map['grantStartsAtTs'], map['grantStartsAt']);
     final end = _prefer(map['grantExpiresAtTs'], map['grantExpiresAt']);
     final modality = map['grantModality'] as String?;
-    final temporal = modality == 'temporary' ||
+    final temporal =
+        modality == 'temporary' ||
         start.kind != GrantInstantKind.absent ||
         end.kind != GrantInstantKind.absent;
-    final invalid = temporal &&
+    final invalid =
+        temporal &&
         (start.kind == GrantInstantKind.invalid ||
             end.kind == GrantInstantKind.invalid ||
             end.kind == GrantInstantKind.absent);
@@ -201,10 +203,10 @@ class Entitlements {
       grantReason: map['grantReason'] as String?,
       grantedByUid: map['grantedByUid'] as String?,
       grantId: map['grantId'] as String?,
-      createdAt: parseGrantInstant(map['createdAt']).value ??
-          DateTime.now().toUtc(),
-      updatedAt: parseGrantInstant(map['updatedAt']).value ??
-          DateTime.now().toUtc(),
+      createdAt:
+          parseGrantInstant(map['createdAt']).value ?? DateTime.now().toUtc(),
+      updatedAt:
+          parseGrantInstant(map['updatedAt']).value ?? DateTime.now().toUtc(),
       grantWindowInvalid: invalid,
     );
   }

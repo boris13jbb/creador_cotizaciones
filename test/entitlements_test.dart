@@ -140,9 +140,7 @@ void main() {
       expect(calc.evaluate(ent, now: now).isPro, isFalse);
       expect(calc.evaluate(ent, now: now).reason, 'admin_grant_programado');
       expect(
-        calc
-            .evaluate(ent, now: now.add(const Duration(days: 2)))
-            .isPro,
+        calc.evaluate(ent, now: now.add(const Duration(days: 2))).isPro,
         isTrue,
       );
     });

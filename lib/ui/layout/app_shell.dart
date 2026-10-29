@@ -159,14 +159,10 @@ class _AppShellState extends State<AppShell> {
                 minExtendedWidth: 208,
                 leading: web
                     ? IconButton(
-                        tooltip: extended
-                            ? l10n.collapseMenu
-                            : l10n.expandMenu,
+                        tooltip: extended ? l10n.collapseMenu : l10n.expandMenu,
                         onPressed: () =>
                             setState(() => _railExtended = !_railExtended),
-                        icon: Icon(
-                          extended ? Icons.menu_open : Icons.menu,
-                        ),
+                        icon: Icon(extended ? Icons.menu_open : Icons.menu),
                       )
                     : Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -216,9 +212,7 @@ class _AppShellState extends State<AppShell> {
                               Expanded(
                                 child: Text(
                                   _title(context),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
+                                  style: Theme.of(context).textTheme.titleLarge
                                       ?.copyWith(fontWeight: FontWeight.w600),
                                   overflow: TextOverflow.ellipsis,
                                 ),

@@ -82,9 +82,7 @@ class _AccountScreenState extends State<AccountScreen>
       final l10n = context.l10n;
       final msg = (err != null && err.isNotEmpty)
           ? l10n.syncWithError(before, after, err)
-          : (after == 0
-                ? l10n.syncCompleted
-                : l10n.syncPartial(after));
+          : (after == 0 ? l10n.syncCompleted : l10n.syncPartial(after));
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
       if (mounted) setState(() => _syncing = false);
@@ -101,8 +99,8 @@ class _AccountScreenState extends State<AccountScreen>
     final profile = auth.profile;
     final access = auth.access;
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !widget.embeddedInShell ||
-        (useRail && !Responsive.isWebAdaptive);
+    final showAppBar =
+        !widget.embeddedInShell || (useRail && !Responsive.isWebAdaptive);
     final sessionEmail = auth.user?.email ?? profile?.email ?? '';
 
     return Scaffold(
@@ -212,9 +210,7 @@ class _AccountScreenState extends State<AccountScreen>
                           ? l10n.pendingChangesQuotes(offline.pendingQuotes)
                           : offline.statusLabel(),
                     ),
-                    subtitle: Text(
-                      offline.lastError ?? l10n.pendingUntilSync,
-                    ),
+                    subtitle: Text(offline.lastError ?? l10n.pendingUntilSync),
                     trailing: TextButton(
                       onPressed: _syncing ? null : _onSyncNow,
                       child: _syncing
@@ -461,9 +457,7 @@ class _AccountScreenState extends State<AccountScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                title: Text(l10n.pickThemeTitle),
-              ),
+              ListTile(title: Text(l10n.pickThemeTitle)),
               ListTile(
                 leading: const Icon(Icons.brightness_auto),
                 title: Text(l10n.themeSystem),
@@ -579,9 +573,7 @@ class _AccountScreenState extends State<AccountScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.deleteAccount),
-        content: Text(
-          '${l10n.deleteAccount}. ${l10n.signOutConfirm}',
-        ),
+        content: Text('${l10n.deleteAccount}. ${l10n.signOutConfirm}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

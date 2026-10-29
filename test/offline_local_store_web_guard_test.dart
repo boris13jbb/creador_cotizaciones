@@ -78,16 +78,19 @@ void main() {
     );
   });
 
-  test('simulación Web: syncPending no aborta como firebase_unreachable', () async {
-    OfflineLocalStore.supportedOverrideForTests = false;
-    final n = await OfflineSyncService.instance.syncPending(
-      organizationId: 'org-web',
-      uid: 'u1',
-      forceRetry: true,
-    );
-    expect(n, 0);
-    expect(OfflineSyncService.instance.lastItemError, isNull);
-  });
+  test(
+    'simulación Web: syncPending no aborta como firebase_unreachable',
+    () async {
+      OfflineLocalStore.supportedOverrideForTests = false;
+      final n = await OfflineSyncService.instance.syncPending(
+        organizationId: 'org-web',
+        uid: 'u1',
+        forceRetry: true,
+      );
+      expect(n, 0);
+      expect(OfflineSyncService.instance.lastItemError, isNull);
+    },
+  );
 
   test('simulación nativa: isSupported permanece activo', () {
     OfflineLocalStore.supportedOverrideForTests = true;
