@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/auth_error_l10n.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/config/saas_config.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../ui/tokens/app_spacing.dart';
@@ -18,17 +20,27 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   bool _submitting = false;
+  bool _seededDefault = false;
 
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: 'Mi empresa');
+    _nameCtrl = TextEditingController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_seededDefault) return;
+    _seededDefault = true;
+    final l10n = context.l10n;
+    _nameCtrl.text = l10n.defaultCompanyName;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final auth = context.read<AuthController>();
       final hint = auth.profile?.displayName ?? auth.user?.displayName ?? '';
-      if (hint.isNotEmpty && _nameCtrl.text == 'Mi empresa') {
-        _nameCtrl.text = '$hint — Empresa';
+      if (hint.isNotEmpty && _nameCtrl.text == l10n.defaultCompanyName) {
+        _nameCtrl.text = '$hint ${l10n.defaultCompanySuffix}';
       }
     });
   }
@@ -49,7 +61,9 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
     if (!ok) {
-      final msg = auth.error ?? 'No se pudo crear la organización.';
+      final msg = auth.error != null
+          ? localizeAuthError(context.l10n, auth.error)
+          : context.l10n.createOrganizationFailed;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -57,6 +71,7 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final auth = context.watch<AuthController>();
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
@@ -84,7 +99,7 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      'Crea tu organización',
+                      l10n.setupOrgTitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w700,
@@ -92,9 +107,7 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'En ${SaasConfig.productName} cada cuenta trabaja '
-                      'dentro de una empresa. Así guardamos clientes, '
-                      'catálogo y cotizaciones.',
+                      l10n.setupOrgBody(SaasConfig.productName),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -105,15 +118,15 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
                       controller: _nameCtrl,
                       textInputAction: TextInputAction.done,
                       enabled: !_submitting && !auth.loading,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre de la empresa',
-                        hintText: 'Ej. Servicios JB',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l10n.companyName,
+                        hintText: l10n.companyNameHint,
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (v) {
                         final t = v?.trim() ?? '';
-                        if (t.isEmpty) return 'Ingresa el nombre de la empresa';
-                        if (t.length < 2) return 'Nombre demasiado corto';
+                        if (t.isEmpty) return l10n.enterCompanyName;
+                        if (t.length < 2) return l10n.companyNameTooShort;
                         return null;
                       },
                       onFieldSubmitted: (_) => _submit(),
@@ -121,7 +134,7 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
                     if (auth.error != null && auth.error!.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        auth.error!,
+                        localizeAuthError(l10n, auth.error),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.error,
                         ),
@@ -136,14 +149,14 @@ class _SetupOrganizationScreenState extends State<SetupOrganizationScreen> {
                               width: 22,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Continuar'),
+                          : Text(l10n.continueAction),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     TextButton(
                       onPressed: (_submitting || auth.loading)
                           ? null
                           : () => auth.signOut(),
-                      child: const Text('Cerrar sesión'),
+                      child: Text(l10n.signOut),
                     ),
                   ],
                 ),

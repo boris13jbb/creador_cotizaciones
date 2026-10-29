@@ -1,0 +1,117 @@
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:universal_io/io.dart';
+
+import '../models/org_branding.dart';
+import 'offline_local_store.dart';
+import 'offline_sync_status.dart';
+
+/// Caché de logo/branding en el almacenamiento de la app (persistente entre sesiones).
+class BrandingLocalCache {
+  BrandingLocalCache._();
+  static final BrandingLocalCache instance = BrandingLocalCache._();
+
+  /// Solo pruebas: evita `path_provider` en unit tests.
+  @visibleForTesting
+  static String? documentsRootOverride;
+
+  Future<Directory?> _orgDir(String organizationId) async {
+    if (kIsWeb) return null;
+    final root = documentsRootOverride != null
+        ? Directory(documentsRootOverride!)
+        : await getApplicationDocumentsDirectory();
+    final dir = Directory(
+      p.join(root.path, 'offline_branding', organizationId),
+    );
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    return dir;
+  }
+
+  Future<String?> saveLogoBytes({
+    required String organizationId,
+    required String uid,
+    required Uint8List bytes,
+    required OrgBranding branding,
+    bool pendingUpload = false,
+  }) async {
+    final dir = await _orgDir(organizationId);
+    if (dir == null) return null;
+    final file = File(p.join(dir.path, 'logo.bin'));
+    await file.writeAsBytes(bytes, flush: true);
+    await OfflineLocalStore.instance.saveBranding(
+      organizationId: organizationId,
+      uid: uid,
+      branding: branding,
+      logoLocalPath: file.path,
+      logoPendingUpload: pendingUpload,
+      status: pendingUpload
+          ? OfflineSyncStatus.pending
+          : OfflineSyncStatus.synced,
+    );
+    return file.path;
+  }
+
+  /// Logo solo para una cotización (sin depender de Firebase).
+  Future<String?> saveQuoteLogoBytes({
+    required String organizationId,
+    required String quoteId,
+    required Uint8List bytes,
+  }) async {
+    final dir = await _orgDir(organizationId);
+    if (dir == null) return null;
+    final quotesDir = Directory(p.join(dir.path, 'quote_logos'));
+    if (!await quotesDir.exists()) {
+      await quotesDir.create(recursive: true);
+    }
+    final safeId = quoteId.replaceAll(RegExp(r'[^\w\-]+'), '_');
+    final file = File(p.join(quotesDir.path, '$safeId.bin'));
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
+  }
+
+  Future<Uint8List?> loadLogoBytes({
+    required String organizationId,
+    required String uid,
+  }) async {
+    if (kIsWeb) return null;
+    try {
+      final cached = await OfflineLocalStore.instance.getBranding(
+        organizationId: organizationId,
+        uid: uid,
+      );
+      final path = cached?.logoLocalPath;
+      if (path == null || path.isEmpty) return null;
+      final file = File(path);
+      if (!await file.exists()) return null;
+      return file.readAsBytes();
+    } catch (e) {
+      // p. ej. databaseFactory no inicializado en tests sin sqflite_ffi.
+      debugPrint('BrandingLocalCache.loadLogoBytes: $e');
+      return null;
+    }
+  }
+
+  Future<void> saveBrandingConfig({
+    required String organizationId,
+    required String uid,
+    required OrgBranding branding,
+    bool pending = false,
+  }) async {
+    if (kIsWeb || !OfflineLocalStore.isSupported) return;
+    final existing = await OfflineLocalStore.instance.getBranding(
+      organizationId: organizationId,
+      uid: uid,
+    );
+    await OfflineLocalStore.instance.saveBranding(
+      organizationId: organizationId,
+      uid: uid,
+      branding: branding,
+      logoLocalPath: existing?.logoLocalPath,
+      logoPendingUpload: existing?.logoPending ?? false,
+      status: pending ? OfflineSyncStatus.pending : OfflineSyncStatus.synced,
+    );
+  }
+}

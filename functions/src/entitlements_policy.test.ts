@@ -5,8 +5,11 @@ import {
   FREE_MAX_SEATS,
   PRO_MAX_SEATS,
   TRIAL_DAYS,
+  FREE_MAX_QUOTES,
+  PAID_MAX_QUOTES,
   clampTrialEndsAt,
   isTrialActive,
+  resolveMaxQuotes,
   resolveMaxSeats,
 } from "./entitlements_policy";
 
@@ -96,5 +99,119 @@ describe("isTrialActive / resolveMaxSeats", () => {
 
   it("sin entitlements → 1 asiento", () => {
     assert.equal(resolveMaxSeats(null, now), FREE_MAX_SEATS);
+  });
+});
+
+describe("resolveMaxQuotes", () => {
+  const now = new Date("2026-01-05T00:00:00.000Z");
+
+  it("sin entitlements → Free (5)", () => {
+    assert.equal(resolveMaxQuotes(null, now), FREE_MAX_QUOTES);
+  });
+
+  it("trial activo → tope Pro", () => {
+    const ent = {
+      plan: "free",
+      subscriptionStatus: "trialing",
+      trialEndsAt: "2026-01-14T00:00:00.000Z",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      source: "signup",
+    };
+    assert.equal(resolveMaxQuotes(ent, now), PAID_MAX_QUOTES);
+  });
+
+  it("pro/business active → tope Pro", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {plan: "pro", subscriptionStatus: "active", source: "stripe"},
+        now,
+      ),
+      PAID_MAX_QUOTES,
+    );
+    assert.equal(
+      resolveMaxQuotes(
+        {plan: "business", subscriptionStatus: "active", source: "stripe"},
+        now,
+      ),
+      PAID_MAX_QUOTES,
+    );
+  });
+
+  it("free active → 5", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {plan: "free", subscriptionStatus: "active", source: "signup"},
+        now,
+      ),
+      FREE_MAX_QUOTES,
+    );
+  });
+
+  it("admin_grant vigente → PAID; programado/vencido → FREE", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "pro",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantStartsAt: "2026-01-01T00:00:00.000Z",
+          grantExpiresAt: "2026-01-10T00:00:00.000Z",
+        },
+        now,
+      ),
+      PAID_MAX_QUOTES,
+    );
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "pro",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantModality: "temporary",
+          grantStartsAt: "2026-01-06T00:00:00.000Z",
+          grantExpiresAt: "2026-01-12T00:00:00.000Z",
+        },
+        now,
+      ),
+      FREE_MAX_QUOTES,
+    );
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "business",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantExpiresAt: "2026-01-01T00:00:00.000Z",
+        },
+        now,
+      ),
+      FREE_MAX_QUOTES,
+    );
+  });
+
+  it("admin_grant legado sin fechas → PAID", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {plan: "pro", subscriptionStatus: "active", source: "admin_grant"},
+        now,
+      ),
+      PAID_MAX_QUOTES,
+    );
+  });
+
+  it("admin_grant temporal inválido → FREE", () => {
+    assert.equal(
+      resolveMaxQuotes(
+        {
+          plan: "pro",
+          subscriptionStatus: "active",
+          source: "admin_grant",
+          grantModality: "temporary",
+          grantExpiresAt: "no-fecha",
+        },
+        now,
+      ),
+      FREE_MAX_QUOTES,
+    );
   });
 });

@@ -119,9 +119,13 @@ class EntitlementsRepository {
     required String uid,
     AuthSession? session,
   }) async {
+    // Misma región Gen2 y token fresco que createOrgQuote.
+    await AuthService.instance.ensureCallableAuth(forceRefresh: true);
+
     if (_useRest) {
       final s = session ?? AuthService.instance.restSession;
       if (s == null) throw Exception('Sesión REST no disponible');
+      final refreshed = await AuthService.instance.ensureValidRestSession();
       final projectId = Firebase.app().options.projectId;
       final base = SaasConfig.functionsBaseUrl.isNotEmpty
           ? SaasConfig.functionsBaseUrl
@@ -130,20 +134,20 @@ class EntitlementsRepository {
       final res = await http.post(
         uri,
         headers: {
-          'Authorization': 'Bearer ${s.idToken}',
+          'Authorization': 'Bearer ${refreshed.idToken}',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({'data': <String, dynamic>{}}),
       );
       if (res.statusCode < 200 || res.statusCode >= 300) {
-        throw Exception(
-          'ensureMyEntitlements HTTP ${res.statusCode}: ${res.body}',
-        );
+        // No volcar body completo (puede incluir detalles sensibles).
+        throw Exception('ensureMyEntitlements HTTP ${res.statusCode}');
       }
     } else {
-      await FirebaseFunctions.instance
-          .httpsCallable('ensureMyEntitlements')
-          .call(<String, dynamic>{});
+      await FirebaseFunctions.instanceFor(
+        app: Firebase.app(),
+        region: 'us-central1',
+      ).httpsCallable('ensureMyEntitlements').call(<String, dynamic>{});
     }
 
     final created = await _get(uid, session: session);

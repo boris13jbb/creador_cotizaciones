@@ -1,0 +1,786 @@
+{
+  "@@locale": "en",
+  "appTitle": "CotiApp",
+  "navHome": "Home",
+  "navHistory": "History",
+  "navReports": "Reports",
+  "navPlans": "Plans",
+  "navAccount": "Account",
+  "collapseMenu": "Collapse menu",
+  "expandMenu": "Expand menu",
+  "homeHeadline": "What would you like to create today?",
+  "homeSubtitle": "Professional quotes synced to the cloud",
+  "recentQuotes": "Recent quotes",
+  "viewAll": "View all",
+  "reportsTileSubtitle": "KPIs and export",
+  "myAccount": "My account",
+  "settings": "Settings",
+  "appearance": "Appearance",
+  "language": "Language",
+  "languageSubtitle": "App interface language",
+  "languageSpanish": "Español",
+  "languageEnglish": "English",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "System",
+  "search": "Search",
+  "searchHintQuotes": "Number, client, description or service",
+  "searchHelperLoaded": "Search applies to quotes already loaded",
+  "searchHelperLoadMore": "Search applies to quotes already loaded. Use “Load more” to expand.",
+  "clear": "Clear",
+  "all": "All",
+  "statusDraft": "Draft",
+  "statusSent": "Sent",
+  "statusViewed": "Viewed",
+  "statusAccepted": "Accepted",
+  "statusRejected": "Rejected",
+  "statusExpired": "Expired",
+  "statusConverted": "Converted",
+  "statusArchived": "Archived",
+  "viewPdf": "View PDF",
+  "edit": "Edit",
+  "duplicate": "Duplicate",
+  "newVersion": "New version",
+  "archive": "Archive",
+  "restoreToDraft": "Restore to draft",
+  "hideFromRecent": "Hide from recent",
+  "delete": "Delete",
+  "cancel": "Cancel",
+  "save": "Save",
+  "loading": "Loading",
+  "retry": "Retry",
+  "refresh": "Refresh",
+  "loadMore": "Load more",
+  "offline": "Offline",
+  "offlineCheckNetwork": "Check your network and try again.",
+  "somethingWentWrong": "Something went wrong",
+  "pendingSync": "Pending synchronization",
+  "deviceOnly": "Device only",
+  "conflict": "Conflict",
+  "noResults": "No results",
+  "noSearchResults": "No search results",
+  "noSearchResultsHint": "No loaded quotes match “{query}”.",
+  "noSearchResultsLoadMore": "Try another term or load more quotes.",
+  "noQuotesForStatus": "No quotes in this status",
+  "noQuotesForStatusHint": "There are no visible “{status}” quotes.",
+  "noQuotesYet": "No saved quotes yet",
+  "noQuotesYetHint": "When you save one, it will appear here.",
+  "noQuotesHome": "No quotes yet",
+  "noQuotesHomeHint": "Create the first one to see it here.",
+  "historyRemoteFailedBanner": "Could not update from the server",
+  "historyRemoteFailedSubtitle": "Showing local data. Search does not delete records.",
+  "historyRemoteFailedSnack": "No remote connection: showing quotes on this device.",
+  "historyLoadFailed": "Could not load history. Check your connection.",
+  "historyLoadMoreFailed": "Could not load more: {error}",
+  "staleSentBanner": "{count} sent quote(s) with no reply (>7 days)",
+  "viewSent": "View sent",
+  "totalLabel": "Total: {amount}",
+  "noClient": "(No client)",
+  "actions": "Actions",
+  "deleteQuoteTitle": "Delete",
+  "deleteQuoteBody": "Delete quote {number}? This cannot be undone from the app.",
+  "deleteQuoteBodyShort": "Delete quote {number}?",
+  "duplicatedAs": "Duplicated as {number}",
+  "versionCreated": "Version {version} created",
+  "restoredToDraft": "Quote restored to draft",
+  "newQuote": "New",
+  "newQuoteFab": "New quote",
+  "userFallback": "User",
+  "emailVerified": "Email verified",
+  "verifyEmailTitle": "Verify your email",
+  "verifyEmailHint": "If you already opened the link in the browser, tap “Update status”. Resend only if you did not receive the email.",
+  "updateStatus": "Update status",
+  "resend": "Resend",
+  "emailVerifiedOk": "Email verified successfully",
+  "emailNotVerifiedYet": "Not verified yet. If you opened the link, tap “Update status” again.",
+  "verificationSent": "Verification email sent",
+  "couldNotSend": "Could not send",
+  "pendingChangesQuotes": "Pending changes · {count} quotes",
+  "pendingUntilSync": "Only on this device until synced.",
+  "syncNow": "Sync now",
+  "syncCompleted": "Sync completed",
+  "syncPartial": "Partial sync: {count} quotes still pending",
+  "syncWithError": "Sync: {before}→{after} pending. Error: {error}",
+  "clients": "Clients",
+  "clientsSubtitle": "Reusable directory",
+  "catalog": "Catalog",
+  "catalogSubtitle": "Products and services",
+  "team": "Team",
+  "teamManageSubtitle": "Members and invites (up to {max})",
+  "teamProOnly": "Available on Pro / Business",
+  "visualIdentity": "Visual identity",
+  "visualIdentityOk": "Company logo and colors",
+  "visualIdentityPro": "Available on Pro or trial",
+  "plan": "Plan",
+  "trialProActive": "· Pro trial active",
+  "planCanceled": "· Canceled",
+  "data": "Data",
+  "dataSyncedCloud": "Synced in the cloud (Firestore)",
+  "exportMyData": "Export my data",
+  "exportMyDataSubtitle": "Download JSON with profile and quotes",
+  "billingPortal": "Billing portal",
+  "billingPortalSubtitle": "Manage Stripe subscription",
+  "privacy": "Privacy",
+  "terms": "Terms",
+  "deleteAccount": "Delete account",
+  "signOut": "Sign out",
+  "signOutConfirm": "Are you sure you want to sign out?",
+  "signOutPendingWarning": "There are unsynced changes on this device. They will not be deleted, but another account cannot see them. Sign out anyway?",
+  "loginTitle": "Sign in",
+  "loginAction": "Sign in",
+  "createAccount": "Create account",
+  "forgotPassword": "Forgot your password?",
+  "email": "Email",
+  "password": "Password",
+  "name": "Name",
+  "confirmPassword": "Confirm password",
+  "registerTitle": "Create account",
+  "forgotPasswordTitle": "Reset password",
+  "sendResetLink": "Send link",
+  "setupOrganizationTitle": "Set up your organization",
+  "organizationName": "Organization name",
+  "continueAction": "Continue",
+  "reportsTitle": "Reports",
+  "pricingTitle": "Plans",
+  "pickThemeTitle": "Appearance",
+  "pdfProjectInfo": "PROJECT INFORMATION",
+  "pdfGeneralDescription": "GENERAL DESCRIPTION",
+  "pdfDescription": "DESCRIPTION",
+  "pdfValidity": "Validity: {days} days",
+  "pdfTechnicianSignature": "Technician signature",
+  "pdfClientSignature": "Client signature",
+  "offlineBannerPending": "Pending changes to sync",
+  "offlineBannerOffline": "Offline · working locally",
+  "offlineBannerError": "Sync error",
+  "offlineBannerSyncing": "Syncing…",
+  "requiredField": "Required field",
+  "enterEmail": "Enter your email",
+  "enterPassword": "Enter your password",
+  "invalidEmail": "Invalid email",
+  "welcome": "Welcome",
+  "loginSubtitle": "Sign in to manage your quotes in the cloud",
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "loginFailed": "Could not sign in",
+  "close": "Close",
+  "ok": "OK",
+  "yes": "Yes",
+  "no": "No",
+  "share": "Share",
+  "preview": "Preview",
+  "conditions": "Conditions",
+  "branding": "Branding",
+  "payment": "Payment",
+  "items": "Items",
+  "client": "Client",
+  "quoteNumber": "Number",
+  "description": "Description",
+  "notes": "Notes",
+  "includes": "Includes",
+  "excludes": "Excludes",
+  "emptyGeneric": "No data",
+  "update": "Update",
+  "registerTrialSubtitle": "Includes {days}-day Pro trial",
+  "@registerTrialSubtitle": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "enterName": "Enter your name",
+  "passwordMinLength": "At least 6 characters",
+  "confirmYourPassword": "Confirm your password",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "registerAction": "Sign up",
+  "alreadyHaveAccount": "I already have an account",
+  "registerFailed": "Could not create account",
+  "forgotPasswordSubtitle": "We will email you a link to reset your password",
+  "forgotPasswordSent": "We sent you a password reset link",
+  "forgotPasswordFailed": "Could not send email",
+  "back": "Back",
+  "setupOrgTitle": "Create your organization",
+  "setupOrgBody": "In {productName}, every account works within a company. That is how we store clients, catalog, and quotes.",
+  "@setupOrgBody": {
+    "placeholders": {
+      "productName": {"type": "String"}
+    }
+  },
+  "companyName": "Company name",
+  "companyNameHint": "e.g. Acme Services",
+  "defaultCompanyName": "My company",
+  "defaultCompanySuffix": "— Company",
+  "enterCompanyName": "Enter the company name",
+  "companyNameTooShort": "Name is too short",
+  "createOrganizationFailed": "Could not create organization.",
+  "noOrganization": "No organization",
+  "createOrganization": "Create organization",
+  "exportCsv": "Export CSV",
+  "reportsNeedOrganization": "You need an organization to view reports.",
+  "exportCsvProRequired": "CSV export requires Pro or Business.",
+  "emptySaveQuotesForKpis": "Save quotes to see KPIs.",
+  "commercialPerformance": "Commercial performance",
+  "kpiQuotes": "Quotes",
+  "kpiPipeline": "Pipeline",
+  "kpiAccepted": "Accepted",
+  "kpiConversion": "Conversion",
+  "kpiFollowUp": "Follow-up",
+  "kpiLast24h": "Last 24h",
+  "unusualUsageTitle": "High usage: {count} quotes in 24h",
+  "@unusualUsageTitle": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "unusualUsageSubtitle": "Review unusual activity or automations.",
+  "byStatus": "By status",
+  "recentActivity": "Recent activity",
+  "noAuditEventsYet": "No audit events yet.",
+  "newClient": "New client",
+  "editClient": "Edit client",
+  "fieldClientNameRequired": "Name *",
+  "fieldIdentification": "Tax ID / ID",
+  "fieldPhone": "Phone",
+  "fieldAddress": "Address",
+  "importClientsCsvTitle": "Import clients CSV",
+  "importCsvHelp": "Paste CSV. First row = header.\nTemplate: {header}",
+  "@importCsvHelp": {
+    "placeholders": {
+      "header": {"type": "String"}
+    }
+  },
+  "copyTemplate": "Copy template",
+  "importAction": "Import",
+  "importNoValidRows": "No valid rows",
+  "importResult": "Imported: {saved}",
+  "@importResult": {
+    "placeholders": {
+      "saved": {"type": "int"}
+    }
+  },
+  "emptyNoClients": "No clients",
+  "emptyCreateFirstClient": "Create the first one to reuse in quotes.",
+  "deleteConfirmNamed": "Delete {name}?",
+  "@deleteConfirmNamed": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "newCatalogItem": "New item",
+  "editCatalogItem": "Edit item",
+  "fieldCode": "Code",
+  "fieldCategory": "Category",
+  "fieldUnit": "Unit",
+  "fieldUnitPrice": "Unit price",
+  "fieldTaxPercent": "Tax %",
+  "catalogFab": "Item",
+  "emptyCatalog": "Catalog empty",
+  "emptyAddCatalogItems": "Add reusable products or services.",
+  "deleteConfirmItem": "Delete {name}?",
+  "@deleteConfirmItem": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "defaultUnitUnd": "ea",
+  "defaultCategoryGeneral": "General",
+  "teamTitle": "Team",
+  "acceptInvite": "Accept invitation",
+  "inviteOwnersOnly": "Only owner/admin can invite.",
+  "inviteCreatedTitle": "Invitation created",
+  "inviteShareToken": "Share this token with {email} (valid 7 days):\n\n{token}",
+  "@inviteShareToken": {
+    "placeholders": {
+      "email": {"type": "String"},
+      "token": {"type": "String"}
+    }
+  },
+  "copyToken": "Copy token",
+  "fieldInviteToken": "Invitation token",
+  "inviteAccepted": "Invitation accepted",
+  "teamProUpsellTitle": "Team management on Pro/Business",
+  "teamProUpsellBody": "Up to {maxSeats} seats on your current plan when active.",
+  "@teamProUpsellBody": {
+    "placeholders": {
+      "maxSeats": {"type": "int"}
+    }
+  },
+  "membersCount": "Members ({current}/{max})",
+  "@membersCount": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "max": {"type": "int"}
+    }
+  },
+  "roleLabel": "Role: {role}",
+  "@roleLabel": {
+    "placeholders": {
+      "role": {"type": "String"}
+    }
+  },
+  "deactivateMember": "Deactivate",
+  "inviteSection": "Invite",
+  "fieldRole": "Role",
+  "hintColleagueEmail": "colleague@company.com",
+  "createInvitation": "Create invitation",
+  "pendingInvites": "Pending",
+  "inviteExpires": "{role} · expires {date}",
+  "@inviteExpires": {
+    "placeholders": {
+      "role": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "choosePlanHeadline": "Choose the right plan for your business",
+  "effectivePlan": "Effective plan: {label}",
+  "@effectivePlan": {
+    "placeholders": {
+      "label": {"type": "String"}
+    }
+  },
+  "supportLine": "Support: {email}",
+  "@supportLine": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "priceContactUs": "Contact us",
+  "planCurrent": "Current plan",
+  "planActive": "Active",
+  "upgradeToPro": "Upgrade to Pro",
+  "featureFreeQuotes": "Up to {n} quotes",
+  "@featureFreeQuotes": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "featurePdfExport": "PDF export",
+  "featureCloudData": "Cloud data",
+  "trialProUntil": "Pro trial until {date}",
+  "@trialProUntil": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "exportFailed": "Export failed",
+  "accountDeleted": "Account deleted",
+  "accountDeleteFailed": "Could not delete account",
+  "docxProRequired": "DOCX export is available on Pro or Business.",
+  "generatingWord": "Generating Word…",
+  "wordReadyToShare": "Word ready to share",
+  "wordGenerateFailed": "Failed to generate Word",
+  "shareWhatsApp": "WhatsApp",
+  "shareEmail": "Email",
+  "shareSecureLink7d": "Copy secure link (7 days)",
+  "shareLinkRequiresCloud": "Organization and cloud quote required.",
+  "sharePdfFile": "Share PDF",
+  "shareQuote": "Share quote",
+  "sharePdfPreparing": "Preparing PDF…",
+  "sharePdfEmpty": "The generated PDF is empty. Try again.",
+  "sharePdfInvalid": "The PDF file is not valid.",
+  "sharePdfWriteFailed": "Could not save a temporary PDF for sharing.",
+  "sharePdfOpenFailed": "Could not open the share menu.",
+  "sharePdfBusy": "A PDF is already being prepared for sharing.",
+  "shareLinkUnavailableOffline": "Secure link unavailable offline. You can still share the PDF.",
+  "secureLinkTitle": "Secure link",
+  "quotePreviewTitle": "Quote: {number}",
+  "@quotePreviewTitle": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "tooltipEditQuote": "Edit quote",
+  "tooltipExportWord": "Export Word",
+  "tooltipDocxPro": "DOCX (Pro)",
+  "stepClient": "Client",
+  "stepItems": "Items",
+  "stepConditions": "Terms",
+  "stepReview": "Review",
+  "next": "Next",
+  "quoteSaved": "Saved {number}",
+  "@quoteSaved": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "noClientsHint": "No clients. Create one from Clients.",
+  "clientAndData": "Client and details",
+  "choose": "Choose",
+  "manage": "Manage",
+  "fieldLocation": "Location",
+  "fieldServiceType": "Service type",
+  "fieldValidityDays": "Validity (days)",
+  "hintDaysExample": "e.g. 15",
+  "emptyNoItemsYet": "No items yet",
+  "emptyCatalogHint": "Catalog empty. Add items in Catalog.",
+  "manageCatalog": "Manage catalog",
+  "commercialConditions": "Commercial terms",
+  "paymentMethod": "Payment method",
+  "totalBase": "Base total: {amount}",
+  "@totalBase": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "fieldDepositPercent": "Deposit %",
+  "fieldBalancePercent": "Balance %",
+  "use5050Split": "Use 50% deposit / 50% balance",
+  "singlePaymentHint": "The full amount is assigned to a single payment.",
+  "fieldDeliveryTime": "Delivery time",
+  "fieldQuoteValidityDays": "Validity (days)",
+  "fieldWarranty": "Warranty",
+  "fieldCommercialTerms": "Commercial terms and conditions",
+  "includesSection": "Includes",
+  "excludesSection": "Excludes",
+  "notesSection": "Additional notes",
+  "hintAddChip": "Add…",
+  "fieldGlobalDiscount": "Global discount %",
+  "fieldExtraCharges": "Extra charges",
+  "fieldStatus": "Status",
+  "reviewSummary": "Summary",
+  "subtotal": "Subtotal",
+  "taxes": "Taxes",
+  "total": "Total",
+  "saveAndPreviewPdf": "Save and preview PDF",
+  "noActiveOrganization": "No active organization yet.",
+  "unsavedChangesBadge": "Unsaved",
+  "brandingProRequired": "Custom branding is available on Pro or during trial.",
+  "brandingOwnerOnly": "Only the owner or an admin can change the logo.",
+  "needActiveOrganization": "Sign in with an active organization.",
+  "keepEditing": "Keep editing",
+  "exitWithoutSaving": "Leave without saving",
+  "unsavedExitTitle": "Unsaved changes",
+  "unsavedExitBody": "If you leave now, unsaved changes will be lost.",
+  "saveBrandingConfig": "Save settings",
+  "documentColors": "Document colors",
+  "watermarkSection": "Watermark",
+  "logoSizeSection": "Size on quote",
+  "alignmentSection": "Alignment",
+  "pdfPlacementSection": "PDF placement",
+  "previewQuoteHeader": "QUOTE (preview)",
+  "watermarkDisabledHint": "Watermark disabled",
+  "planLowerTier": "Lower plan",
+  "upgradeToBusiness": "Upgrade to Business",
+  "featureUnlimitedQuotes": "Unlimited quotes",
+  "featurePdfDocx": "PDF + DOCX",
+  "featureCustomBranding": "Custom branding",
+  "featureReportsCsv": "Reports + CSV",
+  "featureTeamSeats": "Team up to {n} seats",
+  "@featureTeamSeats": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "featureTrialDaysOnSignup": "{days}-day Pro trial on signup",
+  "@featureTrialDaysOnSignup": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "featurePrioritySupport": "Priority support",
+  "featureEverythingInPro": "Everything in Pro",
+  "featureUpToSeats": "Up to {n} seats",
+  "@featureUpToSeats": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "featureRolesListed": "Roles owner/admin/sales/readonly",
+  "featureReportsCsvAudit": "Reports + CSV + audit",
+  "discountsLabel": "Discounts",
+  "globalDiscountLabel": "Global discount",
+  "importRowsWithErrors": " · {n} row(s) with errors",
+  "@importRowsWithErrors": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "pdfServicesDetail": "SERVICE DETAILS",
+  "chargesLabel": "Charges",
+  "pdfProjectTotal": "PROJECT TOTAL",
+  "pdfPaymentMethod": "PAYMENT METHOD",
+  "pdfIncludes": "INCLUDES",
+  "pdfExcludes": "EXCLUDES",
+  "pdfNotes": "NOTES",
+  "pdfService": "SERVICE",
+  "pdfPrice": "PRICE",
+  "pdfQty": "QTY",
+  "pdfUnitPrice": "UNIT",
+  "pdfDiscountPct": "DISC%",
+  "pdfTaxPct": "TAX%",
+  "pdfNet": "NET",
+  "pdfAdditionalFields": "ADDITIONAL FIELDS",
+  "paymentModeSingle": "Single payment",
+  "paymentModeSplit": "Deposit and balance",
+  "hintDeliveryTime": "e.g. 15 business days",
+  "hintWarranty": "e.g. 90 days for manufacturing defects",
+  "hintCommercialTerms": "General terms applicable to this quote",
+  "alignLeft": "Left",
+  "alignCenter": "Center",
+  "alignRight": "Right",
+  "logoPlacementHeader": "Header",
+  "sizeSmall": "Small",
+  "sizeMedium": "Medium",
+  "sizeLarge": "Large",
+  "watermarkPosCenter": "Center",
+  "watermarkPosTopCenter": "Top center",
+  "watermarkPosBottomCenter": "Bottom center",
+  "watermarkPosBottomRight": "Bottom-right corner",
+  "proBadge": "Pro",
+  "imagePickerFailed": "Could not open the image picker. Try another browser or PNG/JPG format.",
+  "imageReadTimeout": "Image read timed out.",
+  "brandingFirestoreTimeout": "Saving branding to Firestore timed out.",
+  "logoUploadOrgSaveFailed": "The file was uploaded but could not be saved to the organization.",
+  "logoSavedLocalPending": "Logo saved on device (pending upload).",
+  "logoUploadedOk": "Logo uploaded and saved to the organization.",
+  "removeLogoTitle": "Remove logo",
+  "removeLogoBody": "Remove the company logo? Already generated quotes are not changed.",
+  "orgUpdateWithoutLogoFailed": "Could not update the organization without a logo.",
+  "logoRemovedOk": "Logo removed.",
+  "brandingOwnerOnlySave": "Only the owner or an admin can save.",
+  "brandingSaveFailed": "Could not save settings.",
+  "brandingSavedOk": "Visual identity settings saved.",
+  "saveErrorGeneric": "Save failed",
+  "uploadingLogo": "Uploading logo…",
+  "changeLogo": "Change logo",
+  "uploadLogo": "Upload logo",
+  "removeLogoAction": "Remove logo",
+  "pdfPlacementOnlyHeader": "{placement} (only position compatible with the current template)",
+  "@pdfPlacementOnlyHeader": {
+    "placeholders": {
+      "placement": {"type": "String"}
+    }
+  },
+  "watermarkHelp": "The logo appears in the background of each PDF page, behind the commercial content.",
+  "watermarkEnabled": "Watermark enabled",
+  "watermarkNeedLogoFirst": "Upload a logo before enabling the watermark.",
+  "companyNoLogoYet": "Your company has no logo yet. Upload one above to use it as a watermark.",
+  "watermarkTransparency": "Opacity ({pct}%)",
+  "@watermarkTransparency": {
+    "placeholders": {
+      "pct": {"type": "int"}
+    }
+  },
+  "watermarkSizeTitle": "Watermark size",
+  "positionTitle": "Position",
+  "logoFitHint": "Fit: the logo is shown fully without distortion (BoxFit.contain). PNG keeps transparency.",
+  "previewSampleTotal": "Total $1,250.00",
+  "emptyCompanyNoLogo": "Your company has no logo yet",
+  "pdfSizeLabel": "Size on PDF",
+  "watermarkThisQuote": "Watermark (this quote)",
+  "watermarkOn": "On",
+  "watermarkOff": "Off",
+  "watermarkNeedCompanyOrQuoteLogo": "Set the company logo in Visual identity or upload one for this quote.",
+  "watermarkOpacity": "Opacity {pct}%",
+  "@watermarkOpacity": {
+    "placeholders": {
+      "pct": {"type": "int"}
+    }
+  },
+  "watermarkPositionLabel": "Watermark position",
+  "mustSignIn": "You must sign in.",
+  "accountDeleteRestPartial": "Quote and profile data deleted. To also delete the Auth account on desktop, deploy the deleteAccount Cloud Function (see docs/BACKEND_STRIPE.md).",
+  "storageUnauthorized": "You do not have permission to upload this organization's logo. Check that you are owner or admin and that Storage rules are deployed.",
+  "storageUnauthenticated": "Your session expired. Sign in again and try again.",
+  "storageCanceled": "Logo upload was canceled.",
+  "storageRetryLimit": "Could not connect to storage. Check your connection.",
+  "storageObjectNotFound": "File not found in storage. If you just enabled Storage, restart the app and try again.",
+  "storageBucketNotFound": "Firebase Storage is not available in this project. Create the default bucket and deploy the rules.",
+  "storageQuotaExceeded": "Project storage quota was reached.",
+  "storageGenericError": "Storage error ({code}). Try again or use a smaller image.",
+  "@storageGenericError": {
+    "placeholders": {
+      "code": {"type": "String"}
+    }
+  },
+  "storageUploadTimeout": "Upload took too long. It may be a network or browser Storage configuration issue. Try again.",
+  "storageBucketMissing": "The Firebase Storage bucket does not exist or is not linked. Enable Storage in the console and try again.",
+  "storageCorsBlocked": "The browser blocked the upload (CORS). Run the app with flutter run -d chrome --web-port=62313 or update storage-cors.json.",
+  "storageNetworkError": "No connection to storage. Check your network.",
+  "catalogImportTitle": "Import catalog",
+  "catalogImportDownloadExcel": "Download Excel template (.xlsx)",
+  "catalogImportDownloadCsv": "Download CSV template (.csv)",
+  "catalogImportSelectFile": "Select file to import",
+  "catalogImportViewInstructions": "View import instructions",
+  "catalogImportInstructionsTitle": "Import instructions",
+  "catalogImportInstructionsBody": "1. Download the Excel or CSV template.\n2. Fill one row per product. Only name is required.\n3. Columns: code, name, description, category, unit, unitPrice, taxPercent.\n4. Template example rows (EJEMPLO/EXAMPLE code plus «skipped on import» / «example row» text) are skipped. If you edit those rows into real products, they are imported.\n5. code (SKU) identifies duplicates; name alone is not a unique key.\n6. Supported formats: .xlsx and .csv (UTF-8). Legacy .xls and macros are not supported.\n7. Review the summary and confirm before saving.",
+  "catalogImportReviewTitle": "Review import",
+  "catalogImportFileName": "File: {name}",
+  "@catalogImportFileName": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "catalogImportRowsDetected": "Rows detected: {count}",
+  "@catalogImportRowsDetected": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportValidCount": "Valid products: {count}",
+  "@catalogImportValidCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportErrorCount": "Rows with errors: {count}",
+  "@catalogImportErrorCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportDuplicateCount": "Possible duplicates: {count}",
+  "@catalogImportDuplicateCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportExampleSkipped": "Example rows skipped: {count}",
+  "@catalogImportExampleSkipped": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportPreview": "Preview",
+  "catalogImportConfirm": "Confirm import",
+  "catalogImportAnalyzing": "Analyzing file…",
+  "catalogImportSaving": "Saving products…",
+  "catalogImportCancelled": "Import cancelled. The catalog was not changed.",
+  "catalogImportNoFile": "No file was selected.",
+  "catalogImportTemplateShared": "Template ready to save or share.",
+  "catalogImportTemplateError": "Could not generate template: {error}",
+  "@catalogImportTemplateError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "catalogImportAnalyzeError": "Could not analyze file: {error}",
+  "@catalogImportAnalyzeError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "catalogImportNothingToImport": "There are no valid products to import.",
+  "catalogImportDuplicatePolicyTitle": "Duplicates by code",
+  "catalogImportDuplicateSkip": "Skip duplicates",
+  "catalogImportDuplicateUpdate": "Update existing (by code)",
+  "catalogImportCommitResult": "Created: {created}. Updated: {updated}. Skipped: {skipped}.",
+  "@catalogImportCommitResult": {
+    "placeholders": {
+      "created": {"type": "int"},
+      "updated": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "catalogImportPartialFailures": "Some rows were not saved ({count}).",
+  "@catalogImportPartialFailures": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportIssueEmptyFile": "The file is empty.",
+  "catalogImportIssueMissingNameHeader": "Missing required column name/nombre.",
+  "catalogImportIssueUnknownHeaders": "Unrecognized headers (ignored): {detail}",
+  "@catalogImportIssueUnknownHeaders": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueEmptyName": "Name is required.",
+  "catalogImportIssueInvalidPrice": "Invalid price ({detail}).",
+  "@catalogImportIssueInvalidPrice": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueNegativePrice": "Price cannot be negative ({detail}).",
+  "@catalogImportIssueNegativePrice": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueInvalidTax": "Invalid tax ({detail}).",
+  "@catalogImportIssueInvalidTax": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueNegativeTax": "Tax cannot be negative ({detail}).",
+  "@catalogImportIssueNegativeTax": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueTooManyRows": "Too many rows (maximum {detail}).",
+  "@catalogImportIssueTooManyRows": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueFileTooLarge": "The file exceeds the maximum allowed size.",
+  "catalogImportIssueUnsupportedFormat": "Unsupported format ({detail}). Use .xlsx or .csv.",
+  "@catalogImportIssueUnsupportedFormat": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueEmptySheet": "There are no product rows to import.",
+  "catalogImportIssueOnlyExamples": "All rows are template examples (EJEMPLO/EXAMPLE code with example text). Edit the name/description or add new rows with your real products.",
+  "catalogImportExampleRowLabel": "Example (skipped)",
+  "catalogImportIssueInternalDuplicate": "Duplicate code within the file ({detail}).",
+  "@catalogImportIssueInternalDuplicate": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueExistingDuplicate": "A product with this code already exists ({detail}).",
+  "@catalogImportIssueExistingDuplicate": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueParseError": "Error reading the file: {detail}",
+  "@catalogImportIssueParseError": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportRowLabel": "Row {row}",
+  "@catalogImportRowLabel": {
+    "placeholders": {
+      "row": {"type": "int"}
+    }
+  },
+  "quoteEditorDraftResumed": "Local draft resumed",
+  "quoteEditorDraftSavedLocal": "Draft saved on this device",
+  "quoteEditorUnsavedCloud": "Unsaved changes (not in the cloud)",
+  "quoteEditorSavedLocalPending": "Saved on this device (pending sync)",
+  "quoteEditorSavedOk": "Saved successfully",
+  "quoteEditorValidationClient": "Enter the client",
+  "quoteEditorValidationItems": "Add at least one item",
+  "paymentLabelSingle": "SINGLE PAYMENT",
+  "paymentLabelDeposit": "DEPOSIT",
+  "paymentLabelDelivery": "MILESTONE",
+  "paymentLabelBalance": "BALANCE",
+  "newLineItem": "New item",
+  "editLineItem": "Edit item",
+  "saveLineItem": "Save item",
+  "fieldQuantity": "Quantity",
+  "fieldDiscountPercent": "Discount %",
+  "fieldCodeOptional": "Code (optional)",
+  "invalidQuantity": "Invalid",
+  "invalidPrice": "Invalid",
+  "quoteLogoCustom": "Custom logo",
+  "quoteLogoCompany": "Company logo",
+  "quoteLogoEmptyHint": "No company or custom logo yet.\nSet it in My account or upload from the gallery.",
+  "quoteLogoPreviewCustomFailed": "Could not load the custom logo preview. Upload it again from the gallery.",
+  "quoteLogoPreviewCompanyFailed": "There is a company logo, but the image could not be loaded. Check Visual identity or your connection.",
+  "quoteLogoRemoveCustomization": "Remove customization",
+  "quoteLogoRemoveTitle": "Remove customization",
+  "quoteLogoRemoveBody": "This quote will use the company global logo again. Visual identity is not changed.",
+  "quoteLogoConfigureCompany": "Configure company",
+  "quoteLogoUseCompany": "Use company logo",
+  "quoteLogoSavedLocal": "Quote logo saved on this device. The company logo is unchanged.",
+  "quoteLogoAppliedQuoteOnly": "Logo applied to this quote only. Use Visual identity to change the company logo.",
+  "quoteLogoOrgIdentityApplied": "Company identity applied. This quote now uses the current global logo.",
+  "quoteLogoLocalSaveFailed": "Could not save the logo on this device. Check storage space and try again.",
+  "removeAction": "Remove"
+}

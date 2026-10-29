@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n_ext.dart';
 import '../../saas/config/saas_config.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/services/billing_service.dart';
@@ -22,20 +24,27 @@ class PricingScreen extends StatelessWidget {
     }
   }
 
+  String _fmtDate(BuildContext context, DateTime d) {
+    final locale = Localizations.localeOf(context).toString();
+    return DateFormat.yMMMd(locale).format(d.toLocal());
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
+    final l10n = context.l10n;
     final access = auth.access;
     final isPro = access.isPro;
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !embeddedInShell || useRail;
+    final showAppBar =
+        !embeddedInShell || (useRail && !Responsive.isWebAdaptive);
     final freeFeatures = <String>[
-      'Hasta ${SaasConfig.freeMaxCotizaciones} cotizaciones',
-      'Exportación PDF',
-      'Datos en la nube',
+      l10n.featureFreeQuotes(SaasConfig.freeMaxCotizaciones),
+      l10n.featurePdfExport,
+      l10n.featureCloudData,
     ];
     final trialLabel = access.isTrialing && access.trialEndsAt != null
-        ? 'Prueba Pro hasta ${_fmt(access.trialEndsAt!)}'
+        ? l10n.trialProUntil(_fmtDate(context, access.trialEndsAt!))
         : null;
 
     final width = Responsive.widthOf(context);
@@ -47,38 +56,40 @@ class PricingScreen extends StatelessWidget {
         price: r'$0',
         features: freeFeatures,
         highlighted: !isPro,
-        actionLabel: isPro ? 'Plan inferior' : 'Plan actual',
+        actionLabel: isPro ? l10n.planLowerTier : l10n.planCurrent,
         onPressed: null,
       ),
       _PlanCard(
         title: 'Pro',
-        price: 'Consultar',
+        price: l10n.priceContactUs,
         features: [
-          'Cotizaciones ilimitadas',
-          'PDF + DOCX',
-          'Branding personalizado',
-          'Reportes + CSV',
-          'Equipo hasta ${SaasConfig.proMaxSeats} asientos',
-          '${SaasConfig.trialDays} días de prueba Pro al registrarte',
-          'Soporte prioritario',
+          l10n.featureUnlimitedQuotes,
+          l10n.featurePdfDocx,
+          l10n.featureCustomBranding,
+          l10n.featureReportsCsv,
+          l10n.featureTeamSeats(SaasConfig.proMaxSeats),
+          l10n.featureTrialDaysOnSignup(SaasConfig.trialDays),
+          l10n.featurePrioritySupport,
         ],
         highlighted: isPro && access.effectivePlan.label == 'Pro',
-        actionLabel: isPro ? 'Plan actual / activo' : 'Mejorar a Pro',
+        actionLabel: isPro
+            ? '${l10n.planCurrent} / ${l10n.planActive}'
+            : l10n.upgradeToPro,
         onPressed: isPro ? null : () => _upgrade(context, plan: 'pro'),
       ),
       _PlanCard(
         title: 'Business',
-        price: 'Consultar',
+        price: l10n.priceContactUs,
         features: [
-          'Todo lo de Pro',
-          'Hasta ${SaasConfig.businessMaxSeats} asientos',
-          'Roles owner/admin/sales/readonly',
-          'Reportes + CSV + auditoría',
+          l10n.featureEverythingInPro,
+          l10n.featureUpToSeats(SaasConfig.businessMaxSeats),
+          l10n.featureRolesListed,
+          l10n.featureReportsCsvAudit,
         ],
         highlighted: access.effectivePlan.label == 'Business',
         actionLabel: access.effectivePlan.label == 'Business'
-            ? 'Plan actual'
-            : 'Mejorar a Business',
+            ? l10n.planCurrent
+            : l10n.upgradeToBusiness,
         onPressed: access.effectivePlan.label == 'Business'
             ? null
             : () => _upgrade(context, plan: 'business'),
@@ -86,22 +97,21 @@ class PricingScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: showAppBar ? AppBar(title: const Text('Planes')) : null,
+      appBar: showAppBar ? AppBar(title: Text(l10n.pricingTitle)) : null,
       body: SafeArea(
         child: ContentConstraint(
           padding: AppSpacing.page,
           child: ListView(
             children: [
               Text(
-                'Elige el plan ideal para tu negocio',
+                l10n.choosePlanHeadline,
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Plan efectivo: ${access.effectivePlan.label}'
-                '${access.isTrialing ? ' (prueba)' : ''}',
+                l10n.effectivePlan(access.effectivePlan.label),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -129,7 +139,7 @@ class PricingScreen extends StatelessWidget {
               ],
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'Soporte: ${SaasConfig.supportEmail}',
+                l10n.supportLine(SaasConfig.supportEmail),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -141,13 +151,6 @@ class PricingScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _fmt(DateTime d) {
-    final local = d.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}/'
-        '${local.month.toString().padLeft(2, '0')}/'
-        '${local.year}';
   }
 }
 

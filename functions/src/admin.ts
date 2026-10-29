@@ -1,4 +1,5 @@
 import type {auth} from "firebase-admin";
+import {Timestamp} from "firebase-admin/firestore";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import {getAuth, getDb} from "./firebase_admin";
@@ -172,12 +173,24 @@ export const adminGrantEntitlement = onCall(async (request) => {
   }
 
   let expiresAt: string | null = null;
+  let grantExpiresAtTs: Timestamp | null = null;
+  let grantStartsAt: string | null = null;
+  let grantStartsAtTs: Timestamp | null = null;
+  let grantModality: "courtesy" | "temporary" = "courtesy";
   if (expiresAtRaw) {
     const d = new Date(expiresAtRaw);
     if (Number.isNaN(d.getTime())) {
       throw new HttpsError("invalid-argument", "expiresAt inválido.");
     }
+    const start = new Date();
+    if (d.getTime() <= start.getTime()) {
+      throw new HttpsError("invalid-argument", "expiresAt debe ser futuro.");
+    }
     expiresAt = d.toISOString();
+    grantStartsAt = start.toISOString();
+    grantExpiresAtTs = Timestamp.fromDate(d);
+    grantStartsAtTs = Timestamp.fromDate(start);
+    grantModality = "temporary";
   }
 
   await getAuth().getUser(uid);
@@ -192,7 +205,11 @@ export const adminGrantEntitlement = onCall(async (request) => {
     plan,
     subscriptionStatus: "active",
     source: "admin_grant",
+    grantStartsAt,
     grantExpiresAt: expiresAt,
+    grantStartsAtTs,
+    grantExpiresAtTs,
+    grantModality,
     grantReason: reason,
     grantedByUid: actorUid,
     grantId: grantRef.id,
@@ -206,7 +223,9 @@ export const adminGrantEntitlement = onCall(async (request) => {
     plan,
     reason,
     grantedByUid: actorUid,
+    startsAt: grantStartsAt,
     expiresAt,
+    modality: grantModality,
     revokedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -250,7 +269,11 @@ export const adminRevokeGrant = onCall(async (request) => {
       plan: "free",
       subscriptionStatus: "active",
       source: "admin_revoke",
+      grantStartsAt: null,
       grantExpiresAt: null,
+      grantStartsAtTs: null,
+      grantExpiresAtTs: null,
+      grantModality: null,
       grantReason: null,
       grantedByUid: null,
       grantId: null,

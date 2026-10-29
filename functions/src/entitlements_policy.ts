@@ -1,17 +1,27 @@
 /** Política de trial y asientos (espejo de SaasConfig / EntitlementsService). */
 
+import {isAdminGrantActiveInWindow} from "./grant_access_policy";
+
 export const TRIAL_DAYS = 14;
 /** Holgura de reloj/red al validar trialEndsAt en bootstrap. */
 export const TRIAL_SKEW_DAYS = 1;
 export const FREE_MAX_SEATS = 1;
 export const PRO_MAX_SEATS = 3;
 export const BUSINESS_MAX_SEATS = 10;
+/** Espejo de SaasConfig.freeMaxCotizaciones en el cliente. */
+export const FREE_MAX_QUOTES = 5;
+/** Pro/Business: sin tope práctico (mismo criterio que el cliente). */
+export const PAID_MAX_QUOTES = 999999;
 
 export type EntitlementsLike = {
   plan?: string;
   subscriptionStatus?: string;
   trialEndsAt?: string;
-  grantExpiresAt?: string;
+  grantStartsAt?: string | null;
+  grantExpiresAt?: string | null;
+  grantStartsAtTs?: unknown;
+  grantExpiresAtTs?: unknown;
+  grantModality?: string | null;
   currentPeriodEnd?: string;
   source?: string;
   createdAt?: string;
@@ -79,15 +89,13 @@ export function resolveMaxSeats(
   const plan = String(entitlements.plan || "free").toLowerCase();
   const source = String(entitlements.source || "");
 
-  if (source === "admin_grant" && status === "active") {
-    const exp = entitlements.grantExpiresAt
-      ? Date.parse(entitlements.grantExpiresAt)
-      : NaN;
-    const expired = Number.isFinite(exp) && exp <= now.getTime();
-    if (!expired) {
+  if (source === "admin_grant") {
+    if (isAdminGrantActiveInWindow(entitlements, now)) {
       if (plan === "business") return BUSINESS_MAX_SEATS;
       if (plan === "pro") return PRO_MAX_SEATS;
     }
+    // Cortesía inactiva (programada/vencida/inválida): no caer al branch Stripe.
+    return FREE_MAX_SEATS;
   }
 
   if (isTrialActive(entitlements, now)) {
@@ -115,4 +123,54 @@ export function resolveMaxSeats(
   }
 
   return FREE_MAX_SEATS;
+}
+
+/**
+ * Tope de cotizaciones según entitlements del owner (espejo cliente).
+ * Free=5, Pro/Business/trial/admin_grant activos=ilimitado práctico.
+ */
+export function resolveMaxQuotes(
+  entitlements: EntitlementsLike | null | undefined,
+  now: Date = new Date(),
+): number {
+  if (!entitlements) return FREE_MAX_QUOTES;
+
+  const status = String(entitlements.subscriptionStatus || "").toLowerCase();
+  const plan = String(entitlements.plan || "free").toLowerCase();
+  const source = String(entitlements.source || "");
+
+  if (source === "admin_grant") {
+    if (
+      isAdminGrantActiveInWindow(entitlements, now) &&
+      (plan === "business" || plan === "pro")
+    ) {
+      return PAID_MAX_QUOTES;
+    }
+    // Cortesía inactiva: no caer al branch de plan Pro Stripe.
+    return FREE_MAX_QUOTES;
+  }
+
+  if (isTrialActive(entitlements, now)) {
+    return PAID_MAX_QUOTES;
+  }
+
+  if (status === "canceled" || status === "cancelled") {
+    const grace = entitlements.currentPeriodEnd
+      ? Date.parse(String(entitlements.currentPeriodEnd))
+      : NaN;
+    if (Number.isFinite(grace) && grace > now.getTime()) {
+      if (plan === "business" || plan === "pro") return PAID_MAX_QUOTES;
+    }
+    return FREE_MAX_QUOTES;
+  }
+
+  if (status === "past_due" || status === "expired" || status === "inactive") {
+    return FREE_MAX_QUOTES;
+  }
+
+  if (status === "active" && (plan === "business" || plan === "pro")) {
+    return PAID_MAX_QUOTES;
+  }
+
+  return FREE_MAX_QUOTES;
 }

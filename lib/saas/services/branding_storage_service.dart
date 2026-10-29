@@ -6,16 +6,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:universal_io/io.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../config/saas_platform.dart';
+import '../models/org_branding.dart';
+import '../offline/branding_local_cache.dart';
+import '../offline/connectivity_monitor.dart';
 
 /// Resultado de validación de imagen de logo.
 enum LogoImageKind { png, jpeg, webp, unknown }
 
 /// Subida y descarga de logos (Firebase Storage / data URL en REST desktop).
 ///
-/// Rutas:
-/// - Preferida: `organizations/{orgId}/branding/logo.png`
+/// Rutas (compatibles con `storage.rules` actuales `branding/{fileName}`):
+/// - Empresa: `organizations/{orgId}/branding/logo.png`
+/// - Cotización: `organizations/{orgId}/branding/quote_{quoteId}.png`
 /// - Legacy: `users/{uid}/branding/logo.jpg`
 class BrandingStorageService {
   BrandingStorageService._();
@@ -37,7 +43,24 @@ class BrandingStorageService {
 
   String orgPath(String orgId) => 'organizations/$orgId/branding/logo.png';
 
+  /// Un solo segmento bajo `branding/` (rules: `branding/{fileName}`).
+  String quotePath(String orgId, String quoteId) {
+    final safe = quoteId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    return 'organizations/$orgId/branding/quote_$safe.png';
+  }
+
   String userPath(String uid) => 'users/$uid/branding/logo.jpg';
+
+  bool isOrgLogoStoragePath(String path) {
+    final p = path.trim();
+    return p.endsWith('/branding/logo.png') ||
+        p.contains('/branding/logo.png') ||
+        RegExp(r'/branding/logo\.(png|jpg|jpeg|webp)(\?|$)').hasMatch(p);
+  }
+
+  bool isQuoteLogoStoragePath(String path) {
+    return path.contains('/branding/quote_');
+  }
 
   LogoImageKind detectKind(Uint8List bytes) {
     if (bytes.length >= 8 &&
@@ -98,57 +121,70 @@ class BrandingStorageService {
   }
 
   /// Mensaje usable en UI a partir de errores de Storage/red/formato.
-  static String describeUploadError(Object error) {
+  ///
+  /// Si [l10n] es null, usa español (compatibilidad con capas sin BuildContext).
+  static String describeUploadError(Object error, [AppLocalizations? l10n]) {
     if (error is FirebaseException) {
       switch (error.code) {
         case 'unauthorized':
         case 'storage/unauthorized':
-          return 'No tienes permiso para subir el logotipo de esta organización. '
-              'Comprueba que seas propietario o administrador y que las reglas '
-              'de Storage estén desplegadas.';
+          return l10n?.storageUnauthorized ??
+              'No tienes permiso para subir el logotipo de esta organización. '
+                  'Comprueba que seas propietario o administrador y que las reglas '
+                  'de Storage estén desplegadas.';
         case 'unauthenticated':
         case 'storage/unauthenticated':
-          return 'Tu sesión expiró. Vuelve a iniciar sesión e inténtalo de nuevo.';
+          return l10n?.storageUnauthenticated ??
+              'Tu sesión expiró. Vuelve a iniciar sesión e inténtalo de nuevo.';
         case 'canceled':
         case 'storage/canceled':
-          return 'La carga del logotipo se canceló.';
+          return l10n?.storageCanceled ?? 'La carga del logotipo se canceló.';
         case 'retry-limit-exceeded':
         case 'storage/retry-limit-exceeded':
-          return 'No se pudo conectar con el almacenamiento. Revisa tu conexión.';
+          return l10n?.storageRetryLimit ??
+              'No se pudo conectar con el almacenamiento. Revisa tu conexión.';
         case 'object-not-found':
         case 'storage/object-not-found':
-          return 'No se encontró el archivo en el almacenamiento. '
-              'Si acabas de activar Storage, reinicia la app e inténtalo de nuevo.';
+          return l10n?.storageObjectNotFound ??
+              'No se encontró el archivo en el almacenamiento. '
+                  'Si acabas de activar Storage, reinicia la app e inténtalo de nuevo.';
         case 'bucket-not-found':
         case 'storage/bucket-not-found':
-          return 'Firebase Storage no está disponible en este proyecto. '
-              'Hay que crear el bucket predeterminado y desplegar las reglas.';
+          return l10n?.storageBucketNotFound ??
+              'Firebase Storage no está disponible en este proyecto. '
+                  'Hay que crear el bucket predeterminado y desplegar las reglas.';
         case 'quota-exceeded':
         case 'storage/quota-exceeded':
-          return 'Se alcanzó la cuota de almacenamiento del proyecto.';
+          return l10n?.storageQuotaExceeded ??
+              'Se alcanzó la cuota de almacenamiento del proyecto.';
         default:
-          return 'Error de almacenamiento (${error.code}). '
-              'Inténtalo de nuevo o usa una imagen más pequeña.';
+          return l10n?.storageGenericError(error.code) ??
+              'Error de almacenamiento (${error.code}). '
+                  'Inténtalo de nuevo o usa una imagen más pequeña.';
       }
     }
     if (error is TimeoutException) {
-      return 'La carga tardó demasiado. Puede ser un problema de red o de '
-          'configuración de Storage en el navegador. Inténtalo de nuevo.';
+      return l10n?.storageUploadTimeout ??
+          'La carga tardó demasiado. Puede ser un problema de red o de '
+              'configuración de Storage en el navegador. Inténtalo de nuevo.';
     }
     final text = error.toString().replaceFirst('Exception: ', '');
     final lower = text.toLowerCase();
     if (lower.contains('bucket') && lower.contains('not exist')) {
-      return 'El bucket de Firebase Storage no existe o no está vinculado. '
-          'Activa Storage en la consola y vuelve a intentar.';
+      return l10n?.storageBucketMissing ??
+          'El bucket de Firebase Storage no existe o no está vinculado. '
+              'Activa Storage en la consola y vuelve a intentar.';
     }
     if (lower.contains('cors') || lower.contains('xmlhttprequest')) {
-      return 'El navegador bloqueó la subida (CORS). Ejecuta la app con '
-          'flutter run -d chrome --web-port=62313 o actualiza storage-cors.json.';
+      return l10n?.storageCorsBlocked ??
+          'El navegador bloqueó la subida (CORS). Ejecuta la app con '
+              'flutter run -d chrome --web-port=62313 o actualiza storage-cors.json.';
     }
     if (lower.contains('socket') ||
         lower.contains('network') ||
         lower.contains('failed host lookup')) {
-      return 'No hay conexión con el almacenamiento. Revisa tu red.';
+      return l10n?.storageNetworkError ??
+          'No hay conexión con el almacenamiento. Revisa tu red.';
     }
     return text;
   }
@@ -201,9 +237,58 @@ class BrandingStorageService {
     required Uint8List bytes,
     String? fileName,
   }) async {
+    return _uploadToPath(
+      path: orgPath(orgId),
+      orgId: orgId,
+      uid: uid,
+      bytes: bytes,
+      fileName: fileName,
+      logTag: 'uploadOrgLogo',
+      meta: {'uploadedBy': uid, 'orgId': orgId, 'scope': 'organization'},
+    );
+  }
+
+  /// Logo exclusivo de una cotización. No escribe `logo.png` ni la caché org.
+  Future<({String url, String storagePath})> uploadQuoteLogo({
+    required String orgId,
+    required String quoteId,
+    required String uid,
+    required Uint8List bytes,
+    String? fileName,
+  }) async {
+    if (quoteId.trim().isEmpty) {
+      throw Exception('quoteId requerido para subir logo de cotización.');
+    }
+    return _uploadToPath(
+      path: quotePath(orgId, quoteId),
+      orgId: orgId,
+      uid: uid,
+      bytes: bytes,
+      fileName: fileName,
+      logTag: 'uploadQuoteLogo',
+      meta: {
+        'uploadedBy': uid,
+        'orgId': orgId,
+        'quoteId': quoteId,
+        'scope': 'quote',
+      },
+      localStorageHint: 'local:$orgId:quote:$quoteId',
+    );
+  }
+
+  Future<({String url, String storagePath})> _uploadToPath({
+    required String path,
+    required String orgId,
+    required String uid,
+    required Uint8List bytes,
+    String? fileName,
+    required String logTag,
+    required Map<String, String> meta,
+    String? localStorageHint,
+  }) async {
     validateLogoBytes(bytes, fileName: fileName);
     debugPrint(
-      'uploadOrgLogo: org=$orgId bytes=${bytes.lengthInBytes} '
+      '$logTag: org=$orgId bytes=${bytes.lengthInBytes} '
       'web=$kIsWeb auth=${FirebaseAuth.instance.currentUser != null}',
     );
     final optimized = await optimizeLogo(bytes);
@@ -220,30 +305,26 @@ class BrandingStorageService {
       }
       final b64 = base64Encode(optimized);
       final dataUrl = 'data:image/png;base64,$b64';
-      debugPrint('uploadOrgLogo: data-url fallback (${optimized.lengthInBytes} B)');
-      return (url: dataUrl, storagePath: 'local:$orgId');
+      debugPrint('$logTag: data-url fallback (${optimized.lengthInBytes} B)');
+      return (url: dataUrl, storagePath: localStorageHint ?? 'local:$orgId');
     }
 
-    final path = orgPath(orgId);
     final ref = _storage.ref(path);
     try {
-      debugPrint('uploadOrgLogo: putData → $path ($contentType)');
+      debugPrint('$logTag: putData → $path ($contentType)');
       await ref
           .putData(
             optimized,
-            SettableMetadata(
-              contentType: contentType,
-              customMetadata: {'uploadedBy': uid, 'orgId': orgId},
-            ),
+            SettableMetadata(contentType: contentType, customMetadata: meta),
           )
           .timeout(uploadTimeout);
       final url = await ref.getDownloadURL().timeout(
         const Duration(seconds: 20),
       );
-      debugPrint('uploadOrgLogo: OK');
+      debugPrint('$logTag: OK');
       return (url: url, storagePath: path);
     } catch (e, st) {
-      debugPrint('uploadOrgLogo error: $e\n$st');
+      debugPrint('$logTag error: $e\n$st');
       throw Exception(describeUploadError(e));
     }
   }
@@ -273,9 +354,10 @@ class BrandingStorageService {
             SettableMetadata(contentType: contentTypeFor(kind)),
           )
           .timeout(uploadTimeout);
-      return await _storage.ref(path).getDownloadURL().timeout(
-        const Duration(seconds: 20),
-      );
+      return await _storage
+          .ref(path)
+          .getDownloadURL()
+          .timeout(const Duration(seconds: 20));
     } catch (e, st) {
       debugPrint('uploadLogo error: $e\n$st');
       throw Exception(describeUploadError(e));
@@ -314,29 +396,130 @@ class BrandingStorageService {
     }
   }
 
-  /// Obtiene bytes desde data URL, http(s) o ruta Storage.
-  Future<Uint8List?> loadLogoBytes(String? logoPath) async {
-    if (logoPath == null || logoPath.isEmpty) return null;
-    try {
-      if (logoPath.startsWith('data:')) {
-        final b64 = logoPath.split(',').last;
-        return Uint8List.fromList(base64Decode(b64));
+  bool _looksLikeLocalFilePath(String path) {
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('data:') ||
+        path.startsWith('users/') ||
+        path.startsWith('organizations/') ||
+        path.startsWith('local:')) {
+      return false;
+    }
+    // Android/iOS absolute, Windows drive, o rutas con separador.
+    return path.startsWith('/') ||
+        path.contains('\\') ||
+        (path.length > 2 && path[1] == ':');
+  }
+
+  bool _looksLikeRemoteLogoRef(String path) {
+    return path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('users/') ||
+        path.startsWith('organizations/');
+  }
+
+  /// Obtiene bytes desde data URL, http(s), ruta local o Storage.
+  ///
+  /// Prioridad: archivo/data de [logoPath] → caché org (fallback offline) → red.
+  /// No escribe `logo.bin` de empresa al descargar un logo de cotización.
+  Future<Uint8List?> loadLogoBytes(
+    String? logoPath, {
+    String? organizationId,
+    String? uid,
+    bool cacheRemoteAsOrgLogo = true,
+  }) async {
+    final path = logoPath?.trim();
+    final looksQuoteLogo =
+        path != null && path.isNotEmpty && isQuoteLogoStoragePath(path);
+    final mayCacheAsOrg =
+        cacheRemoteAsOrgLogo &&
+        !looksQuoteLogo &&
+        (path == null || path.isEmpty || isOrgLogoStoragePath(path));
+
+    // 1) Ruta local explícita de la cotización (modo offline / override).
+    if (path != null &&
+        path.isNotEmpty &&
+        !kIsWeb &&
+        _looksLikeLocalFilePath(path)) {
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          return await file.readAsBytes();
+        }
+      } catch (e) {
+        debugPrint('loadLogoBytes local file: $e');
       }
-      if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+    }
+
+    // 2) Data URL embebida.
+    if (path != null && path.startsWith('data:')) {
+      try {
+        final b64 = path.split(',').last;
+        return Uint8List.fromList(base64Decode(b64));
+      } catch (e) {
+        debugPrint('loadLogoBytes data-url: $e');
+        return null;
+      }
+    }
+
+    final online = ConnectivityMonitor.instance.isEffectivelyOnline;
+    final orgIdForCache = (organizationId != null && organizationId.isNotEmpty)
+        ? organizationId
+        : null;
+    final uidForCache = (uid != null && uid.isNotEmpty) ? uid : null;
+    final allowOrgCacheFallback =
+        path == null ||
+        path.isEmpty ||
+        (_looksLikeRemoteLogoRef(path) && !online && !looksQuoteLogo);
+
+    // 3) Caché de empresa solo como respaldo (sin path o URL remota sin red).
+    if (allowOrgCacheFallback && orgIdForCache != null && uidForCache != null) {
+      try {
+        final cached = await BrandingLocalCache.instance.loadLogoBytes(
+          organizationId: orgIdForCache,
+          uid: uidForCache,
+        );
+        if (cached != null && cached.isNotEmpty) return cached;
+      } catch (e) {
+        debugPrint('loadLogoBytes cache: $e');
+      }
+    }
+
+    if (path == null || path.isEmpty) return null;
+
+    // Sin red: no HTTP/Storage (el PDF offline debe usar archivo/caché).
+    if (!online) {
+      debugPrint('loadLogoBytes: offline, sin bytes para $path');
+      return null;
+    }
+
+    try {
+      if (path.startsWith('http://') || path.startsWith('https://')) {
         final res = await http
-            .get(Uri.parse(logoPath))
+            .get(Uri.parse(path))
             .timeout(const Duration(seconds: 25));
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          return res.bodyBytes;
+          final bytes = res.bodyBytes;
+          final cacheOrg = orgIdForCache;
+          final cacheUid = uidForCache;
+          if (mayCacheAsOrg && cacheOrg != null && cacheUid != null) {
+            unawaited(
+              BrandingLocalCache.instance.saveLogoBytes(
+                organizationId: cacheOrg,
+                uid: cacheUid,
+                bytes: bytes,
+                branding: OrgBranding(logoUrl: path),
+              ),
+            );
+          }
+          return bytes;
         }
         return null;
       }
-      // Web también puede leer por SDK si hay auth (getData).
       if (!saasUseRestBackend &&
-          (logoPath.startsWith('users/') ||
-              logoPath.startsWith('organizations/'))) {
+          (path.startsWith('users/') || path.startsWith('organizations/'))) {
         return await _storage
-            .ref(logoPath)
+            .ref(path)
             .getData(maxBytes)
             .timeout(const Duration(seconds: 25));
       }
@@ -344,6 +527,40 @@ class BrandingStorageService {
       debugPrint('loadLogoBytes: $e');
     }
     return null;
+  }
+
+  /// Descarga branding/logo con red y deja caché local para PDF offline.
+  Future<void> precacheOrgBranding({
+    required String organizationId,
+    required String uid,
+    required OrgBranding branding,
+  }) async {
+    if (kIsWeb) return;
+    try {
+      await BrandingLocalCache.instance.saveBrandingConfig(
+        organizationId: organizationId,
+        uid: uid,
+        branding: branding,
+        pending: false,
+      );
+      if (!branding.hasLogo) return;
+      final bytes = await loadLogoBytes(
+        branding.logoUrl,
+        organizationId: organizationId,
+        uid: uid,
+      );
+      if (bytes != null && bytes.isNotEmpty) {
+        await BrandingLocalCache.instance.saveLogoBytes(
+          organizationId: organizationId,
+          uid: uid,
+          bytes: bytes,
+          branding: branding,
+          pendingUpload: false,
+        );
+      }
+    } catch (e) {
+      debugPrint('precacheOrgBranding: $e');
+    }
   }
 }
 

@@ -4,23 +4,26 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/cotizacion.dart';
+import '../../services/pdf_service.dart';
+import '../../services/pdf_share_service.dart';
 import '../config/saas_config.dart';
 import '../config/saas_platform.dart';
 import '../domain/org_enums.dart';
 import '../models/org_client.dart';
 import '../models/quote.dart';
+import '../offline/pdf_local_archive.dart';
 import 'auth_service.dart';
 import 'cloud_cotizacion_repository.dart';
 import 'firestore_rest_client.dart';
 
-/// Comunicación y enlaces de cotización (WhatsApp, correo, share link).
+/// Comunicación y enlaces de cotización (WhatsApp, correo, share link, PDF).
 class QuoteShareService {
   QuoteShareService._();
   static final QuoteShareService instance = QuoteShareService._();
 
   FirebaseFirestore get _db => FirebaseFirestore.instance;
 
-  String _message({
+  String buildShareMessage({
     required String number,
     required String clientName,
     required String totalLabel,
@@ -44,7 +47,7 @@ class QuoteShareService {
     return buf.toString();
   }
 
-  /// Crea un enlace de solo lectura (7 días). Requiere reglas/Functions para `viewed`.
+  /// Crea un enlace de solo lectura (7 días). Requiere red/Firestore.
   Future<String> createShareLink({
     required Quote quote,
     required String createdByUid,
@@ -85,6 +88,22 @@ class QuoteShareService {
     return '$base/viewQuoteShare?token=$token';
   }
 
+  /// Intenta enlace seguro; si falla (offline, sin org) devuelve null.
+  Future<String?> tryCreateShareLink({
+    required Quote? quote,
+    required String createdByUid,
+  }) async {
+    if (quote == null || quote.organizationId.isEmpty || createdByUid.isEmpty) {
+      return null;
+    }
+    try {
+      return await createShareLink(quote: quote, createdByUid: createdByUid);
+    } catch (e) {
+      debugPrint('tryCreateShareLink: $e');
+      return null;
+    }
+  }
+
   Future<void> markSent(String quoteId) async {
     try {
       await CloudCotizacionRepository.instance.setQuoteStatus(
@@ -96,16 +115,109 @@ class QuoteShareService {
     }
   }
 
+  /// Genera (o reutiliza caché local) el PDF y lo comparte con el sheet nativo.
+  Future<void> shareQuotePdf({
+    required Cotizacion cot,
+    Quote? quote,
+    OrgClient? client,
+    String? shareUrl,
+    String? quoteId,
+    String languageCode = 'es',
+    bool markAsSent = true,
+  }) async {
+    final bytes = await _resolvePdfBytes(
+      cot: cot,
+      quote: quote,
+      languageCode: languageCode,
+    );
+    final text = buildShareMessage(
+      number: cot.numero,
+      clientName: cot.cliente,
+      totalLabel: '\$${cot.total.toStringAsFixed(2)}',
+      shareUrl: shareUrl,
+    );
+    final subject = 'Cotización ${cot.numero} — ${SaasConfig.productName}';
+    await PdfShareService.instance.sharePdfBytes(
+      bytes: bytes,
+      number: cot.numero,
+      text: text,
+      subject: subject,
+    );
+    if (markAsSent && quoteId != null && quoteId.isNotEmpty) {
+      await markSent(quoteId);
+    }
+  }
+
+  Future<Uint8List> _resolvePdfBytes({
+    required Cotizacion cot,
+    Quote? quote,
+    required String languageCode,
+  }) async {
+    final orgId = quote?.organizationId;
+    if (orgId != null && orgId.isNotEmpty) {
+      try {
+        final cached = await PdfLocalArchive.instance.findQuotePdf(
+          organizationId: orgId,
+          quoteId: cot.id,
+        );
+        if (cached != null && await cached.exists()) {
+          final data = await cached.readAsBytes();
+          if (PdfShareService.looksLikePdf(data) && data.isNotEmpty) {
+            return Uint8List.fromList(data);
+          }
+        }
+      } catch (e) {
+        debugPrint('pdf cache read: $e');
+      }
+    }
+
+    final bytes = quote != null
+        ? await PdfService.generarPDFFromQuote(
+            quote,
+            languageCode: languageCode,
+          )
+        : await PdfService.generarPDF(cot, languageCode: languageCode);
+
+    if (orgId != null && orgId.isNotEmpty) {
+      try {
+        await PdfLocalArchive.instance.saveQuotePdf(
+          organizationId: orgId,
+          quoteId: cot.id,
+          number: cot.numero,
+          bytes: bytes,
+        );
+      } catch (_) {}
+    }
+    return bytes;
+  }
+
+  /// WhatsApp: adjunta PDF vía sheet nativo (el usuario elige WhatsApp).
+  /// Si [preferTextOnly] y hay teléfono, abre wa.me solo con texto (fallback).
   Future<void> shareWhatsApp({
     required Cotizacion cot,
     OrgClient? client,
     String? shareUrl,
     String? quoteId,
+    Quote? quote,
+    String languageCode = 'es',
+    bool attachPdf = true,
   }) async {
+    if (attachPdf && !kIsWeb) {
+      await shareQuotePdf(
+        cot: cot,
+        quote: quote,
+        client: client,
+        shareUrl: shareUrl,
+        quoteId: quoteId,
+        languageCode: languageCode,
+      );
+      return;
+    }
+
     final phone = (client?.phone ?? '')
         .replaceAll(RegExp(r'[^\d+]'), '')
         .replaceAll('+', '');
-    final text = _message(
+    final text = buildShareMessage(
       number: cot.numero,
       clientName: cot.cliente,
       totalLabel: '\$${cot.total.toStringAsFixed(2)}',
@@ -125,10 +237,25 @@ class QuoteShareService {
     OrgClient? client,
     String? shareUrl,
     String? quoteId,
+    Quote? quote,
+    String languageCode = 'es',
+    bool attachPdf = true,
   }) async {
+    if (attachPdf && !kIsWeb) {
+      await shareQuotePdf(
+        cot: cot,
+        quote: quote,
+        client: client,
+        shareUrl: shareUrl,
+        quoteId: quoteId,
+        languageCode: languageCode,
+      );
+      return;
+    }
+
     final email = client?.email?.trim() ?? '';
     final subject = 'Cotización ${cot.numero} — ${SaasConfig.productName}';
-    final body = _message(
+    final body = buildShareMessage(
       number: cot.numero,
       clientName: cot.cliente,
       totalLabel: '\$${cot.total.toStringAsFixed(2)}',

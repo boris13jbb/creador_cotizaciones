@@ -1,0 +1,858 @@
+{
+  "@@locale": "es",
+  "appTitle": "CotiApp",
+  "navHome": "Inicio",
+  "navHistory": "Historial",
+  "navReports": "Reportes",
+  "navPlans": "Planes",
+  "navAccount": "Cuenta",
+  "collapseMenu": "Contraer menú",
+  "expandMenu": "Expandir menú",
+  "homeHeadline": "¿Qué deseas crear hoy?",
+  "homeSubtitle": "Cotizaciones profesionales sincronizadas en la nube",
+  "recentQuotes": "Cotizaciones recientes",
+  "viewAll": "Ver todas",
+  "reportsTileSubtitle": "KPIs y exportación",
+  "myAccount": "Mi cuenta",
+  "settings": "Configuración",
+  "appearance": "Apariencia",
+  "language": "Idioma",
+  "languageSubtitle": "Idioma de la interfaz",
+  "languageSpanish": "Español",
+  "languageEnglish": "English",
+  "themeLight": "Claro",
+  "themeDark": "Oscuro",
+  "themeSystem": "Sistema",
+  "search": "Buscar",
+  "searchHintQuotes": "Número, cliente, descripción o servicio",
+  "searchHelperLoaded": "La búsqueda aplica a las cotizaciones ya cargadas",
+  "searchHelperLoadMore": "La búsqueda aplica a las cotizaciones ya cargadas. Usa «Cargar más» para ampliar.",
+  "clear": "Limpiar",
+  "all": "Todas",
+  "statusDraft": "Borrador",
+  "statusSent": "Enviada",
+  "statusViewed": "Vista",
+  "statusAccepted": "Aceptada",
+  "statusRejected": "Rechazada",
+  "statusExpired": "Vencida",
+  "statusConverted": "Convertida",
+  "statusArchived": "Archivada",
+  "viewPdf": "Ver PDF",
+  "edit": "Editar",
+  "duplicate": "Duplicar",
+  "newVersion": "Nueva versión",
+  "archive": "Archivar",
+  "restoreToDraft": "Restaurar a borrador",
+  "hideFromRecent": "Ocultar de recientes",
+  "delete": "Eliminar",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "loading": "Cargando",
+  "retry": "Reintentar",
+  "refresh": "Actualizar",
+  "loadMore": "Cargar más",
+  "offline": "Sin conexión",
+  "offlineCheckNetwork": "Revisa tu red e inténtalo de nuevo.",
+  "somethingWentWrong": "Algo salió mal",
+  "pendingSync": "Pendiente de sincronización",
+  "deviceOnly": "Solo dispositivo",
+  "conflict": "Conflicto",
+  "noResults": "Sin resultados",
+  "noSearchResults": "Sin resultados de búsqueda",
+  "noSearchResultsHint": "Ninguna cotización cargada coincide con «{query}».",
+  "@noSearchResultsHint": {
+    "placeholders": {
+      "query": {"type": "String"}
+    }
+  },
+  "noSearchResultsLoadMore": "Prueba otro término o carga más cotizaciones.",
+  "noQuotesForStatus": "Sin cotizaciones en este estado",
+  "noQuotesForStatusHint": "No hay cotizaciones «{status}» visibles.",
+  "@noQuotesForStatusHint": {
+    "placeholders": {
+      "status": {"type": "String"}
+    }
+  },
+  "noQuotesYet": "Aún no hay cotizaciones guardadas",
+  "noQuotesYetHint": "Cuando guardes una, aparecerá aquí.",
+  "noQuotesHome": "Aún no hay cotizaciones",
+  "noQuotesHomeHint": "Crea la primera para verla aquí.",
+  "historyRemoteFailedBanner": "No se pudo actualizar desde el servidor",
+  "historyRemoteFailedSubtitle": "Se muestran datos locales. La búsqueda no elimina registros.",
+  "historyRemoteFailedSnack": "Sin conexión remota: mostrando cotizaciones del dispositivo.",
+  "historyLoadFailed": "No se pudo cargar el historial. Revisa la conexión.",
+  "historyLoadMoreFailed": "No se pudieron cargar más: {error}",
+  "@historyLoadMoreFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "staleSentBanner": "{count} cotización(es) enviada(s) sin respuesta (>7 días)",
+  "@staleSentBanner": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "viewSent": "Ver enviadas",
+  "totalLabel": "Total: {amount}",
+  "@totalLabel": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "noClient": "(Sin cliente)",
+  "actions": "Acciones",
+  "deleteQuoteTitle": "Eliminar",
+  "deleteQuoteBody": "¿Eliminar la cotización {number}? Esta acción no se puede deshacer desde la app.",
+  "@deleteQuoteBody": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "deleteQuoteBodyShort": "¿Eliminar la cotización {number}?",
+  "@deleteQuoteBodyShort": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "duplicatedAs": "Duplicada como {number}",
+  "@duplicatedAs": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "versionCreated": "Versión {version} creada",
+  "@versionCreated": {
+    "placeholders": {
+      "version": {"type": "int"}
+    }
+  },
+  "restoredToDraft": "Cotización restaurada a borrador",
+  "newQuote": "Nueva",
+  "newQuoteFab": "Nueva cotización",
+  "userFallback": "Usuario",
+  "emailVerified": "Correo verificado",
+  "verifyEmailTitle": "Verifica tu correo",
+  "verifyEmailHint": "Si ya abriste el enlace en el navegador, pulsa «Actualizar estado». No hace falta reenviar salvo que no hayas recibido el correo.",
+  "updateStatus": "Actualizar estado",
+  "resend": "Reenviar",
+  "emailVerifiedOk": "Correo verificado correctamente",
+  "emailNotVerifiedYet": "Aún no verificado. Si abriste el enlace, pulsa de nuevo «Actualizar estado».",
+  "verificationSent": "Correo de verificación enviado",
+  "couldNotSend": "No se pudo enviar",
+  "pendingChangesQuotes": "Cambios pendientes · {count} cotiz.",
+  "@pendingChangesQuotes": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "pendingUntilSync": "Solo en este dispositivo hasta sincronizar.",
+  "syncNow": "Sincronizar",
+  "syncCompleted": "Sincronización completada",
+  "syncPartial": "Sync parcial: quedan {count} cotiz. pendientes",
+  "@syncPartial": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "syncWithError": "Sync: {before}→{after} pendientes. Error: {error}",
+  "@syncWithError": {
+    "placeholders": {
+      "before": {"type": "int"},
+      "after": {"type": "int"},
+      "error": {"type": "String"}
+    }
+  },
+  "clients": "Clientes",
+  "clientsSubtitle": "Directorio reutilizable",
+  "catalog": "Catálogo",
+  "catalogSubtitle": "Productos y servicios",
+  "team": "Equipo",
+  "teamManageSubtitle": "Miembros e invitaciones (hasta {max})",
+  "@teamManageSubtitle": {
+    "placeholders": {
+      "max": {"type": "int"}
+    }
+  },
+  "teamProOnly": "Disponible en Pro / Business",
+  "visualIdentity": "Identidad visual",
+  "visualIdentityOk": "Logotipo y colores de la empresa",
+  "visualIdentityPro": "Disponible en Pro o prueba",
+  "plan": "Plan",
+  "trialProActive": "· Prueba Pro activa",
+  "planCanceled": "· Cancelado",
+  "data": "Datos",
+  "dataSyncedCloud": "Sincronizados en la nube (Firestore)",
+  "exportMyData": "Exportar mis datos",
+  "exportMyDataSubtitle": "Descarga JSON con perfil y cotizaciones",
+  "billingPortal": "Portal de facturación",
+  "billingPortalSubtitle": "Gestionar suscripción Stripe",
+  "privacy": "Privacidad",
+  "terms": "Términos",
+  "deleteAccount": "Eliminar cuenta",
+  "signOut": "Cerrar sesión",
+  "signOutConfirm": "¿Seguro que deseas salir?",
+  "signOutPendingWarning": "Hay cambios pendientes de sincronizar en este dispositivo. No se borrarán, pero otra cuenta no podrá verlos. ¿Seguro que deseas salir?",
+  "loginTitle": "Iniciar sesión",
+  "loginAction": "Iniciar sesión",
+  "createAccount": "Crear cuenta",
+  "forgotPassword": "¿Olvidaste tu contraseña?",
+  "email": "Correo",
+  "password": "Contraseña",
+  "name": "Nombre",
+  "confirmPassword": "Confirmar contraseña",
+  "registerTitle": "Crear cuenta",
+  "forgotPasswordTitle": "Recuperar contraseña",
+  "sendResetLink": "Enviar enlace",
+  "setupOrganizationTitle": "Configura tu organización",
+  "organizationName": "Nombre de la organización",
+  "continueAction": "Continuar",
+  "reportsTitle": "Reportes",
+  "pricingTitle": "Planes",
+  "pickThemeTitle": "Apariencia",
+  "pdfProjectInfo": "INFORMACIÓN DEL PROYECTO",
+  "pdfGeneralDescription": "DESCRIPCIÓN GENERAL",
+  "pdfDescription": "DESCRIPCIÓN",
+  "pdfValidity": "Validez: {days} días",
+  "@pdfValidity": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "pdfTechnicianSignature": "Firma del Técnico",
+  "pdfClientSignature": "Firma del Cliente",
+  "offlineBannerPending": "Cambios pendientes de sincronizar",
+  "offlineBannerOffline": "Sin conexión · trabajando en local",
+  "offlineBannerError": "Error de sincronización",
+  "offlineBannerSyncing": "Sincronizando…",
+  "requiredField": "Campo obligatorio",
+  "enterEmail": "Ingresa tu correo",
+  "enterPassword": "Ingresa tu contraseña",
+  "invalidEmail": "Correo inválido",
+  "welcome": "Bienvenido",
+  "loginSubtitle": "Inicia sesión para gestionar tus cotizaciones en la nube",
+  "emailLabel": "Correo electrónico",
+  "passwordLabel": "Contraseña",
+  "loginFailed": "No se pudo iniciar sesión",
+  "close": "Cerrar",
+  "ok": "Aceptar",
+  "yes": "Sí",
+  "no": "No",
+  "share": "Compartir",
+  "preview": "Vista previa",
+  "conditions": "Condiciones",
+  "branding": "Marca",
+  "payment": "Pago",
+  "items": "Ítems",
+  "client": "Cliente",
+  "quoteNumber": "Número",
+  "description": "Descripción",
+  "notes": "Notas",
+  "includes": "Incluye",
+  "excludes": "No incluye",
+  "emptyGeneric": "Sin datos",
+  "update": "Actualizar",
+  "registerTrialSubtitle": "Incluye {days} días de prueba Pro",
+  "@registerTrialSubtitle": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "enterName": "Ingresa tu nombre",
+  "passwordMinLength": "Mínimo 6 caracteres",
+  "confirmYourPassword": "Confirma tu contraseña",
+  "passwordsDoNotMatch": "Las contraseñas no coinciden",
+  "registerAction": "Registrarme",
+  "alreadyHaveAccount": "Ya tengo cuenta",
+  "registerFailed": "No se pudo crear la cuenta",
+  "forgotPasswordSubtitle": "Te enviaremos un correo para restablecer tu contraseña",
+  "forgotPasswordSent": "Te enviamos un enlace para restablecer la contraseña",
+  "forgotPasswordFailed": "No se pudo enviar el correo",
+  "back": "Volver",
+  "setupOrgTitle": "Crea tu organización",
+  "setupOrgBody": "En {productName} cada cuenta trabaja dentro de una empresa. Así guardamos clientes, catálogo y cotizaciones.",
+  "@setupOrgBody": {
+    "placeholders": {
+      "productName": {"type": "String"}
+    }
+  },
+  "companyName": "Nombre de la empresa",
+  "companyNameHint": "Ej. Servicios JB",
+  "defaultCompanyName": "Mi empresa",
+  "defaultCompanySuffix": "— Empresa",
+  "enterCompanyName": "Ingresa el nombre de la empresa",
+  "companyNameTooShort": "Nombre demasiado corto",
+  "createOrganizationFailed": "No se pudo crear la organización.",
+  "noOrganization": "Sin organización",
+  "createOrganization": "Crear organización",
+  "exportCsv": "Exportar CSV",
+  "reportsNeedOrganization": "Necesitas una organización para ver reportes.",
+  "exportCsvProRequired": "Exportar CSV requiere Pro o Business.",
+  "emptySaveQuotesForKpis": "Guarda cotizaciones para ver KPIs.",
+  "commercialPerformance": "Rendimiento comercial",
+  "kpiQuotes": "Cotizaciones",
+  "kpiPipeline": "Pipeline",
+  "kpiAccepted": "Aceptadas",
+  "kpiConversion": "Conversión",
+  "kpiFollowUp": "Seguimiento",
+  "kpiLast24h": "Últimas 24h",
+  "unusualUsageTitle": "Uso elevado: {count} cotizaciones en 24h",
+  "@unusualUsageTitle": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "unusualUsageSubtitle": "Revisa actividad anómala o automatizaciones.",
+  "byStatus": "Por estado",
+  "recentActivity": "Actividad reciente",
+  "noAuditEventsYet": "Aún no hay eventos de auditoría.",
+  "newClient": "Nuevo cliente",
+  "editClient": "Editar cliente",
+  "fieldClientNameRequired": "Nombre *",
+  "fieldIdentification": "Identificación",
+  "fieldPhone": "Teléfono",
+  "fieldAddress": "Dirección",
+  "importClientsCsvTitle": "Importar clientes CSV",
+  "importCsvHelp": "Pega el CSV. Primera fila = cabecera.\nPlantilla: {header}",
+  "@importCsvHelp": {
+    "placeholders": {
+      "header": {"type": "String"}
+    }
+  },
+  "copyTemplate": "Copiar plantilla",
+  "importAction": "Importar",
+  "importNoValidRows": "No hay filas válidas",
+  "importResult": "Importados: {saved}",
+  "@importResult": {
+    "placeholders": {
+      "saved": {"type": "int"}
+    }
+  },
+  "emptyNoClients": "Sin clientes",
+  "emptyCreateFirstClient": "Crea el primero para reutilizarlo en cotizaciones.",
+  "deleteConfirmNamed": "¿Eliminar a {name}?",
+  "@deleteConfirmNamed": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "newCatalogItem": "Nuevo ítem",
+  "editCatalogItem": "Editar ítem",
+  "fieldCode": "Código",
+  "fieldCategory": "Categoría",
+  "fieldUnit": "Unidad",
+  "fieldUnitPrice": "Precio unitario",
+  "fieldTaxPercent": "Impuesto %",
+  "catalogFab": "Ítem",
+  "emptyCatalog": "Catálogo vacío",
+  "emptyAddCatalogItems": "Agrega productos o servicios reutilizables.",
+  "deleteConfirmItem": "¿Eliminar {name}?",
+  "@deleteConfirmItem": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "defaultUnitUnd": "und",
+  "defaultCategoryGeneral": "General",
+  "teamTitle": "Equipo",
+  "acceptInvite": "Aceptar invitación",
+  "inviteOwnersOnly": "Solo owner/admin pueden invitar.",
+  "inviteCreatedTitle": "Invitación creada",
+  "inviteShareToken": "Comparte este token con {email} (válido 7 días):\n\n{token}",
+  "@inviteShareToken": {
+    "placeholders": {
+      "email": {"type": "String"},
+      "token": {"type": "String"}
+    }
+  },
+  "copyToken": "Copiar token",
+  "fieldInviteToken": "Token de invitación",
+  "inviteAccepted": "Invitación aceptada",
+  "teamProUpsellTitle": "Gestión de equipo en Pro/Business",
+  "teamProUpsellBody": "Hasta {maxSeats} asientos en tu plan actual cuando esté activo.",
+  "@teamProUpsellBody": {
+    "placeholders": {
+      "maxSeats": {"type": "int"}
+    }
+  },
+  "membersCount": "Miembros ({current}/{max})",
+  "@membersCount": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "max": {"type": "int"}
+    }
+  },
+  "roleLabel": "Rol: {role}",
+  "@roleLabel": {
+    "placeholders": {
+      "role": {"type": "String"}
+    }
+  },
+  "deactivateMember": "Desactivar",
+  "inviteSection": "Invitar",
+  "fieldRole": "Rol",
+  "hintColleagueEmail": "colega@empresa.com",
+  "createInvitation": "Crear invitación",
+  "pendingInvites": "Pendientes",
+  "inviteExpires": "{role} · expira {date}",
+  "@inviteExpires": {
+    "placeholders": {
+      "role": {"type": "String"},
+      "date": {"type": "String"}
+    }
+  },
+  "choosePlanHeadline": "Elige el plan ideal para tu negocio",
+  "effectivePlan": "Plan efectivo: {label}",
+  "@effectivePlan": {
+    "placeholders": {
+      "label": {"type": "String"}
+    }
+  },
+  "supportLine": "Soporte: {email}",
+  "@supportLine": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "priceContactUs": "Consultar",
+  "planCurrent": "Plan actual",
+  "planActive": "Activo",
+  "upgradeToPro": "Mejorar a Pro",
+  "featureFreeQuotes": "Hasta {n} cotizaciones",
+  "@featureFreeQuotes": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "featurePdfExport": "Exportación PDF",
+  "featureCloudData": "Datos en la nube",
+  "trialProUntil": "Prueba Pro hasta {date}",
+  "@trialProUntil": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "exportFailed": "No se pudo exportar",
+  "accountDeleted": "Cuenta eliminada",
+  "accountDeleteFailed": "No se pudo eliminar la cuenta",
+  "docxProRequired": "La exportación DOCX está disponible en Pro o Business.",
+  "generatingWord": "Generando Word…",
+  "wordReadyToShare": "Word listo para compartir",
+  "wordGenerateFailed": "Error al generar Word",
+  "shareWhatsApp": "WhatsApp",
+  "shareEmail": "Correo",
+  "shareSecureLink7d": "Copiar enlace seguro (7 días)",
+  "shareLinkRequiresCloud": "Se requiere organización y cotización en la nube.",
+  "sharePdfFile": "Compartir PDF",
+  "shareQuote": "Compartir cotización",
+  "sharePdfPreparing": "Preparando PDF…",
+  "sharePdfEmpty": "El PDF generado está vacío. Inténtalo de nuevo.",
+  "sharePdfInvalid": "El archivo PDF no es válido.",
+  "sharePdfWriteFailed": "No se pudo guardar el PDF temporal para compartir.",
+  "sharePdfOpenFailed": "No se pudo abrir el menú de compartir.",
+  "sharePdfBusy": "Ya se está preparando un PDF para compartir.",
+  "shareLinkUnavailableOffline": "Enlace seguro no disponible sin conexión. Puedes compartir el PDF.",
+  "secureLinkTitle": "Enlace seguro",
+  "quotePreviewTitle": "Cotización: {number}",
+  "@quotePreviewTitle": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "tooltipEditQuote": "Editar cotización",
+  "tooltipExportWord": "Exportar Word",
+  "tooltipDocxPro": "DOCX (Pro)",
+  "stepClient": "Cliente",
+  "stepItems": "Ítems",
+  "stepConditions": "Condiciones",
+  "stepReview": "Revisar",
+  "next": "Siguiente",
+  "quoteSaved": "Guardada {number}",
+  "@quoteSaved": {
+    "placeholders": {
+      "number": {"type": "String"}
+    }
+  },
+  "noClientsHint": "No hay clientes. Crea uno desde Clientes.",
+  "clientAndData": "Cliente y datos",
+  "choose": "Elegir",
+  "manage": "Gestionar",
+  "fieldLocation": "Ubicación",
+  "fieldServiceType": "Tipo de servicio",
+  "fieldValidityDays": "Validez (días)",
+  "hintDaysExample": "Ej. 15",
+  "emptyNoItemsYet": "Sin ítems todavía",
+  "emptyCatalogHint": "Catálogo vacío. Agrégalo en Catálogo.",
+  "manageCatalog": "Gestionar catálogo",
+  "commercialConditions": "Condiciones comerciales",
+  "paymentMethod": "Forma de pago",
+  "totalBase": "Total base: {amount}",
+  "@totalBase": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "fieldDepositPercent": "Anticipo / entrada %",
+  "fieldBalancePercent": "Saldo pendiente %",
+  "use5050Split": "Usar 50% anticipo / 50% saldo",
+  "singlePaymentHint": "El total se asigna íntegramente a un solo pago.",
+  "fieldDeliveryTime": "Plazo de entrega",
+  "fieldQuoteValidityDays": "Vigencia (días)",
+  "fieldWarranty": "Garantía",
+  "fieldCommercialTerms": "Términos y condiciones comerciales",
+  "includesSection": "Incluye",
+  "excludesSection": "No incluye",
+  "notesSection": "Observaciones adicionales",
+  "hintAddChip": "Agregar…",
+  "fieldGlobalDiscount": "Descuento global %",
+  "fieldExtraCharges": "Cargos adicionales",
+  "fieldStatus": "Estado",
+  "reviewSummary": "Resumen",
+  "subtotal": "Subtotal",
+  "taxes": "Impuestos",
+  "total": "Total",
+  "saveAndPreviewPdf": "Guardar y previsualizar PDF",
+  "noActiveOrganization": "Aún no hay organización activa.",
+  "unsavedChangesBadge": "Sin guardar",
+  "brandingProRequired": "Branding personalizado disponible en Pro o durante la prueba.",
+  "brandingOwnerOnly": "Solo el propietario o un administrador puede cambiar el logo.",
+  "needActiveOrganization": "Debes iniciar sesión con una organización activa.",
+  "keepEditing": "Seguir editando",
+  "exitWithoutSaving": "Salir sin guardar",
+  "unsavedExitTitle": "Cambios sin guardar",
+  "unsavedExitBody": "Si sales ahora, perderás los cambios no guardados.",
+  "saveBrandingConfig": "Guardar configuración",
+  "documentColors": "Colores del documento",
+  "watermarkSection": "Marca de agua",
+  "logoSizeSection": "Tamaño en la cotización",
+  "alignmentSection": "Alineación",
+  "pdfPlacementSection": "Ubicación en el PDF",
+  "previewQuoteHeader": "COTIZACIÓN (vista previa)",
+  "watermarkDisabledHint": "Marca de agua desactivada",
+  "planLowerTier": "Plan inferior",
+  "upgradeToBusiness": "Mejorar a Business",
+  "featureUnlimitedQuotes": "Cotizaciones ilimitadas",
+  "featurePdfDocx": "PDF + DOCX",
+  "featureCustomBranding": "Branding personalizado",
+  "featureReportsCsv": "Reportes + CSV",
+  "featureTeamSeats": "Equipo hasta {n} asientos",
+  "@featureTeamSeats": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "featureTrialDaysOnSignup": "{days} días de prueba Pro al registrarte",
+  "@featureTrialDaysOnSignup": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "featurePrioritySupport": "Soporte prioritario",
+  "featureEverythingInPro": "Todo lo de Pro",
+  "featureUpToSeats": "Hasta {n} asientos",
+  "@featureUpToSeats": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "featureRolesListed": "Roles owner/admin/sales/readonly",
+  "featureReportsCsvAudit": "Reportes + CSV + auditoría",
+  "discountsLabel": "Descuentos",
+  "globalDiscountLabel": "Descuento global",
+  "importRowsWithErrors": " · {n} fila(s) con error",
+  "@importRowsWithErrors": {
+    "placeholders": {
+      "n": {"type": "int"}
+    }
+  },
+  "pdfServicesDetail": "DETALLE DE SERVICIOS",
+  "chargesLabel": "Cargos",
+  "pdfProjectTotal": "TOTAL DEL PROYECTO",
+  "pdfPaymentMethod": "FORMA DE PAGO",
+  "pdfIncludes": "INCLUYE",
+  "pdfExcludes": "NO INCLUYE",
+  "pdfNotes": "OBSERVACIONES",
+  "pdfService": "SERVICIO",
+  "pdfPrice": "PRECIO",
+  "pdfQty": "CANT",
+  "pdfUnitPrice": "P.UNIT",
+  "pdfDiscountPct": "DTO%",
+  "pdfTaxPct": "IMP%",
+  "pdfNet": "NETO",
+  "pdfAdditionalFields": "CAMPOS ADICIONALES",
+  "paymentModeSingle": "Un solo pago",
+  "paymentModeSplit": "Anticipo y saldo",
+  "hintDeliveryTime": "Ej. 15 días hábiles",
+  "hintWarranty": "Ej. 90 días por defectos de fabricación",
+  "hintCommercialTerms": "Condiciones generales aplicables a esta cotización",
+  "alignLeft": "Izquierda",
+  "alignCenter": "Centro",
+  "alignRight": "Derecha",
+  "logoPlacementHeader": "Encabezado",
+  "sizeSmall": "Pequeño",
+  "sizeMedium": "Mediano",
+  "sizeLarge": "Grande",
+  "watermarkPosCenter": "Centro",
+  "watermarkPosTopCenter": "Centro superior",
+  "watermarkPosBottomCenter": "Centro inferior",
+  "watermarkPosBottomRight": "Esquina inferior derecha",
+  "proBadge": "Pro",
+  "imagePickerFailed": "No se pudo abrir el selector de imágenes. Prueba otro navegador o formato PNG/JPG.",
+  "imageReadTimeout": "Lectura de imagen agotó el tiempo.",
+  "brandingFirestoreTimeout": "Guardar el branding en Firestore agotó el tiempo.",
+  "logoUploadOrgSaveFailed": "El archivo se subió pero no se pudo guardar en la organización.",
+  "logoSavedLocalPending": "Logo guardado en el dispositivo (pendiente de subir).",
+  "logoUploadedOk": "Logotipo subido y guardado en la organización.",
+  "removeLogoTitle": "Eliminar logotipo",
+  "removeLogoBody": "¿Eliminar el logotipo guardado de la empresa? Las cotizaciones ya generadas no se modifican.",
+  "orgUpdateWithoutLogoFailed": "No se pudo actualizar la organización sin logo.",
+  "logoRemovedOk": "Logotipo eliminado.",
+  "brandingOwnerOnlySave": "Solo el propietario o un administrador puede guardar.",
+  "brandingSaveFailed": "No se pudo guardar la configuración.",
+  "brandingSavedOk": "Configuración de identidad visual guardada.",
+  "saveErrorGeneric": "Error al guardar",
+  "uploadingLogo": "Subiendo logotipo…",
+  "changeLogo": "Cambiar logotipo",
+  "uploadLogo": "Subir logotipo",
+  "removeLogoAction": "Eliminar logotipo",
+  "pdfPlacementOnlyHeader": "{placement} (única posición compatible con la plantilla actual)",
+  "@pdfPlacementOnlyHeader": {
+    "placeholders": {
+      "placement": {"type": "String"}
+    }
+  },
+  "watermarkHelp": "El logo aparece en el fondo de cada página del PDF, detrás del contenido comercial.",
+  "watermarkEnabled": "Marca de agua activada",
+  "watermarkNeedLogoFirst": "Sube un logotipo antes de activar la marca de agua.",
+  "companyNoLogoYet": "Tu empresa todavía no tiene un logotipo. Súbelo arriba para usarlo como marca de agua.",
+  "watermarkTransparency": "Transparencia ({pct}%)",
+  "@watermarkTransparency": {
+    "placeholders": {
+      "pct": {"type": "int"}
+    }
+  },
+  "watermarkSizeTitle": "Tamaño de la marca de agua",
+  "positionTitle": "Posición",
+  "logoFitHint": "Ajuste: el logo se muestra completo sin deformarlo (BoxFit.contain). PNG conserva transparencia.",
+  "previewSampleTotal": "Total $1.250,00",
+  "emptyCompanyNoLogo": "Tu empresa todavía no tiene un logotipo",
+  "pdfSizeLabel": "Tamaño en PDF",
+  "watermarkThisQuote": "Marca de agua (esta cotización)",
+  "watermarkOn": "Activada",
+  "watermarkOff": "Desactivada",
+  "watermarkNeedCompanyOrQuoteLogo": "Configura el logo de la empresa en Identidad visual o sube uno para esta cotización.",
+  "watermarkOpacity": "Opacidad {pct}%",
+  "@watermarkOpacity": {
+    "placeholders": {
+      "pct": {"type": "int"}
+    }
+  },
+  "watermarkPositionLabel": "Posición marca de agua",
+  "mustSignIn": "Debes iniciar sesión.",
+  "accountDeleteRestPartial": "Datos de cotizaciones y perfil eliminados. Para borrar también la cuenta Auth en escritorio, despliega la Cloud Function deleteAccount (ver docs/BACKEND_STRIPE.md).",
+  "storageUnauthorized": "No tienes permiso para subir el logotipo de esta organización. Comprueba que seas propietario o administrador y que las reglas de Storage estén desplegadas.",
+  "storageUnauthenticated": "Tu sesión expiró. Vuelve a iniciar sesión e inténtalo de nuevo.",
+  "storageCanceled": "La carga del logotipo se canceló.",
+  "storageRetryLimit": "No se pudo conectar con el almacenamiento. Revisa tu conexión.",
+  "storageObjectNotFound": "No se encontró el archivo en el almacenamiento. Si acabas de activar Storage, reinicia la app e inténtalo de nuevo.",
+  "storageBucketNotFound": "Firebase Storage no está disponible en este proyecto. Hay que crear el bucket predeterminado y desplegar las reglas.",
+  "storageQuotaExceeded": "Se alcanzó la cuota de almacenamiento del proyecto.",
+  "storageGenericError": "Error de almacenamiento ({code}). Inténtalo de nuevo o usa una imagen más pequeña.",
+  "@storageGenericError": {
+    "placeholders": {
+      "code": {"type": "String"}
+    }
+  },
+  "storageUploadTimeout": "La carga tardó demasiado. Puede ser un problema de red o de configuración de Storage en el navegador. Inténtalo de nuevo.",
+  "storageBucketMissing": "El bucket de Firebase Storage no existe o no está vinculado. Activa Storage en la consola y vuelve a intentar.",
+  "storageCorsBlocked": "El navegador bloqueó la subida (CORS). Ejecuta la app con flutter run -d chrome --web-port=62313 o actualiza storage-cors.json.",
+  "storageNetworkError": "No hay conexión con el almacenamiento. Revisa tu red.",
+  "catalogImportTitle": "Importar catálogo",
+  "catalogImportDownloadExcel": "Descargar plantilla Excel (.xlsx)",
+  "catalogImportDownloadCsv": "Descargar plantilla CSV (.csv)",
+  "catalogImportSelectFile": "Seleccionar archivo para importar",
+  "catalogImportViewInstructions": "Ver instrucciones de importación",
+  "catalogImportInstructionsTitle": "Instrucciones de importación",
+  "catalogImportInstructionsBody": "1. Descarga la plantilla Excel o CSV.\n2. Completa una fila por producto. Solo el nombre es obligatorio.\n3. Columnas: codigo, nombre, descripcion, categoria, unidad, precio, impuesto.\n4. Las filas de ejemplo de la plantilla (código EJEMPLO/EXAMPLE y texto «no se importa» / «fila de ejemplo») se omiten. Si editas esas filas con productos reales, se importan.\n5. El codigo (SKU) identifica duplicados; el nombre solo no se usa como clave única.\n6. Formatos admitidos: .xlsx y .csv (UTF-8). No se admite .xls antiguo ni macros.\n7. Revisa el resumen y confirma antes de guardar.",
+  "catalogImportReviewTitle": "Revisar importación",
+  "catalogImportFileName": "Archivo: {name}",
+  "@catalogImportFileName": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "catalogImportRowsDetected": "Filas detectadas: {count}",
+  "@catalogImportRowsDetected": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportValidCount": "Productos válidos: {count}",
+  "@catalogImportValidCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportErrorCount": "Filas con errores: {count}",
+  "@catalogImportErrorCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportDuplicateCount": "Posibles duplicados: {count}",
+  "@catalogImportDuplicateCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportExampleSkipped": "Ejemplos omitidos: {count}",
+  "@catalogImportExampleSkipped": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportPreview": "Vista previa",
+  "catalogImportConfirm": "Confirmar importación",
+  "catalogImportAnalyzing": "Analizando archivo…",
+  "catalogImportSaving": "Guardando productos…",
+  "catalogImportCancelled": "Importación cancelada. El catálogo no se modificó.",
+  "catalogImportNoFile": "No se seleccionó ningún archivo.",
+  "catalogImportTemplateShared": "Plantilla lista para guardar o compartir.",
+  "catalogImportTemplateError": "No se pudo generar la plantilla: {error}",
+  "@catalogImportTemplateError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "catalogImportAnalyzeError": "No se pudo analizar el archivo: {error}",
+  "@catalogImportAnalyzeError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "catalogImportNothingToImport": "No hay productos válidos para importar.",
+  "catalogImportDuplicatePolicyTitle": "Duplicados por código",
+  "catalogImportDuplicateSkip": "Omitir duplicados",
+  "catalogImportDuplicateUpdate": "Actualizar existentes (por código)",
+  "catalogImportCommitResult": "Creados: {created}. Actualizados: {updated}. Omitidos: {skipped}.",
+  "@catalogImportCommitResult": {
+    "placeholders": {
+      "created": {"type": "int"},
+      "updated": {"type": "int"},
+      "skipped": {"type": "int"}
+    }
+  },
+  "catalogImportPartialFailures": "Algunas filas no se guardaron ({count}).",
+  "@catalogImportPartialFailures": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "catalogImportIssueEmptyFile": "El archivo está vacío.",
+  "catalogImportIssueMissingNameHeader": "Falta la columna obligatoria nombre/name.",
+  "catalogImportIssueUnknownHeaders": "Cabeceras no reconocidas (se ignoran): {detail}",
+  "@catalogImportIssueUnknownHeaders": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueEmptyName": "El nombre es obligatorio.",
+  "catalogImportIssueInvalidPrice": "Precio inválido ({detail}).",
+  "@catalogImportIssueInvalidPrice": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueNegativePrice": "El precio no puede ser negativo ({detail}).",
+  "@catalogImportIssueNegativePrice": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueInvalidTax": "Impuesto inválido ({detail}).",
+  "@catalogImportIssueInvalidTax": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueNegativeTax": "El impuesto no puede ser negativo ({detail}).",
+  "@catalogImportIssueNegativeTax": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueTooManyRows": "Demasiadas filas (máximo {detail}).",
+  "@catalogImportIssueTooManyRows": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueFileTooLarge": "El archivo supera el tamaño máximo permitido.",
+  "catalogImportIssueUnsupportedFormat": "Formato no admitido ({detail}). Usa .xlsx o .csv.",
+  "@catalogImportIssueUnsupportedFormat": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueEmptySheet": "No hay filas de productos para importar.",
+  "catalogImportIssueOnlyExamples": "Todas las filas son ejemplos de la plantilla (código EJEMPLO/EXAMPLE con texto de ejemplo). Edita el nombre/descripción o añade filas nuevas con tus productos reales.",
+  "catalogImportExampleRowLabel": "Ejemplo (omitido)",
+  "catalogImportIssueInternalDuplicate": "Código duplicado dentro del archivo ({detail}).",
+  "@catalogImportIssueInternalDuplicate": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueExistingDuplicate": "Ya existe un producto con este código ({detail}).",
+  "@catalogImportIssueExistingDuplicate": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportIssueParseError": "Error al leer el archivo: {detail}",
+  "@catalogImportIssueParseError": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "catalogImportRowLabel": "Fila {row}",
+  "@catalogImportRowLabel": {
+    "placeholders": {
+      "row": {"type": "int"}
+    }
+  },
+  "quoteEditorDraftResumed": "Borrador local reanudado",
+  "quoteEditorDraftSavedLocal": "Borrador guardado en este dispositivo",
+  "quoteEditorUnsavedCloud": "Cambios sin guardar en la nube",
+  "quoteEditorSavedLocalPending": "Guardada en este dispositivo (pendiente de sincronizar)",
+  "quoteEditorSavedOk": "Guardada correctamente",
+  "quoteEditorValidationClient": "Indica el cliente",
+  "quoteEditorValidationItems": "Agrega al menos un ítem",
+  "paymentLabelSingle": "UN SOLO PAGO",
+  "paymentLabelDeposit": "ANTICIPO",
+  "paymentLabelDelivery": "ENTREGA",
+  "paymentLabelBalance": "SALDO",
+  "newLineItem": "Nuevo ítem",
+  "editLineItem": "Editar ítem",
+  "saveLineItem": "Guardar ítem",
+  "fieldQuantity": "Cantidad",
+  "fieldDiscountPercent": "Descuento %",
+  "fieldCodeOptional": "Código (opcional)",
+  "invalidQuantity": "Inválida",
+  "invalidPrice": "Inválido",
+  "quoteLogoCustom": "Logo personalizado",
+  "quoteLogoCompany": "Logo de la empresa",
+  "quoteLogoEmptyHint": "No hay logo de empresa ni personalizado.\nConfigúralo en Mi cuenta o cárgalo desde la galería.",
+  "quoteLogoPreviewCustomFailed": "No se pudo cargar la vista previa del logo personalizado. Vuelve a subirlo desde la galería.",
+  "quoteLogoPreviewCompanyFailed": "Hay logo de empresa, pero no se pudo cargar la imagen. Revisa Identidad visual o tu conexión.",
+  "quoteLogoRemoveCustomization": "Quitar personalización",
+  "quoteLogoRemoveTitle": "Quitar personalización",
+  "quoteLogoRemoveBody": "Esta cotización volverá a usar el logo global de la empresa. Identidad visual no se modifica.",
+  "quoteLogoConfigureCompany": "Configurar empresa",
+  "quoteLogoUseCompany": "Usar logo de empresa",
+  "quoteLogoSavedLocal": "Logo de esta cotización guardado en el dispositivo. El de la empresa no se modifica.",
+  "quoteLogoAppliedQuoteOnly": "Logo aplicado solo a esta cotización. Usa Identidad visual si quieres cambiar el de la empresa.",
+  "quoteLogoOrgIdentityApplied": "Identidad de la empresa aplicada. Esta cotización vuelve a usar el logo global vigente.",
+  "quoteLogoLocalSaveFailed": "No se pudo guardar el logo en este dispositivo. Revisa el espacio de almacenamiento e inténtalo de nuevo.",
+  "removeAction": "Quitar"
+}

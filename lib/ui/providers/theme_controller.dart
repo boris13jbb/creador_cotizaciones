@@ -38,9 +38,20 @@ class ThemeController extends ChangeNotifier {
     await prefs.setString(_prefsKey, value);
   }
 
+  /// Etiquetas legacy (español). Preferir [labelFor] con l10n.
   String get label => switch (_mode) {
     ThemeMode.light => 'Claro',
     ThemeMode.dark => 'Oscuro',
     ThemeMode.system => 'Sistema',
+  };
+
+  String labelFor({
+    required String light,
+    required String dark,
+    required String system,
+  }) => switch (_mode) {
+    ThemeMode.light => light,
+    ThemeMode.dark => dark,
+    ThemeMode.system => system,
   };
 }

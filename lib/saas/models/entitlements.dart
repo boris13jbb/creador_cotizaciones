@@ -1,7 +1,39 @@
 import '../config/saas_config.dart';
 
+enum GrantInstantKind { absent, invalid, ok }
+
+class GrantInstant {
+  const GrantInstant._(this.kind, this.value);
+  const GrantInstant.absent() : this._(GrantInstantKind.absent, null);
+  const GrantInstant.invalid() : this._(GrantInstantKind.invalid, null);
+  GrantInstant.ok(DateTime value) : this._(GrantInstantKind.ok, value.toUtc());
+
+  final GrantInstantKind kind;
+  final DateTime? value;
+}
+
+GrantInstant parseGrantInstant(dynamic value) {
+  if (value == null) return const GrantInstant.absent();
+  if (value is DateTime) return GrantInstant.ok(value);
+  if (value is String) {
+    final t = value.trim();
+    if (t.isEmpty) return const GrantInstant.invalid();
+    final p = DateTime.tryParse(t);
+    return p == null ? const GrantInstant.invalid() : GrantInstant.ok(p);
+  }
+  try {
+    final dynamic maybe = value;
+    if (maybe.toDate is Function) {
+      return GrantInstant.ok(maybe.toDate() as DateTime);
+    }
+  } catch (_) {
+    return const GrantInstant.invalid();
+  }
+  return const GrantInstant.invalid();
+}
+
 /// Entitlements de servidor en `entitlements/{uid}`.
-/// Escritura exclusiva de Admin SDK / Cloud Functions (salvo bootstrap inicial permitido por reglas).
+/// Escritura exclusiva de Admin SDK / Cloud Functions.
 class Entitlements {
   final String uid;
   final SubscriptionPlan plan;
@@ -11,12 +43,15 @@ class Entitlements {
   final String? stripeCustomerId;
   final String? stripeSubscriptionId;
   final String source;
+  final DateTime? grantStartsAt;
   final DateTime? grantExpiresAt;
+  final String? grantModality;
   final String? grantReason;
   final String? grantedByUid;
   final String? grantId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool grantWindowInvalid;
 
   const Entitlements({
     required this.uid,
@@ -27,15 +62,43 @@ class Entitlements {
     this.stripeCustomerId,
     this.stripeSubscriptionId,
     this.source = 'signup',
+    this.grantStartsAt,
     this.grantExpiresAt,
+    this.grantModality,
     this.grantReason,
     this.grantedByUid,
     this.grantId,
     required this.createdAt,
     required this.updatedAt,
+    this.grantWindowInvalid = false,
   });
 
   bool get isAdminGrant => source == 'admin_grant';
+
+  bool get hasTemporalSignal {
+    if (grantModality == 'temporary') return true;
+    if (grantStartsAt != null || grantExpiresAt != null) return true;
+    if (grantWindowInvalid) return true;
+    return false;
+  }
+
+  /// Ventana: grantStartsAt <= now < grantExpiresAt
+  bool isAdminGrantActiveInWindow({DateTime? now}) {
+    if (!isAdminGrant) return false;
+    if (subscriptionStatus.toLowerCase() != 'active') return false;
+    if (plan != SubscriptionPlan.pro && plan != SubscriptionPlan.business) {
+      return false;
+    }
+    final n = (now ?? DateTime.now()).toUtc();
+    if (!hasTemporalSignal) return true;
+    if (grantWindowInvalid) return false;
+    if (grantExpiresAt == null) return false;
+    if (grantStartsAt != null && n.isBefore(grantStartsAt!.toUtc())) {
+      return false;
+    }
+    if (!n.isBefore(grantExpiresAt!.toUtc())) return false;
+    return true;
+  }
 
   factory Entitlements.initialTrial(String uid, {DateTime? now}) {
     final n = now ?? DateTime.now().toUtc();
@@ -90,8 +153,14 @@ class Entitlements {
     if (stripeSubscriptionId != null) {
       map['stripeSubscriptionId'] = stripeSubscriptionId;
     }
+    if (grantStartsAt != null) {
+      map['grantStartsAt'] = grantStartsAt!.toIso8601String();
+    }
     if (grantExpiresAt != null) {
       map['grantExpiresAt'] = grantExpiresAt!.toIso8601String();
+    }
+    if (grantModality != null) {
+      map['grantModality'] = grantModality;
     }
     if (grantReason != null) {
       map['grantReason'] = grantReason;
@@ -106,29 +175,46 @@ class Entitlements {
   }
 
   factory Entitlements.fromMap(Map<String, dynamic> map) {
+    final start = _prefer(map['grantStartsAtTs'], map['grantStartsAt']);
+    final end = _prefer(map['grantExpiresAtTs'], map['grantExpiresAt']);
+    final modality = map['grantModality'] as String?;
+    final temporal =
+        modality == 'temporary' ||
+        start.kind != GrantInstantKind.absent ||
+        end.kind != GrantInstantKind.absent;
+    final invalid =
+        temporal &&
+        (start.kind == GrantInstantKind.invalid ||
+            end.kind == GrantInstantKind.invalid ||
+            end.kind == GrantInstantKind.absent);
+
     return Entitlements(
       uid: map['uid'] as String? ?? '',
       plan: SubscriptionPlan.fromId(map['plan'] as String?),
       subscriptionStatus: map['subscriptionStatus'] as String? ?? 'active',
-      trialEndsAt: _parseDate(map['trialEndsAt']),
-      currentPeriodEnd: _parseDate(map['currentPeriodEnd']),
+      trialEndsAt: parseGrantInstant(map['trialEndsAt']).value,
+      currentPeriodEnd: parseGrantInstant(map['currentPeriodEnd']).value,
       stripeCustomerId: map['stripeCustomerId'] as String?,
       stripeSubscriptionId: map['stripeSubscriptionId'] as String?,
       source: map['source'] as String? ?? 'signup',
-      grantExpiresAt: _parseDate(map['grantExpiresAt']),
+      grantStartsAt: start.value,
+      grantExpiresAt: end.value,
+      grantModality: modality,
       grantReason: map['grantReason'] as String?,
       grantedByUid: map['grantedByUid'] as String?,
       grantId: map['grantId'] as String?,
-      createdAt: _parseDate(map['createdAt']) ?? DateTime.now().toUtc(),
-      updatedAt: _parseDate(map['updatedAt']) ?? DateTime.now().toUtc(),
+      createdAt:
+          parseGrantInstant(map['createdAt']).value ?? DateTime.now().toUtc(),
+      updatedAt:
+          parseGrantInstant(map['updatedAt']).value ?? DateTime.now().toUtc(),
+      grantWindowInvalid: invalid,
     );
   }
 
-  static DateTime? _parseDate(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value.toUtc();
-    if (value is String) return DateTime.tryParse(value)?.toUtc();
-    return null;
+  static GrantInstant _prefer(dynamic a, dynamic b) {
+    final first = parseGrantInstant(a);
+    if (first.kind != GrantInstantKind.absent) return first;
+    return parseGrantInstant(b);
   }
 }
 

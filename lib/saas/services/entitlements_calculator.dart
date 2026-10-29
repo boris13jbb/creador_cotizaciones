@@ -41,14 +41,10 @@ class EntitlementsService {
     final n = (now ?? DateTime.now()).toUtc();
     final status = entitlements.subscriptionStatus.toLowerCase();
 
-    // Acceso gratis otorgado por super admin (pro/business) con expiración opcional.
+    // Cortesía admin: ventana grantStartsAt <= now < grantExpiresAt.
+    // Habitual sin fechas: vigente hasta revocación. Temporal inválido: denegado.
     if (entitlements.isAdminGrant && status == 'active') {
-      final expired =
-          entitlements.grantExpiresAt != null &&
-          !entitlements.grantExpiresAt!.isAfter(n);
-      if (!expired &&
-          (entitlements.plan == SubscriptionPlan.pro ||
-              entitlements.plan == SubscriptionPlan.business)) {
+      if (entitlements.isAdminGrantActiveInWindow(now: n)) {
         return _fromPlan(
           entitlements.plan,
           isPro: true,
@@ -59,8 +55,15 @@ class EntitlementsService {
           reason: 'admin_grant',
         );
       }
-      if (expired) {
-        return EffectiveAccess.free(reason: 'admin_grant_expirado');
+      if (entitlements.hasTemporalSignal) {
+        return EffectiveAccess.free(
+          reason: entitlements.grantWindowInvalid
+              ? 'admin_grant_invalido'
+              : (entitlements.grantStartsAt != null &&
+                        n.isBefore(entitlements.grantStartsAt!.toUtc())
+                    ? 'admin_grant_programado'
+                    : 'admin_grant_expirado'),
+        );
       }
     }
 

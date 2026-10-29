@@ -125,6 +125,58 @@ void main() {
       expect(access.reason, 'admin_grant_expirado');
     });
 
+    test('admin_grant programado no otorga Pro antes del inicio', () {
+      final ent = Entitlements(
+        uid: 'u1',
+        plan: SubscriptionPlan.pro,
+        subscriptionStatus: 'active',
+        source: 'admin_grant',
+        grantModality: 'temporary',
+        grantStartsAt: now.add(const Duration(days: 2)),
+        grantExpiresAt: now.add(const Duration(days: 9)),
+        createdAt: now,
+        updatedAt: now,
+      );
+      expect(calc.evaluate(ent, now: now).isPro, isFalse);
+      expect(calc.evaluate(ent, now: now).reason, 'admin_grant_programado');
+      expect(
+        calc.evaluate(ent, now: now.add(const Duration(days: 2))).isPro,
+        isTrue,
+      );
+    });
+
+    test('admin_grant temporal inválido no otorga Pro', () {
+      final ent = Entitlements.fromMap({
+        'uid': 'u1',
+        'plan': 'pro',
+        'subscriptionStatus': 'active',
+        'source': 'admin_grant',
+        'grantModality': 'temporary',
+        'grantExpiresAt': '%%%',
+        'createdAt': now.toIso8601String(),
+        'updatedAt': now.toIso8601String(),
+      });
+      final access = calc.evaluate(ent, now: now);
+      expect(access.isPro, isFalse);
+      expect(access.reason, 'admin_grant_invalido');
+    });
+
+    test('en el instante exacto de vencimiento deniega', () {
+      final ends = now.add(const Duration(hours: 1));
+      final ent = Entitlements(
+        uid: 'u1',
+        plan: SubscriptionPlan.pro,
+        subscriptionStatus: 'active',
+        source: 'admin_grant',
+        grantStartsAt: now,
+        grantExpiresAt: ends,
+        createdAt: now,
+        updatedAt: now,
+      );
+      expect(calc.evaluate(ent, now: now).isPro, isTrue);
+      expect(calc.evaluate(ent, now: ends).isPro, isFalse);
+    });
+
     test('C02: trialEndsAt arbitrariamente futuro se acota y expira', () {
       final created = now.subtract(const Duration(days: 2));
       final ent = Entitlements(

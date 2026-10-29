@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n_ext.dart';
 import '../../saas/domain/org_enums.dart';
 import '../../saas/models/org_activity.dart';
 import '../../saas/models/org_quote_stats.dart';
@@ -13,6 +14,12 @@ import '../../saas/services/org_analytics_service.dart';
 import '../../screens/account/pricing_screen.dart';
 import '../../ui/layout/responsive.dart';
 import '../../ui/widgets/async_state_view.dart';
+
+const _kNoOrganization = _NoOrganizationMarker();
+
+class _NoOrganizationMarker {
+  const _NoOrganizationMarker();
+}
 
 /// Dashboard de KPIs, conversión y exportación CSV.
 class ReportsScreen extends StatefulWidget {
@@ -43,7 +50,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     if (orgId == null || orgId.isEmpty) {
       setState(() {
         _loading = false;
-        _error = 'Necesitas una organización para ver reportes.';
+        _error = _kNoOrganization;
       });
       return;
     }
@@ -82,7 +89,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final auth = context.read<AuthController>();
     if (!auth.access.canExportReportsCsv) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Exportar CSV requiere Pro o Business.')),
+        SnackBar(content: Text(context.l10n.exportCsvProRequired)),
       );
       await Navigator.push(
         context,
@@ -100,24 +107,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context).toString();
     final useRail = Responsive.useNavigationRail(context);
-    final showAppBar = !widget.embeddedInShell || useRail;
-    final money = NumberFormat.currency(symbol: r'$', decimalDigits: 0);
-    final pct = NumberFormat.percentPattern();
+    final showAppBar =
+        !widget.embeddedInShell || (useRail && !Responsive.isWebAdaptive);
+    final money = NumberFormat.currency(
+      locale: locale,
+      symbol: r'$',
+      decimalDigits: 0,
+    );
+    final pct = NumberFormat.percentPattern(locale);
     final stats = _stats;
+    final errorMessage = _error == _kNoOrganization
+        ? l10n.reportsNeedOrganization
+        : _error?.toString();
 
     return Scaffold(
       appBar: showAppBar
           ? AppBar(
-              title: const Text('Reportes'),
+              title: Text(l10n.reportsTitle),
               actions: [
                 IconButton(
-                  tooltip: 'Exportar CSV',
+                  tooltip: l10n.exportCsv,
                   onPressed: _loading ? null : _exportCsv,
                   icon: const Icon(Icons.download_outlined),
                 ),
                 IconButton(
-                  tooltip: 'Actualizar',
+                  tooltip: l10n.refresh,
                   onPressed: _loading ? null : _load,
                   icon: const Icon(Icons.refresh),
                 ),
@@ -126,13 +143,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
           : null,
       body: SafeArea(
         child: ContentConstraint(
-          padding: AppSpacing.pageWide,
+          padding: Responsive.pagePadding(context),
           child: AsyncStateView(
             loading: _loading,
-            error: _error?.toString(),
+            error: errorMessage,
             isEmpty: !_loading && stats == null,
-            emptyTitle: 'Sin datos',
-            emptySubtitle: 'Guarda cotizaciones para ver KPIs.',
+            emptyTitle: l10n.emptyGeneric,
+            emptySubtitle: l10n.emptySaveQuotesForKpis,
             onRetry: _load,
             child: stats == null
                 ? const SizedBox.shrink()
@@ -156,36 +173,35 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           ),
                         ),
                       Text(
-                        'Rendimiento comercial',
+                        l10n.commercialPerformance,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
+                      ResponsiveGrid(
+                        columns: Responsive.kpiColumns(context),
                         children: [
                           _KpiCard(
-                            label: 'Cotizaciones',
+                            label: l10n.kpiQuotes,
                             value: '${stats.totalQuotes}',
                           ),
                           _KpiCard(
-                            label: 'Pipeline',
+                            label: l10n.kpiPipeline,
                             value: money.format(stats.pipelineTotal.asDecimal),
                           ),
                           _KpiCard(
-                            label: 'Aceptadas',
+                            label: l10n.kpiAccepted,
                             value: money.format(stats.acceptedTotal.asDecimal),
                           ),
                           _KpiCard(
-                            label: 'Conversión',
+                            label: l10n.kpiConversion,
                             value: pct.format(stats.acceptanceRate),
                           ),
                           _KpiCard(
-                            label: 'Seguimiento',
+                            label: l10n.kpiFollowUp,
                             value: '${stats.staleFollowUps}',
                           ),
                           _KpiCard(
-                            label: 'Últimas 24h',
+                            label: l10n.kpiLast24h,
                             value: '${stats.createdLast24h}',
                           ),
                         ],
@@ -199,30 +215,28 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           child: ListTile(
                             leading: const Icon(Icons.warning_amber_outlined),
                             title: Text(
-                              'Uso elevado: ${stats.createdLast24h} cotizaciones en 24h',
+                              l10n.unusualUsageTitle(stats.createdLast24h),
                             ),
-                            subtitle: const Text(
-                              'Revisa actividad anómala o automatizaciones.',
-                            ),
+                            subtitle: Text(l10n.unusualUsageSubtitle),
                           ),
                         ),
                       ],
                       const SizedBox(height: AppSpacing.lg),
                       Text(
-                        'Por estado',
+                        l10n.byStatus,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       _StatusBars(stats: stats),
                       const SizedBox(height: AppSpacing.lg),
                       Text(
-                        'Actividad reciente',
+                        l10n.recentActivity,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       if (_activities.isEmpty)
                         Text(
-                          'Aún no hay eventos de auditoría.',
+                          l10n.noAuditEventsYet,
                           style: Theme.of(context).textTheme.bodyMedium,
                         )
                       else
@@ -234,7 +248,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 leading: const Icon(Icons.timeline),
                                 title: Text(a.message),
                                 subtitle: Text(
-                                  '${a.type} · ${DateFormat.yMMMd('es').add_Hm().format(a.createdAt.toLocal())}',
+                                  '${a.type} · ${DateFormat.yMMMd(locale).add_Hm().format(a.createdAt.toLocal())}',
                                 ),
                               ),
                             ),
@@ -255,28 +269,32 @@ class _KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: 150,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: scheme.outlineVariant),
-          borderRadius: BorderRadius.circular(AppRadii.md),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
         ),
       ),
     );

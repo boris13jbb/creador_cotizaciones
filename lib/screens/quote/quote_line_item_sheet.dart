@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/utils/money_cents.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/domain/quote_totals.dart';
 import '../../ui/layout/responsive.dart';
 
@@ -99,6 +100,7 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return SafeArea(
       child: SingleChildScrollView(
         padding: AppSpacing.page,
@@ -109,21 +111,21 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                widget.initial == null ? 'Nuevo ítem' : 'Editar ítem',
+                widget.initial == null ? l10n.newLineItem : l10n.editLineItem,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
                 controller: _name,
-                decoration: const InputDecoration(labelText: 'Nombre'),
+                decoration: InputDecoration(labelText: l10n.name),
                 textInputAction: TextInputAction.next,
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                    (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
               ),
               const SizedBox(height: AppSpacing.sm),
               TextFormField(
                 controller: _desc,
-                decoration: const InputDecoration(labelText: 'Descripción'),
+                decoration: InputDecoration(labelText: l10n.description),
                 maxLines: 2,
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -132,13 +134,15 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _qty,
-                      decoration: const InputDecoration(labelText: 'Cantidad'),
+                      decoration: InputDecoration(
+                        labelText: l10n.fieldQuantity,
+                      ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
                       validator: (v) {
                         final n = num.tryParse((v ?? '').replaceAll(',', '.'));
-                        if (n == null || n <= 0) return 'Inválida';
+                        if (n == null || n <= 0) return l10n.invalidQuantity;
                         return null;
                       },
                     ),
@@ -147,7 +151,7 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _unit,
-                      decoration: const InputDecoration(labelText: 'Unidad'),
+                      decoration: InputDecoration(labelText: l10n.fieldUnit),
                     ),
                   ),
                 ],
@@ -155,8 +159,8 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
               const SizedBox(height: AppSpacing.sm),
               TextFormField(
                 controller: _price,
-                decoration: const InputDecoration(
-                  labelText: 'Precio unitario',
+                decoration: InputDecoration(
+                  labelText: l10n.fieldUnitPrice,
                   prefixText: r'$ ',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -164,7 +168,7 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
                 ),
                 validator: (v) {
                   final n = num.tryParse((v ?? '').replaceAll(',', '.'));
-                  if (n == null || n < 0) return 'Inválido';
+                  if (n == null || n < 0) return l10n.invalidPrice;
                   return null;
                 },
               ),
@@ -174,8 +178,8 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _discount,
-                      decoration: const InputDecoration(
-                        labelText: 'Descuento %',
+                      decoration: InputDecoration(
+                        labelText: l10n.fieldDiscountPercent,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -186,8 +190,8 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _tax,
-                      decoration: const InputDecoration(
-                        labelText: 'Impuesto %',
+                      decoration: InputDecoration(
+                        labelText: l10n.fieldTaxPercent,
                       ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -199,15 +203,10 @@ class _QuoteLineItemFormState extends State<_QuoteLineItemForm> {
               const SizedBox(height: AppSpacing.sm),
               TextFormField(
                 controller: _code,
-                decoration: const InputDecoration(
-                  labelText: 'Código (opcional)',
-                ),
+                decoration: InputDecoration(labelText: l10n.fieldCodeOptional),
               ),
               const SizedBox(height: AppSpacing.lg),
-              FilledButton(
-                onPressed: _submit,
-                child: const Text('Guardar ítem'),
-              ),
+              FilledButton(onPressed: _submit, child: Text(l10n.saveLineItem)),
               const SizedBox(height: AppSpacing.sm),
             ],
           ),

@@ -12,10 +12,26 @@ import '../models/org_branding.dart';
 import '../models/org_client.dart';
 import '../models/organization.dart';
 import '../models/quote.dart';
+import '../offline/offline_local_store.dart';
+import '../offline/offline_sync_status.dart';
 import '../services/cloud_cotizacion_repository.dart';
 import '../services/organization_service.dart';
 import '../services/quote_draft_store.dart';
 import '../services/quote_mapper.dart';
+
+/// Códigos estables de mensajes UI del editor (resolver con AppLocalizations).
+///
+/// Los labels de [payments] (ANTICIPO, SALDO, …) se conservan en español
+/// canónico para PDF/legacy; la UI localiza solo la presentación.
+abstract final class QuoteEditorMsg {
+  static const draftResumed = 'qe.draftResumed';
+  static const draftSavedLocal = 'qe.draftSavedLocal';
+  static const unsavedCloud = 'qe.unsavedCloud';
+  static const savedLocalPending = 'qe.savedLocalPending';
+  static const savedOk = 'qe.savedOk';
+  static const validationClient = 'qe.validationClient';
+  static const validationItems = 'qe.validationItems';
+}
 
 /// Estado del editor por pasos de cotización.
 class QuoteEditorController extends ChangeNotifier {
@@ -121,7 +137,7 @@ class QuoteEditorController extends ChangeNotifier {
             draft.status == QuoteStatus.draft) {
           quote = draft.withRecalculatedTotal();
           isNew = quote.sequence <= 0;
-          draftHint = 'Borrador local reanudado';
+          draftHint = QuoteEditorMsg.draftResumed;
           dirty = true;
           return;
         }
@@ -138,7 +154,10 @@ class QuoteEditorController extends ChangeNotifier {
     }
   }
 
-  /// Copia logo/colores/layout de la org a la cotización (sin marcar dirty).
+  /// Aplica colores/layout de la org y quita override de logo (hereda global).
+  ///
+  /// No copia `logoUrl` en `logoPath`: eso se interpretaría como personalización
+  /// fija y no reflejaría cambios posteriores en Identidad visual.
   Future<void> applyOrganizationBranding({Organization? organization}) async {
     try {
       final org =
@@ -147,8 +166,7 @@ class QuoteEditorController extends ChangeNotifier {
       if (org == null) return;
       final identity = org.visualIdentity;
       quote = quote.copyWith(
-        logoPath: identity.logoUrl,
-        clearLogoPath: !identity.hasLogo,
+        clearLogoPath: true,
         colorsJson: identity.colorsJson,
         clearColorsJson:
             identity.colorsJson == null || identity.colorsJson!.isEmpty,
@@ -228,7 +246,7 @@ class QuoteEditorController extends ChangeNotifier {
     next = _reconcilePayments(next);
     quote = next;
     dirty = true;
-    draftHint = 'Cambios sin guardar en la nube';
+    draftHint = QuoteEditorMsg.unsavedCloud;
     error = null;
     notifyListeners();
     _scheduleDraftSave();
@@ -384,7 +402,7 @@ class QuoteEditorController extends ChangeNotifier {
     _draftTimer = Timer(const Duration(milliseconds: 600), () async {
       try {
         await QuoteDraftStore.instance.save(uid, quote);
-        draftHint = 'Borrador guardado en este dispositivo';
+        draftHint = QuoteEditorMsg.draftSavedLocal;
         notifyListeners();
       } catch (e) {
         debugPrint('draft save: $e');
@@ -546,11 +564,11 @@ class QuoteEditorController extends ChangeNotifier {
     switch (index) {
       case 0:
         if (quote.clientName.trim().isEmpty) {
-          return 'Indica el cliente';
+          return QuoteEditorMsg.validationClient;
         }
         return null;
       case 1:
-        if (quote.items.isEmpty) return 'Agrega al menos un ítem';
+        if (quote.items.isEmpty) return QuoteEditorMsg.validationItems;
         return null;
       default:
         return null;
@@ -588,9 +606,29 @@ class QuoteEditorController extends ChangeNotifier {
         isNew: isNew,
       );
       quote = saved;
-      isNew = false;
       dirty = false;
-      draftHint = 'Guardado en la nube';
+      var pendingLocal = saved.number.startsWith('LOCAL-');
+      try {
+        final rec = await OfflineLocalStore.instance.getQuote(
+          organizationId: saved.organizationId,
+          uid: uid,
+          quoteId: saved.id,
+        );
+        pendingLocal =
+            pendingLocal ||
+            rec?.syncStatus == OfflineSyncStatus.pending ||
+            rec?.syncStatus == OfflineSyncStatus.error ||
+            rec?.syncStatus == OfflineSyncStatus.conflict;
+      } catch (_) {}
+      // Solo marcar isNew=false tras sync remoto. Si createOrgQuote falló y
+      // quedó en cola, forzar isNew=false haría que el siguiente guardado
+      // use upsert cliente (bloqueado por rules create:false).
+      if (!pendingLocal) {
+        isNew = false;
+      }
+      draftHint = pendingLocal
+          ? QuoteEditorMsg.savedLocalPending
+          : QuoteEditorMsg.savedOk;
       await QuoteDraftStore.instance.clear(uid);
       saving = false;
       notifyListeners();

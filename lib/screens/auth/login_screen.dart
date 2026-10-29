@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../l10n/auth_error_l10n.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/providers/auth_controller.dart';
 import 'auth_scaffold.dart';
 import 'forgot_password_screen.dart';
@@ -34,7 +37,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.error ?? 'No se pudo iniciar sesión')),
+        SnackBar(
+          content: Text(
+            auth.error != null
+                ? localizeAuthError(context.l10n, auth.error)
+                : context.l10n.loginFailed,
+          ),
+        ),
       );
     }
   }
@@ -42,10 +51,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final loading = context.watch<AuthController>().loading;
+    final l10n = context.l10n;
 
     return AuthScaffold(
-      title: 'Bienvenido',
-      subtitle: 'Inicia sesión para gestionar tus cotizaciones en la nube',
+      title: l10n.welcome,
+      subtitle: l10n.loginSubtitle,
       child: Form(
         key: _formKey,
         child: Column(
@@ -55,13 +65,13 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(
-                labelText: 'Correo electrónico',
-                prefixIcon: Icon(Icons.mail_outline),
+              decoration: InputDecoration(
+                labelText: l10n.emailLabel,
+                prefixIcon: const Icon(Icons.mail_outline),
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Ingresa tu correo';
-                if (!v.contains('@')) return 'Correo inválido';
+                if (v == null || v.trim().isEmpty) return l10n.enterEmail;
+                if (!v.contains('@')) return l10n.invalidEmail;
                 return null;
               },
             ),
@@ -72,7 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
               autofillHints: const [AutofillHints.password],
               onFieldSubmitted: (_) => _submit(),
               decoration: InputDecoration(
-                labelText: 'Contraseña',
+                labelText: l10n.passwordLabel,
                 prefixIcon: const Icon(Icons.lock_outline),
                 suffixIcon: IconButton(
                   icon: Icon(
@@ -84,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Ingresa tu contraseña';
+                if (v == null || v.isEmpty) return l10n.enterPassword;
                 return null;
               },
             ),
@@ -98,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   );
                 },
-                child: const Text('¿Olvidaste tu contraseña?'),
+                child: Text(l10n.forgotPassword),
               ),
             ),
             const SizedBox(height: 8),
@@ -110,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Iniciar sesión'),
+                  : Text(l10n.loginAction),
             ),
             const SizedBox(height: 12),
             OutlinedButton(
@@ -123,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       );
                     },
-              child: const Text('Crear cuenta'),
+              child: Text(l10n.createAccount),
             ),
           ],
         ),

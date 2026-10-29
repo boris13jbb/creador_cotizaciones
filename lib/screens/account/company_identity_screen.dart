@@ -6,7 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/auth_error_l10n.dart';
+import '../../l10n/enum_l10n.dart';
+import '../../l10n/l10n_ext.dart';
 import '../../saas/models/org_branding.dart';
+import '../../saas/offline/branding_local_cache.dart';
+import '../../saas/offline/connectivity_monitor.dart';
+import '../../saas/offline/offline_controller.dart';
+import '../../saas/offline/offline_local_store.dart';
+import '../../saas/offline/offline_sync_service.dart';
+import '../../saas/offline/offline_sync_status.dart';
 import '../../saas/providers/auth_controller.dart';
 import '../../saas/services/branding_storage_service.dart';
 import '../../saas/services/organization_service.dart';
@@ -78,6 +87,8 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
       }
       final bytes = await BrandingStorageService.instance.loadLogoBytes(
         identity.logoUrl,
+        organizationId: org?.id,
+        uid: uid,
       );
       if (!mounted) return;
       setState(() {
@@ -100,13 +111,9 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
     final auth = context.read<AuthController>();
     if (auth.canCustomBranding) return true;
     if (!mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Branding personalizado disponible en Pro o durante la prueba.',
-        ),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.brandingProRequired)));
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const PricingScreen()),
@@ -120,16 +127,14 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
     if (!await _ensurePro()) return;
     if (!mounted) return;
     if (!_canManage) {
-      _showMessage(
-        'Solo el propietario o un administrador puede cambiar el logo.',
-      );
+      _showMessage(context.l10n.brandingOwnerOnly);
       return;
     }
     final auth = context.read<AuthController>();
     final orgId = auth.organizationId;
     final uid = auth.user?.uid ?? auth.restSession?.uid ?? auth.profile?.uid;
     if (orgId == null || uid == null) {
-      _showMessage('Debes iniciar sesión con una organización activa.');
+      _showMessage(context.l10n.needActiveOrganization);
       return;
     }
 
@@ -141,15 +146,14 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
     } catch (e, st) {
       debugPrint('pickImage: $e\n$st');
       if (!mounted) return;
-      _showMessage(
-        'No se pudo abrir el selector de imágenes. Prueba otro navegador '
-        'o formato PNG/JPG.',
-      );
+      _showMessage(context.l10n.imagePickerFailed);
       return;
     }
     // Cancelar el diálogo de archivos: no iniciar carga ni dejar spinner.
     if (picked == null) return;
+    if (!mounted) return;
     final file = picked;
+    final l10n = context.l10n;
 
     final previousPreview = _previewBytes;
     final previousDraft = _draft;
@@ -164,41 +168,84 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
         final bytes = await file.readAsBytes().timeout(
           const Duration(seconds: 30),
           onTimeout: () {
-            throw TimeoutException('Lectura de imagen agotó el tiempo.');
+            throw TimeoutException(l10n.imageReadTimeout);
           },
         );
         BrandingStorageService.instance.validateLogoBytes(
           bytes,
           fileName: file.name,
         );
-        final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
-          orgId: orgId,
-          uid: uid,
-          bytes: bytes,
-          fileName: file.name,
-        );
 
-        final next = previousDraft.copyWith(
-          logoUrl: uploaded.url,
-          logoStoragePath: uploaded.storagePath,
-        );
+        final online = await ConnectivityMonitor.instance.probeFirebase();
+        late final OrgBranding next;
+        var offlinePending = false;
 
-        // Persistir en la organización; si falla Firestore, no dejar preview nueva.
+        if (online) {
+          final uploaded = await BrandingStorageService.instance.uploadOrgLogo(
+            orgId: orgId,
+            uid: uid,
+            bytes: bytes,
+            fileName: file.name,
+          );
+          next = previousDraft.copyWith(
+            logoUrl: uploaded.url,
+            logoStoragePath: uploaded.storagePath,
+          );
+          await BrandingLocalCache.instance.saveLogoBytes(
+            organizationId: orgId,
+            uid: uid,
+            bytes: bytes,
+            branding: next,
+            pendingUpload: false,
+          );
+        } else {
+          if (!OfflineLocalStore.isSupported) {
+            throw Exception(
+              'Sin conexión. En Web no hay cola offline; reintenta cuando haya red.',
+            );
+          }
+          final localPath = await BrandingLocalCache.instance.saveLogoBytes(
+            organizationId: orgId,
+            uid: uid,
+            bytes: bytes,
+            branding: previousDraft,
+            pendingUpload: true,
+          );
+          next = previousDraft.copyWith(
+            logoUrl: localPath ?? previousDraft.logoUrl,
+          );
+          await OfflineLocalStore.instance.enqueue(
+            organizationId: orgId,
+            uid: uid,
+            entityType: OfflineEntityType.brandingLogo,
+            entityId: orgId,
+            operation: OfflineOperation.uploadFile,
+            payload: {'logoLocalPath': localPath, 'branding': next.toMap()},
+            idempotencyKey: OfflineSyncService.idempotencyKey(
+              type: OfflineEntityType.brandingLogo,
+              entityId: orgId,
+              op: OfflineOperation.uploadFile,
+              revision: DateTime.now().toUtc().toIso8601String(),
+            ),
+          );
+          await OfflineController.instance.refresh();
+          offlinePending = true;
+        }
+
         final saved = await auth
             .saveOrganizationBranding(next)
             .timeout(
               const Duration(seconds: 30),
               onTimeout: () {
-                throw TimeoutException(
-                  'Guardar el branding en Firestore agotó el tiempo.',
-                );
+                throw TimeoutException(l10n.brandingFirestoreTimeout);
               },
             );
         if (!mounted) return;
         if (!saved) {
           throw Exception(
-            auth.error ??
-                'El archivo se subió pero no se pudo guardar en la organización.',
+            auth.error != null
+                ? localizeAuthError(l10n, auth.error)
+                : l10n.logoUploadOrgSaveFailed,
           );
         }
 
@@ -208,12 +255,14 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
           _previewBytes = bytes;
           _error = null;
         });
-        _showMessage('Logotipo subido y guardado en la organización.');
+        _showMessage(
+          offlinePending ? l10n.logoSavedLocalPending : l10n.logoUploadedOk,
+        );
       });
     } catch (e, st) {
       debugPrint('upload logo UI: $e\n$st');
       if (!mounted) return;
-      final msg = BrandingStorageService.describeUploadError(e);
+      final msg = BrandingStorageService.describeUploadError(e, l10n);
       setState(() {
         // Mantener logo anterior si el reemplazo falló.
         _draft = previousDraft;
@@ -234,35 +283,34 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
     if (!await _ensurePro()) return;
     if (!mounted) return;
     if (!_canManage) {
-      _showMessage(
-        'Solo el propietario o un administrador puede eliminar el logo.',
-      );
+      _showMessage(context.l10n.brandingOwnerOnly);
       return;
     }
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar logotipo'),
-        content: const Text(
-          '¿Eliminar el logotipo guardado de la empresa? '
-          'Las cotizaciones ya generadas no se modifican.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final l10n = ctx.l10n;
+        return AlertDialog(
+          title: Text(l10n.removeLogoTitle),
+          content: Text(l10n.removeLogoBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.delete),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true || !mounted) return;
 
     final auth = context.read<AuthController>();
     final orgId = auth.organizationId;
+    final l10n = context.l10n;
     final previousDraft = _draft;
     final previousPreview = _previewBytes;
     setState(() {
@@ -285,7 +333,9 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
       if (!mounted) return;
       if (!saved) {
         throw Exception(
-          auth.error ?? 'No se pudo actualizar la organización sin logo.',
+          auth.error != null
+              ? localizeAuthError(l10n, auth.error)
+              : l10n.orgUpdateWithoutLogoFailed,
         );
       }
       setState(() {
@@ -293,14 +343,14 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
         _saved = next;
         _previewBytes = null;
       });
-      _showMessage('Logotipo eliminado.');
+      _showMessage(l10n.logoRemovedOk);
     } catch (e, st) {
       debugPrint('remove logo: $e\n$st');
       if (!mounted) return;
       setState(() {
         _draft = previousDraft;
         _previewBytes = previousPreview;
-        _error = BrandingStorageService.describeUploadError(e);
+        _error = BrandingStorageService.describeUploadError(e, l10n);
       });
       _showMessage(_error!);
     } finally {
@@ -316,10 +366,11 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
     if (!await _ensurePro()) return;
     if (!mounted) return;
     if (!_canManage) {
-      _showMessage('Solo el propietario o un administrador puede guardar.');
+      _showMessage(context.l10n.brandingOwnerOnlySave);
       return;
     }
     final auth = context.read<AuthController>();
+    final l10n = context.l10n;
     setState(() => _saving = true);
     final ok = await auth.saveOrganizationBranding(_draft);
     if (!mounted) return;
@@ -329,36 +380,35 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
         _saved = _draft;
         _error = null;
       } else {
-        _error = auth.error ?? 'No se pudo guardar la configuración.';
+        _error = auth.error != null
+            ? localizeAuthError(l10n, auth.error)
+            : l10n.brandingSaveFailed;
       }
     });
-    _showMessage(
-      ok
-          ? 'Configuración de identidad visual guardada.'
-          : (_error ?? 'Error al guardar'),
-    );
+    _showMessage(ok ? l10n.brandingSavedOk : (_error ?? l10n.saveErrorGeneric));
   }
 
   Future<bool> _confirmDiscard() async {
     if (!_dirty) return true;
     final r = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cambios sin guardar'),
-        content: const Text(
-          'Hay cambios de identidad visual sin guardar. ¿Salir de todos modos?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Seguir editando'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Salir'),
-          ),
-        ],
-      ),
+      builder: (ctx) {
+        final l10n = ctx.l10n;
+        return AlertDialog(
+          title: Text(l10n.unsavedExitTitle),
+          content: Text(l10n.unsavedExitBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.keepEditing),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l10n.exitWithoutSaving),
+            ),
+          ],
+        );
+      },
     );
     return r == true;
   }
@@ -414,6 +464,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
+    final l10n = context.l10n;
     final locked = !auth.canCustomBranding;
     final busy = _loading || _uploading || _saving;
 
@@ -427,14 +478,14 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Identidad visual'),
+          title: Text(l10n.visualIdentity),
           actions: [
             if (_dirty)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: Center(
                   child: Text(
-                    'Sin guardar',
+                    l10n.unsavedChangesBadge,
                     style: Theme.of(
                       context,
                     ).textTheme.labelSmall?.copyWith(color: Colors.amber),
@@ -444,7 +495,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
           ],
         ),
         body: SafeArea(
-          child: ContentConstraint(
+          child: ContentConstraint.form(
             padding: AppSpacing.page,
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -453,13 +504,13 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                       Row(
                         children: [
                           Text(
-                            'Identidad visual de la empresa',
+                            l10n.visualIdentity,
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           if (locked) ...[
                             const SizedBox(width: 8),
                             Chip(
-                              label: const Text('Pro'),
+                              label: Text(l10n.proBadge),
                               visualDensity: VisualDensity.compact,
                               labelStyle: Theme.of(
                                 context,
@@ -470,9 +521,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        locked
-                            ? 'Disponible con plan Pro o prueba activa.'
-                            : 'El logotipo se aplica a las nuevas cotizaciones y al PDF.',
+                        locked ? l10n.visualIdentityPro : l10n.visualIdentityOk,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       if (_error != null) ...[
@@ -509,10 +558,10 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                                 : const Icon(Icons.upload_file_outlined),
                             label: Text(
                               _uploading
-                                  ? 'Subiendo logotipo…'
+                                  ? l10n.uploadingLogo
                                   : (_draft.hasLogo
-                                        ? 'Cambiar logotipo'
-                                        : 'Subir logotipo'),
+                                        ? l10n.changeLogo
+                                        : l10n.uploadLogo),
                             ),
                           ),
                           if (_draft.hasLogo)
@@ -522,13 +571,13 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                               ),
                               onPressed: busy ? null : _removeLogo,
                               icon: const Icon(Icons.delete_outline),
-                              label: const Text('Eliminar logotipo'),
+                              label: Text(l10n.removeLogoAction),
                             ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       Text(
-                        'Tamaño en la cotización',
+                        l10n.logoSizeSection,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       Slider(
@@ -544,7 +593,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                               }),
                       ),
                       Text(
-                        'Alineación',
+                        l10n.alignmentSection,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSpacing.xs),
@@ -553,7 +602,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                           for (final a in LogoAlignment.values)
                             ButtonSegment(
                               value: a,
-                              label: Text(a.label),
+                              label: Text(a.l10nLabel(l10n)),
                               icon: Icon(switch (a) {
                                 LogoAlignment.left =>
                                   Icons.align_horizontal_left,
@@ -575,7 +624,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        'Ubicación en el PDF',
+                        l10n.pdfPlacementSection,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSpacing.xs),
@@ -584,13 +633,14 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                           border: OutlineInputBorder(),
                         ),
                         child: Text(
-                          '${LogoPlacement.header.label} '
-                          '(única posición compatible con la plantilla actual)',
+                          l10n.pdfPlacementOnlyHeader(
+                            LogoPlacement.header.l10nLabel(l10n),
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       Text(
-                        'Colores del documento',
+                        l10n.documentColors,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSpacing.sm),
@@ -613,36 +663,31 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       Text(
-                        'Marca de agua de la cotización',
+                        l10n.watermarkSection,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        'El logo aparece en el fondo de cada página del PDF, '
-                        'detrás del contenido comercial.',
+                        l10n.watermarkHelp,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(
                           _draft.watermarkEnabled
-                              ? 'Marca de agua activada'
-                              : 'Marca de agua desactivada',
+                              ? l10n.watermarkEnabled
+                              : l10n.watermarkDisabledHint,
                         ),
                         value: _draft.watermarkEnabled,
                         onChanged: busy || locked
                             ? null
                             : (v) {
                                 if (v && !_draft.hasLogo) {
-                                  _showMessage(
-                                    'Sube un logotipo antes de activar la marca de agua.',
-                                  );
+                                  _showMessage(l10n.watermarkNeedLogoFirst);
                                   return;
                                 }
                                 setState(() {
-                                  _draft = _draft.copyWith(
-                                    watermarkEnabled: v,
-                                  );
+                                  _draft = _draft.copyWith(watermarkEnabled: v);
                                 });
                               },
                       ),
@@ -650,8 +695,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                           child: Text(
-                            'Tu empresa todavía no tiene un logotipo. '
-                            'Súbelo arriba para usarlo como marca de agua.',
+                            l10n.companyNoLogoYet,
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: Theme.of(context).colorScheme.error,
@@ -664,7 +708,7 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        'Transparencia (${_draft.watermarkOpacityPct}%)',
+                        l10n.watermarkTransparency(_draft.watermarkOpacityPct),
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       Slider(
@@ -684,26 +728,31 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                               }),
                       ),
                       Text(
-                        'Tamaño de la marca de agua',
+                        l10n.watermarkSizeTitle,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       SegmentedButton<WatermarkSize>(
                         segments: [
                           for (final s in WatermarkSize.values)
-                            ButtonSegment(value: s, label: Text(s.label)),
+                            ButtonSegment(
+                              value: s,
+                              label: Text(s.l10nLabel(l10n)),
+                            ),
                         ],
                         selected: {_draft.watermarkSize},
                         onSelectionChanged:
                             busy || locked || !_draft.watermarkEnabled
                             ? null
                             : (s) => setState(() {
-                                _draft = _draft.copyWith(watermarkSize: s.first);
+                                _draft = _draft.copyWith(
+                                  watermarkSize: s.first,
+                                );
                               }),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       Text(
-                        'Posición',
+                        l10n.positionTitle,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: AppSpacing.xs),
@@ -715,7 +764,10 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                         ),
                         items: [
                           for (final p in WatermarkPosition.values)
-                            DropdownMenuItem(value: p, child: Text(p.label)),
+                            DropdownMenuItem(
+                              value: p,
+                              child: Text(p.l10nLabel(l10n)),
+                            ),
                         ],
                         onChanged: busy || locked || !_draft.watermarkEnabled
                             ? null
@@ -740,12 +792,11 @@ class _CompanyIdentityScreenState extends State<CompanyIdentityScreen> {
                                 ),
                               )
                             : const Icon(Icons.save_outlined),
-                        label: const Text('Guardar configuración'),
+                        label: Text(l10n.saveBrandingConfig),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        'Ajuste: el logo se muestra completo sin deformarlo '
-                        '(BoxFit.contain). PNG conserva transparencia.',
+                        l10n.logoFitHint,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -806,7 +857,7 @@ class _LogoPreviewCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tu empresa todavía no tiene un logotipo',
+                  context.l10n.emptyCompanyNoLogo,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
@@ -829,16 +880,14 @@ class _LogoPreviewCard extends StatelessWidget {
 
 /// Vista previa de página A4 simplificada con marca de agua.
 class _WatermarkPreviewCard extends StatelessWidget {
-  const _WatermarkPreviewCard({
-    required this.bytes,
-    required this.branding,
-  });
+  const _WatermarkPreviewCard({required this.bytes, required this.branding});
 
   final Uint8List? bytes;
   final OrgBranding branding;
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final showMark = branding.watermarkEnabled && bytes != null;
     final align = switch (branding.watermarkPosition) {
@@ -894,22 +943,34 @@ class _WatermarkPreviewCard extends StatelessWidget {
                     color: const Color(0xFF1A1A2E),
                     alignment: Alignment.centerLeft,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: const Text(
-                      'COTIZACIÓN (vista previa)',
-                      style: TextStyle(color: Colors.white, fontSize: 11),
+                    child: Text(
+                      l10n.previewQuoteHeader,
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Container(height: 8, width: 160, color: const Color(0xFFE0E0E0)),
+                  Container(
+                    height: 8,
+                    width: 160,
+                    color: const Color(0xFFE0E0E0),
+                  ),
                   const SizedBox(height: 8),
-                  Container(height: 8, width: 220, color: const Color(0xFFE0E0E0)),
+                  Container(
+                    height: 8,
+                    width: 220,
+                    color: const Color(0xFFE0E0E0),
+                  ),
                   const SizedBox(height: 8),
-                  Container(height: 8, width: 180, color: const Color(0xFFE0E0E0)),
+                  Container(
+                    height: 8,
+                    width: 180,
+                    color: const Color(0xFFE0E0E0),
+                  ),
                   const Spacer(),
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      'Total \$1.250,00',
+                      l10n.previewSampleTotal,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: scheme.onSurface,
@@ -918,7 +979,7 @@ class _WatermarkPreviewCard extends StatelessWidget {
                   ),
                   if (!branding.watermarkEnabled)
                     Text(
-                      'Marca de agua desactivada',
+                      l10n.watermarkDisabledHint,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                 ],

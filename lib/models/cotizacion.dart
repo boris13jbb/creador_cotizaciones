@@ -47,6 +47,9 @@ class Cotizacion {
   /// Estado comercial del dominio Quote (solo UI/historial; no legacy SQLite).
   final String? quoteStatus;
 
+  /// Estado de sync offline: pending | synced | error | conflict (null = desconocido/remoto).
+  final String? offlineSyncStatus;
+
   Cotizacion({
     required this.id,
     required this.numero,
@@ -72,7 +75,38 @@ class Cotizacion {
     this.camposExtra,
     this.coloresJson,
     this.quoteStatus,
+    this.offlineSyncStatus,
   });
+
+  Cotizacion withOfflineSyncStatus(String? status) {
+    return Cotizacion(
+      id: id,
+      numero: numero,
+      fecha: fecha,
+      cliente: cliente,
+      ubicacion: ubicacion,
+      tipoServicio: tipoServicio,
+      cantidadEquipos: cantidadEquipos,
+      tiempoEstimado: tiempoEstimado,
+      descripcion: descripcion,
+      servicios: servicios,
+      total: total,
+      incluye: incluye,
+      noIncluye: noIncluye,
+      notas: notas,
+      logoPath: logoPath,
+      subtitulo: subtitulo,
+      validezDias: validezDias,
+      footerText: footerText,
+      firmaTecnicoLabel: firmaTecnicoLabel,
+      firmaClienteLabel: firmaClienteLabel,
+      formaPagoJson: formaPagoJson,
+      camposExtra: camposExtra,
+      coloresJson: coloresJson,
+      quoteStatus: quoteStatus,
+      offlineSyncStatus: status,
+    );
+  }
 
   /// Forma de pago parseada (lista vacía si no hay o hay error).
   List<FormaPagoItem> get formaPago {

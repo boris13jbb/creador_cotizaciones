@@ -7,6 +7,7 @@ import 'package:creador_cotizaciones/saas/providers/auth_controller.dart';
 import 'package:creador_cotizaciones/saas/services/cloud_cotizacion_repository.dart';
 import 'package:creador_cotizaciones/screens/auth/auth_gate.dart';
 import 'package:creador_cotizaciones/ui/layout/app_shell.dart';
+import 'package:creador_cotizaciones/ui/providers/locale_controller.dart';
 import 'package:creador_cotizaciones/ui/providers/theme_controller.dart';
 
 Widget _buildTestApp(AuthController auth) {
@@ -14,6 +15,7 @@ Widget _buildTestApp(AuthController auth) {
     providers: [
       ChangeNotifierProvider<AuthController>.value(value: auth),
       ChangeNotifierProvider(create: (_) => ThemeController()),
+      ChangeNotifierProvider(create: (_) => LocaleController()),
     ],
     child: const CotiApp(),
   );

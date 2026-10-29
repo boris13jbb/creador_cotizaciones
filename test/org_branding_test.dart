@@ -183,6 +183,7 @@ Uint8List _tinyJpeg() => Uint8List.fromList([
 ]);
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final storage = BrandingStorageService.instance;
 
   test('acepta PNG válido por firma mágica', () {
@@ -576,15 +577,11 @@ void main() {
       OrgBranding.maxWatermarkOpacityPct,
     );
     expect(
-      const OrgBranding(
-        watermarkOpacityPct: 5,
-      ).watermarkOpacity,
+      const OrgBranding(watermarkOpacityPct: 5).watermarkOpacity,
       closeTo(0.05, 0.001),
     );
     expect(
-      const OrgBranding(
-        watermarkOpacityPct: 30,
-      ).watermarkOpacity,
+      const OrgBranding(watermarkOpacityPct: 30).watermarkOpacity,
       closeTo(0.30, 0.001),
     );
   });

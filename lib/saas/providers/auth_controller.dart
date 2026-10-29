@@ -8,7 +8,14 @@ import '../models/entitlements.dart';
 import '../models/org_branding.dart';
 import '../models/organization.dart';
 import '../models/saas_user_profile.dart';
+import '../offline/connectivity_monitor.dart';
+import '../offline/offline_controller.dart';
+import '../offline/offline_local_store.dart';
+import '../offline/offline_sync_service.dart';
+import '../offline/branding_local_cache.dart';
+import '../offline/offline_sync_status.dart';
 import '../services/auth_service.dart';
+import '../services/branding_storage_service.dart';
 import '../services/entitlements_calculator.dart';
 import '../services/entitlements_repository.dart';
 import '../services/firestore_rest_client.dart';
@@ -18,9 +25,19 @@ import '../services/user_profile_service.dart';
 
 /// Estado de autenticación, perfil editable y entitlements SaaS.
 class AuthController extends ChangeNotifier {
+  /// Códigos estables para mensajes localizables en UI ([localizeAuthError]).
+  static const errMustSignIn = 'auth.must_sign_in';
+  static const errNoActiveOrg = 'auth.no_active_org';
+  static const errBrandingProRequired = 'auth.branding_pro_required';
+  static const errAccountDeleteRestPartial = 'auth.account_delete_rest_partial';
+
   AuthController() {
     if (!saasUseRestBackend) {
       _sub = AuthService.instance.authStateChanges.listen(_onAuthChanged);
+      // userChanges refleja emailVerified tras reload() sin rehacer todo el bootstrap.
+      _userChangesSub = AuthService.instance.userChanges.listen(
+        _onUserProfileFlags,
+      );
     }
     _bootstrap();
   }
@@ -75,6 +92,7 @@ class AuthController extends ChangeNotifier {
   }
 
   StreamSubscription<User?>? _sub;
+  StreamSubscription<User?>? _userChangesSub;
   StreamSubscription<SaasUserProfile?>? _profileSub;
   StreamSubscription<Entitlements?>? _entitlementsSub;
 
@@ -87,6 +105,7 @@ class AuthController extends ChangeNotifier {
   bool _loading = true;
   String? _error;
   bool _emailVerified = false;
+  String? _emailVerificationHint;
 
   User? get user => _user;
   AuthSession? get restSession => _restSession;
@@ -104,6 +123,9 @@ class AuthController extends ChangeNotifier {
   bool get canManageTeam => _access.canManageTeam;
   bool get canExportReportsCsv => _access.canExportReportsCsv;
   bool get isEmailVerified => _emailVerified;
+
+  /// Aviso seguro (discrepancia de correo / red); sin tokens ni UID completo.
+  String? get emailVerificationHint => _emailVerificationHint;
   bool get isTrialing => _access.isTrialing;
   SubscriptionPlan get effectivePlan => _access.effectivePlan;
   String? get organizationId =>
@@ -125,6 +147,20 @@ class AuthController extends ChangeNotifier {
       _restSession = AuthService.instance.restSession;
     }
     await _onAuthChanged(AuthService.instance.currentUser);
+  }
+
+  /// Solo flags ligeros (emailVerified / email); no recarga perfil ni org.
+  void _onUserProfileFlags(User? user) {
+    if (user == null) return;
+    final changed =
+        _emailVerified != user.emailVerified || _user?.email != user.email;
+    if (!changed) return;
+    _user = user;
+    _emailVerified = user.emailVerified;
+    if (_emailVerified) {
+      _emailVerificationHint = null;
+    }
+    notifyListeners();
   }
 
   Future<void> _onAuthChanged(User? user) async {
@@ -238,6 +274,7 @@ class AuthController extends ChangeNotifier {
             session: session,
           );
         }
+        _precacheBrandingForOffline();
         return;
       }
 
@@ -256,6 +293,7 @@ class AuthController extends ChangeNotifier {
         _profile = _profile!.copyWith(defaultOrganizationId: _organization!.id);
       }
       _error = null;
+      _precacheBrandingForOffline();
     } catch (e, st) {
       debugPrint('ensureOrganization: $e\n$st');
       _organization = null;
@@ -269,7 +307,7 @@ class AuthController extends ChangeNotifier {
   Future<bool> createOrRecoverOrganization({String? organizationName}) async {
     final uid = _user?.uid ?? _restSession?.uid;
     if (uid == null) {
-      _error = 'Debes iniciar sesión.';
+      _error = errMustSignIn;
       notifyListeners();
       return false;
     }
@@ -367,6 +405,10 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final uid = sessionUid;
+    if (uid != null) {
+      await OfflineController.instance.onSignOut(uid: uid);
+    }
     await AuthService.instance.signOut();
     _restSession = null;
     _profile = null;
@@ -389,6 +431,7 @@ class AuthController extends ChangeNotifier {
       );
       if (org != null) {
         _organization = org;
+        _precacheBrandingForOffline();
         notifyListeners();
       }
     } catch (e, st) {
@@ -396,29 +439,130 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  void _precacheBrandingForOffline() {
+    final org = _organization;
+    final uid = sessionUid;
+    if (org == null || uid == null || uid.isEmpty) return;
+    // ignore: discarded_futures
+    BrandingStorageService.instance.precacheOrgBranding(
+      organizationId: org.id,
+      uid: uid,
+      branding: org.visualIdentity,
+    );
+  }
+
+  String? get sessionUid => _user?.uid ?? _restSession?.uid ?? _profile?.uid;
+
   /// Persiste identidad visual en `organizations/{id}.branding`.
+  /// Sin red: guarda local + encola sync (no pierde el cambio).
   Future<bool> saveOrganizationBranding(OrgBranding branding) async {
     final orgId = organizationId;
+    final uid = sessionUid;
     if (orgId == null || orgId.isEmpty) {
-      _error = 'No hay organización activa.';
+      _error = errNoActiveOrg;
       notifyListeners();
       return false;
     }
     if (!canCustomBranding) {
-      _error = 'Branding personalizado disponible en Pro o durante la prueba.';
+      _error = errBrandingProRequired;
       notifyListeners();
       return false;
     }
     _error = null;
+
+    if (uid != null) {
+      try {
+        await BrandingLocalCache.instance.saveBrandingConfig(
+          organizationId: orgId,
+          uid: uid,
+          branding: branding,
+          pending: true,
+        );
+      } catch (e) {
+        debugPrint('branding local cache: $e');
+      }
+    }
+
+    final online = await ConnectivityMonitor.instance.probeFirebase();
+    if (!online) {
+      if (!OfflineLocalStore.isSupported) {
+        _error =
+            'Sin conexión. En Web no hay cola offline; reintenta cuando haya red.';
+        notifyListeners();
+        return false;
+      }
+      if (uid != null) {
+        await OfflineLocalStore.instance.enqueue(
+          organizationId: orgId,
+          uid: uid,
+          entityType: OfflineEntityType.brandingConfig,
+          entityId: orgId,
+          operation: OfflineOperation.upsert,
+          payload: branding.toMap(),
+          idempotencyKey: OfflineSyncService.idempotencyKey(
+            type: OfflineEntityType.brandingConfig,
+            entityId: orgId,
+            op: OfflineOperation.upsert,
+            revision: DateTime.now().toUtc().toIso8601String(),
+          ),
+        );
+        await OfflineController.instance.refresh();
+      }
+      if (_organization != null) {
+        final o = _organization!;
+        _organization = Organization(
+          id: o.id,
+          name: o.name,
+          legalName: o.legalName,
+          taxId: o.taxId,
+          currency: o.currency,
+          quotePrefix: o.quotePrefix,
+          ownerUid: o.ownerUid,
+          branding: branding.toMap(),
+          createdAt: o.createdAt,
+          updatedAt: DateTime.now().toUtc(),
+        );
+      }
+      notifyListeners();
+      return true;
+    }
+
     try {
       _organization = await OrganizationService.instance.updateBranding(
         orgId: orgId,
         branding: branding.toMap(),
         session: _restSession,
       );
+      if (uid != null) {
+        await BrandingLocalCache.instance.saveBrandingConfig(
+          organizationId: orgId,
+          uid: uid,
+          branding: branding,
+          pending: false,
+        );
+      }
       notifyListeners();
       return true;
     } catch (e) {
+      if (uid != null && OfflineLocalStore.isSupported) {
+        await OfflineLocalStore.instance.enqueue(
+          organizationId: orgId,
+          uid: uid,
+          entityType: OfflineEntityType.brandingConfig,
+          entityId: orgId,
+          operation: OfflineOperation.upsert,
+          payload: branding.toMap(),
+          idempotencyKey: OfflineSyncService.idempotencyKey(
+            type: OfflineEntityType.brandingConfig,
+            entityId: orgId,
+            op: OfflineOperation.upsert,
+            revision: DateTime.now().toUtc().toIso8601String(),
+          ),
+        );
+        await OfflineController.instance.refresh();
+        notifyListeners();
+        return true;
+      }
       _error = e.toString().replaceFirst('Exception: ', '');
       notifyListeners();
       return false;
@@ -449,15 +593,45 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshEmailVerification() async {
-    await AuthService.instance.reloadUser();
+  /// Actualiza `emailVerified` desde Firebase Auth (no reenvía el correo).
+  Future<AuthEmailStatus> refreshEmailVerification() async {
+    _error = null;
+    final status = await AuthService.instance.reloadAndReadEmailStatus();
     if (!saasUseRestBackend) {
       _user = AuthService.instance.currentUser;
-      _emailVerified = _user?.emailVerified ?? false;
-    } else {
-      _emailVerified = AuthService.instance.isEmailVerified;
+    }
+    if (status.hasSession) {
+      _emailVerified = status.emailVerified;
+    }
+    final sessionEmail = status.email;
+    final profileEmail = _profile?.email;
+    if (status.ok &&
+        sessionEmail.isNotEmpty &&
+        profileEmail != null &&
+        profileEmail.isNotEmpty &&
+        !AuthEmailStatus.emailsMatch(sessionEmail, profileEmail)) {
+      _emailVerificationHint =
+          'La sesión activa no coincide con el correo del perfil mostrado. '
+          'Abre el enlace de verificación con la misma cuenta con la que '
+          'iniciaste sesión en CotiApp.';
+    } else if (status.emailVerified) {
+      _emailVerificationHint = null;
+    } else if (status.errorCode == 'unavailable') {
+      _emailVerificationHint =
+          status.errorMessage ??
+          'Sin conexión: no se pudo actualizar el estado del correo.';
+    } else if (!status.ok && status.errorMessage != null) {
+      _emailVerificationHint = status.errorMessage;
+    } else if (!status.emailVerified) {
+      _emailVerificationHint =
+          'Firebase aún no marca este correo como verificado. '
+          'Si acabas de abrir el enlace, pulsa «Actualizar estado».';
+    }
+    if (status.errorCode != null && status.errorMessage != null) {
+      _error = status.errorMessage;
     }
     notifyListeners();
+    return status;
   }
 
   Future<String?> exportMyDataJson() async {
@@ -520,10 +694,7 @@ class AuthController extends ChangeNotifier {
           debugPrint('delete entitlements REST: $e');
         }
         await signOut();
-        _error =
-            'Datos de cotizaciones y perfil eliminados. '
-            'Para borrar también la cuenta Auth en escritorio, despliega la '
-            'Cloud Function deleteAccount (ver docs/BACKEND_STRIPE.md).';
+        _error = errAccountDeleteRestPartial;
         notifyListeners();
         return true;
       }
@@ -547,6 +718,7 @@ class AuthController extends ChangeNotifier {
   @override
   void dispose() {
     _sub?.cancel();
+    _userChangesSub?.cancel();
     _profileSub?.cancel();
     _entitlementsSub?.cancel();
     super.dispose();

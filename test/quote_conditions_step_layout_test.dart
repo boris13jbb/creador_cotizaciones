@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:creador_cotizaciones/core/utils/money_cents.dart';
+import 'package:creador_cotizaciones/l10n/app_localizations.dart';
 import 'package:creador_cotizaciones/saas/domain/org_enums.dart';
 import 'package:creador_cotizaciones/saas/domain/quote_totals.dart';
 import 'package:creador_cotizaciones/saas/models/quote.dart';
@@ -54,6 +55,9 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
+          locale: const Locale('es'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: ChangeNotifierProvider<AuthController>.value(
             value: AuthController.forTest(authenticated: true),
             child: Scaffold(
@@ -278,7 +282,8 @@ void main() {
     expect(controller.quote.payments.first['amountCents'], totalBefore);
     expect(controller.totals.total.cents, totalBefore);
 
-    final pending = totalBefore -
+    final pending =
+        totalBefore -
         ((controller.quote.payments.first['amountCents'] as num?)?.round() ??
             0);
     expect(pending, 0);
@@ -302,12 +307,16 @@ void main() {
 
     controller.setPaymentMode(PaymentMode.single);
     controller.setGlobalDiscountBps(1000);
-    expect(controller.quote.payments.single['amountCents'],
-        controller.totals.total.cents);
+    expect(
+      controller.quote.payments.single['amountCents'],
+      controller.totals.total.cents,
+    );
 
     controller.setCharges(const MoneyCents(2500));
-    expect(controller.quote.payments.single['amountCents'],
-        controller.totals.total.cents);
+    expect(
+      controller.quote.payments.single['amountCents'],
+      controller.totals.total.cents,
+    );
     expect(controller.quote.paymentMode, PaymentMode.single);
 
     controller.dispose();
@@ -335,10 +344,7 @@ void main() {
       controller.quote.payments.any((p) => p['label'] == 'ANTICIPO'),
       isTrue,
     );
-    expect(
-      controller.quote.payments.any((p) => p['label'] == 'SALDO'),
-      isTrue,
-    );
+    expect(controller.quote.payments.any((p) => p['label'] == 'SALDO'), isTrue);
     final sum = controller.quote.payments.fold<int>(
       0,
       (a, p) => a + ((p['amountCents'] as num?)?.round() ?? 0),
@@ -362,16 +368,8 @@ void main() {
     final bytes = QuoteMapper.toCotizacion(
       legacy.copyWith(
         payments: [
-          {
-            'label': 'ANTICIPO',
-            'description': '50%',
-            'amountCents': 5000,
-          },
-          {
-            'label': 'SALDO',
-            'description': '50%',
-            'amountCents': 5000,
-          },
+          {'label': 'ANTICIPO', 'description': '50%', 'amountCents': 5000},
+          {'label': 'SALDO', 'description': '50%', 'amountCents': 5000},
         ],
       ),
     );
@@ -381,7 +379,9 @@ void main() {
   test('PDF un solo pago y anticipo/saldo generan documento válido', () async {
     final single = _sampleQuote().copyWith(
       paymentMode: PaymentMode.single,
-      payments: QuoteEditorController.buildSinglePayment(const MoneyCents(10000)),
+      payments: QuoteEditorController.buildSinglePayment(
+        const MoneyCents(10000),
+      ),
     );
     final split = _sampleQuote().copyWith(
       paymentMode: PaymentMode.split,
